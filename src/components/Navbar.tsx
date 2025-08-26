@@ -76,7 +76,7 @@ export default function Navbar() {
             <ChakraLink as={NextLink} href="/" display="inline-flex" alignItems="center">
               {/* Reemplaza la ruta por tu logo real (SVG/PNG) en /public */}
               <Image
-                src="/logo-sayro.svg"
+                src="/sayrologo.png"
                 width={110}
                 height={30}
                 alt="Sayro Bienes Raíces"
