@@ -20,14 +20,17 @@ export default function HomePage() {
       </Head>
 
   
+      <main id="contenido">
+
     <Hero /> 
 <DualCTASection/>
+<HomeProperties />
 <AboutShowcase
       imageSrc="/about.png"
       imageAlt="Fachada curvada"
       logoSrc="/logos/sayro-sello-blanco.svg"
       logoAlt="SR · Sayro Bienes Raíces S.A. de C.V."
-      caption="al dar scroll down que la imagen vaya cambiando" // si no lo quieres, quítalo
+     
       title="¿Quiénes somos?"
       paragraphs={[
         "Somos una empresa líder en el sector inmobiliario de la Ciudad de Querétaro, México, con más de 33 años de experiencia respaldando nuestro trabajo.",
@@ -35,8 +38,7 @@ export default function HomePage() {
         "Nos especializamos en la comercialización de bienes raíces en venta y renta de todo tipo en la Ciudad de Querétaro.",
       ]}
     />
-      <main id="contenido">
-        <HomeProperties />
+        
       </main>
       </Layout>
     </>
