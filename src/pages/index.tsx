@@ -4,6 +4,7 @@ import HomeProperties from "../components/HomeProperties";
 import DualCTASection from "components/DualCTASection";
 import Layout from "components/Layout";
 import AboutShowcase from "components/AboutShowcase";
+import WhatWeDo from "components/WhatWeDo";
 
 export default function HomePage() {
   const title = "Propiedades en venta y renta — Sayro Bienes Raíces";
@@ -38,7 +39,12 @@ export default function HomePage() {
         "Nos especializamos en la comercialización de bienes raíces en venta y renta de todo tipo en la Ciudad de Querétaro.",
       ]}
     />
-        
+        <WhatWeDo  
+  imageSrc="know.png"
+  // ajusta el encuadre si quieres
+  instagramUrl="https://instagram.com/tu_cuenta"
+  facebookUrl="https://facebook.com/tu_pagina"
+/>
       </main>
       </Layout>
     </>
