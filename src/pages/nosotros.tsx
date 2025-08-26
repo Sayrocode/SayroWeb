@@ -171,7 +171,7 @@ export default function NosotrosPage() {
       {/* HERO */}
       <AboutHero
         title="SOBRE NOSOTROS"
-        imageSrc="/images/hero-nosotros.jpg" // pon tu imagen
+        imageSrc="image1.jpg" // pon tu imagen
         imageAlt="Sala acogedora de un hogar moderno"
       />
 
@@ -210,7 +210,7 @@ export default function NosotrosPage() {
                 aria-label="Equipo inmobiliario"
                 rounded="xl"
                 minH={{ base: "40vh", md: "48vh" }}
-                bgImage="url(/images/quienes.jpg)"
+                bgImage="url(/image3.jpg)"
                 bgPos="center"
                 bgSize="cover"
                 _after={{

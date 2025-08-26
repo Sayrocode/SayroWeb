@@ -52,17 +52,18 @@ function HeroServices() {
     <Box as="section" position="relative" bg="gray.900" color="white">
       <Box position="absolute" inset={0} zIndex={0} aria-hidden>
         <ChakraImage
-          src="/images/hero-servicios.jpg" // coloca tu imagen aquí
+          src="/image2.jpg" // coloca tu imagen aquí
           alt="Interior elegante"
           w="100%"
           h={{ base: "42vh", md: "48vh", lg: "52vh" }}
           objectFit="cover"
-          opacity={0.92}
+       
         />
         <Box
           position="absolute"
           inset={0}
           bg="blackAlpha.600"
+       h={{ base: "42vh", md: "48vh", lg: "52vh" }}
           sx={{
             "&::after": {
               content: '""',
@@ -139,7 +140,7 @@ function ServicesIntro() {
           <GridItem>
             <AspectRatio ratio={16 / 9} rounded="xl" overflow="hidden" shadow="lg">
               <ChakraImage
-                src="/images/servicios-intro.jpg" // coloca tu imagen
+                src="/image5.jpg" // coloca tu imagen
                 alt="Ambiente interior con luz natural"
                 objectFit="cover"
               />
