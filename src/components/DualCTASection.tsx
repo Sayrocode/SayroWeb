@@ -111,7 +111,7 @@ type DualCTASectionProps = {
 };
 
 export default function DualCTASection({
-  advertiseHref = "/#anuncia",
+  advertiseHref = "/anunciate",
   acquireHref = "/#adquiere",
   advertiseImage = "anuncia.png",
   acquireImage = "adquiere.png",
