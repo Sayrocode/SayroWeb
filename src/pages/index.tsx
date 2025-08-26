@@ -25,7 +25,7 @@ export default function HomePage() {
 
     <Hero /> 
 <DualCTASection/>
-<HomeProperties />
+
 <AboutShowcase
       imageSrc="/about.png"
       imageAlt="Fachada curvada"
@@ -39,6 +39,7 @@ export default function HomePage() {
         "Nos especializamos en la comercialización de bienes raíces en venta y renta de todo tipo en la Ciudad de Querétaro.",
       ]}
     />
+    <HomeProperties />
         <WhatWeDo  
   imageSrc="know.png"
   // ajusta el encuadre si quieres
