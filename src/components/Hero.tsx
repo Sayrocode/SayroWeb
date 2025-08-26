@@ -29,7 +29,7 @@ type HeroProps = {
 };
 
 export default function Hero({
-  backgroundUrl = "/images/hero.jpg", // cámbialo por tu asset
+  backgroundUrl = "/hero.png", // cámbialo por tu asset
 }: HeroProps) {
   const [green500, green600, blackAlpha700] = useToken("colors", [
     "green.500",
