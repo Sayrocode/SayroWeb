@@ -16,7 +16,7 @@ const links = [
   { name: "Nosotros", href: "/nosotros" },
   { name: "Servicios", href: "/servicios" },
   { name: "Contacto", href: "/contacto" },
-  { name: "Noticias", href: "/noticias" },
+
 ];
 
 export default function Navbar() {
