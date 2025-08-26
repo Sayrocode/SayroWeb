@@ -6,7 +6,6 @@ import {
   Text,
   Button,
   Center,
-  Spinner,
   Alert,
   AlertIcon,
   IconButton,
@@ -19,11 +18,11 @@ import {
   Skeleton,
   SkeletonText,
 } from "@chakra-ui/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, ReactNode } from "react";
 import NextLink from "next/link";
 import { FiChevronLeft, FiChevronRight, FiMapPin, FiHome, FiDroplet } from "react-icons/fi";
 
-/** ====== Tipos mínimos EasyBroker ====== */
+/* ----------------- Utils EB ----------------- */
 type EBImage = { url?: string | null };
 type EBOperation = { type?: "sale" | "rental" | string; amount?: number; currency?: string; formatted_amount?: string };
 type EBListItem = {
@@ -32,7 +31,7 @@ type EBListItem = {
   title_image_full?: string | null;
   title_image_thumb?: string | null;
   property_images?: EBImage[];
-  location?: unknown; // EB puede devolver string u objeto
+  location?: unknown;
   property_type?: string | null;
   status?: string | null;
   bedrooms?: number | null;
@@ -40,15 +39,15 @@ type EBListItem = {
   parking_spaces?: number | null;
   operations?: EBOperation[];
 };
-
 type EBListResp = { content?: EBListItem[] };
 
 function getLocationText(loc: unknown): string {
   if (typeof loc === "string") return loc;
   if (!loc || typeof loc !== "object") return "";
   const o = loc as any;
-  const parts = [o.name, o.neighborhood, o.municipality || o.delegation, o.city, o.state, o.country].filter(Boolean);
-  return parts.join(", ");
+  return [o.name, o.neighborhood, o.municipality || o.delegation, o.city, o.state, o.country]
+    .filter(Boolean)
+    .join(", ");
 }
 function pickPrice(ops?: EBOperation[]) {
   if (!ops?.length) return "Precio a consultar";
@@ -58,7 +57,9 @@ function pickPrice(ops?: EBOperation[]) {
   if (chosen.formatted_amount) return chosen.formatted_amount;
   if (typeof chosen.amount === "number") {
     const currency = chosen.currency || "MXN";
-    return new Intl.NumberFormat("es-MX", { style: "currency", currency, maximumFractionDigits: 0 }).format(chosen.amount);
+    return new Intl.NumberFormat("es-MX", { style: "currency", currency, maximumFractionDigits: 0 }).format(
+      chosen.amount,
+    );
   }
   return "Precio a consultar";
 }
@@ -71,32 +72,65 @@ function firstImage(p: EBListItem) {
   );
 }
 
-/** ====== Card pequeña optimizada para carrusel ====== */
-function FeaturedCard({ p }: { p: EBListItem }) {
-  const price = pickPrice(p.operations);
-  const loc = getLocationText(p.location);
-  const img = firstImage(p);
-  const bg = useColorModeValue("white", "gray.800");
-  const border = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.08)");
+/* ---------- FIX: AspectRatio seguro (un solo hijo) ---------- */
+function SafeAspect({
+  ratio,
+  children,
+}: {
+  ratio: number;
+  children: ReactNode;
+}) {
+  return (
+    <AspectRatio ratio={ratio}>
+      <Box w="100%" h="100%">{children}</Box>
+    </AspectRatio>
+  );
+}
 
+function priceLabel(ops?: EBOperation[]) {
+  if (!ops?.length) return "PRECIO A CONSULTAR";
+  const sale = ops.find((o) => o.type === "sale");
+  const rental = ops.find((o) => o.type === "rental");
+  const chosen = sale || rental || ops[0];
+
+  const base =
+    chosen.formatted_amount ||
+    (typeof chosen.amount === "number"
+      ? new Intl.NumberFormat("es-MX", {
+          style: "currency",
+          currency: chosen.currency || "MXN",
+          maximumFractionDigits: 0,
+        }).format(chosen.amount)
+      : "Precio a consultar");
+
+  const isRent = (chosen.type || "").toLowerCase() === "rental";
+  return (base + (isRent ? "/MES" : "")).toUpperCase(); // como en el diseño
+}
+
+/* ----------------- Card (estilo “dibujo”) ----------------- */
+function FeaturedCard({ p }: { p: EBListItem }) {
+  const price = priceLabel(p.operations);
+  const loc = (getLocationText(p.location) || "MéXICO").toUpperCase();
+  const img = firstImage(p);
+
+  // Colores: texto claro, sin borde ni fondo; que se funda con el verde del section
   return (
     <Box
       as={NextLink}
       href={`/propiedades/${encodeURIComponent(p.public_id)}`}
       role="article"
       aria-label={p.title || `Propiedad ${p.public_id}`}
-      flex="0 0 320px"
+      flex="0 0 400px"
       scrollSnapAlign="start"
-      rounded="2xl"
+      rounded="xl"
       overflow="hidden"
-      bg={bg}
-      border="1px solid"
-      borderColor={border}
-      _hover={{ transform: "translateY(-2px)", boxShadow: "xl" }}
-      transition="all 180ms ease"
+      bg="transparent"
+      _hover={{ transform: "translateY(-3px)" }}
+      transition="transform 180ms ease"
     >
-      <Box position="relative">
-        <AspectRatio ratio={16 / 10}>
+      {/* Imagen + ribbon de precio */}
+      <Box position="relative" rounded="xl" overflow="hidden">
+        <SafeAspect ratio={16 / 9}>
           <ChakraImage
             src={img}
             alt={p.title || `Propiedad ${p.public_id}`}
@@ -104,61 +138,65 @@ function FeaturedCard({ p }: { p: EBListItem }) {
             fallbackSrc="/house.jpg"
             referrerPolicy="no-referrer"
           />
-        </AspectRatio>
+        </SafeAspect>
 
-        {/* Price ribbon */}
+        {/* Bandita de precio (alineada a la derecha como en tu mock) */}
         <Box
           position="absolute"
           bottom={2}
-          left={2}
+          right={2}
           px={3}
           py={1}
           rounded="md"
-          fontWeight="bold"
-          fontSize="sm"
           bg="blackAlpha.800"
           color="white"
+          fontWeight="extrabold"
+          fontSize="sm"
+          lineHeight="1"
+          letterSpacing="wide"
+          textTransform="uppercase"
           backdropFilter="blur(2px)"
         >
           {price}
         </Box>
       </Box>
 
-      <Box p={4}>
-        <HStack spacing={2} mb={2}>
-          {p.property_type && (
-            <Badge colorScheme="green" fontWeight="semibold">
-              {p.property_type.toUpperCase()}
-            </Badge>
-          )}
-          {p.status && <Badge>{p.status}</Badge>}
-        </HStack>
-
-        <Heading as="h3" size="sm" noOfLines={2}>
-          {p.title || `Propiedad ${p.public_id}`}
+      {/* Texto bajo la imagen, en mayúsculas y blanco */}
+      <Box pt={3} px={1} color="white">
+        {/* Título en dos líneas, mayúsculas, tracking leve */}
+        <Heading
+          as="h3"
+          fontSize="sm"
+          noOfLines={2}
+          textTransform="uppercase"
+          letterSpacing="wide"
+          fontWeight="semibold"
+        >
+          {p.title?.toUpperCase() || `PROPIEDAD ${p.public_id}`}
         </Heading>
 
-        <HStack mt={2} spacing={2} color="gray.600" fontSize="sm">
-          <FiMapPin />
-          <Text noOfLines={1}>{loc || "México"}</Text>
-        </HStack>
+        {/* Ubicación en una línea */}
+        <Text mt={1} fontSize="xs" color="whiteAlpha.900" noOfLines={1} textTransform="uppercase" letterSpacing="wider">
+          {loc}
+        </Text>
 
-        <HStack mt={3} spacing={5} color="gray.700" fontSize="sm">
+        {/* Fila de iconos: recámaras / baños / estac */}
+        <HStack mt={2} spacing={6} color="whiteAlpha.900" fontSize="sm">
           {typeof p.bedrooms === "number" && (
-            <HStack spacing={1}>
-              <FiHome />
+            <HStack spacing={2} minW="12">
+              <Box as={FiHome} aria-hidden />
               <Text>{p.bedrooms}</Text>
             </HStack>
           )}
           {typeof p.bathrooms === "number" && (
-            <HStack spacing={1}>
-              <FiDroplet />
+            <HStack spacing={2} minW="12">
+              <Box as={FiDroplet} aria-hidden />
               <Text>{p.bathrooms}</Text>
             </HStack>
           )}
           {typeof p.parking_spaces === "number" && (
-            <HStack spacing={1}>
-              <Box as="span">🚗</Box>
+            <HStack spacing={2} minW="12">
+              <Text as="span">🚗</Text>
               <Text>{p.parking_spaces}</Text>
             </HStack>
           )}
@@ -167,28 +205,19 @@ function FeaturedCard({ p }: { p: EBListItem }) {
     </Box>
   );
 }
-
-/** ====== Carrusel destacado ====== */
+/* ----------------- Carrusel ----------------- */
 export default function HomeFeatured() {
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<EBListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-
   const trackRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const fetchProps = async () => {
       try {
-        // Preferimos el proxy nuevo; limit alto para tener margen en carrusel
         let res = await fetch("/api/easybroker/properties?limit=12", { cache: "no-store" });
-        if (!res.ok) {
-          // Fallback al legacy
-          res = await fetch("/api/easybroker?endpoint=properties&limit=12", { cache: "no-store" });
-        }
-        if (!res.ok) {
-          const msg = await res.text();
-          throw new Error(`API ${res.status}: ${msg}`);
-        }
+        if (!res.ok) res = await fetch("/api/easybroker?endpoint=properties&limit=12", { cache: "no-store" });
+        if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
         const data: EBListResp = await res.json();
         const items = Array.isArray(data?.content) ? data.content : [];
         setProperties(items.filter((p) => p?.public_id));
@@ -201,7 +230,7 @@ export default function HomeFeatured() {
     fetchProps();
   }, []);
 
-  // JSON-LD ItemList para SEO
+  // JSON-LD para SEO
   const itemListJson = useMemo(() => {
     if (!properties.length) return null;
     const items = properties.slice(0, 12).map((p, idx) => ({
@@ -221,36 +250,23 @@ export default function HomeFeatured() {
         ],
       },
     }));
-    return {
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      itemListElement: items,
-    };
+    return { "@context": "https://schema.org", "@type": "ItemList", itemListElement: items };
   }, [properties]);
 
   const scrollBy = (dir: "left" | "right") => {
     const node = trackRef.current;
     if (!node) return;
-    const cardWidth = 320; // coincide con flex-basis del card
+    const cardWidth = 400; // <-- coincide con la card grande
     node.scrollBy({ left: (dir === "left" ? -1 : 1) * (cardWidth + 24), behavior: "smooth" });
   };
 
-  // Paleta
   const sectionBg = useColorModeValue("green.900", "green.900");
   const sectionFg = useColorModeValue("white", "white");
   const subtitle = useColorModeValue("whiteAlpha.800", "whiteAlpha.800");
 
   return (
     <Box as="section" py={{ base: 14, md: 20 }} bg={sectionBg} color={sectionFg} position="relative">
-      {/* Decoración sutil */}
-      <Box
-        position="absolute"
-        inset={0}
-        bgGradient="radial(orange.100 0%, transparent 60%)"
-        opacity={0.06}
-        pointerEvents="none"
-      />
-
+      <Box position="absolute" inset={0} bgGradient="radial(orange.100 0%, transparent 60%)" opacity={0.06} pointerEvents="none" />
       <Container maxW="7xl" position="relative">
         <Heading as="h2" size="xl" textAlign="center" mb={2} letterSpacing="-0.02em">
           Propiedades destacadas
@@ -259,14 +275,13 @@ export default function HomeFeatured() {
           Selección curada y actualizada. Encuentra tu próximo hogar o inversión.
         </Text>
 
-        {/* Loading / Error / Empty */}
         {loading ? (
           <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={6}>
             {Array.from({ length: 6 }).map((_, i) => (
               <Box key={i} rounded="2xl" overflow="hidden" bg="whiteAlpha.200" p={0}>
-                <AspectRatio ratio={16 / 10}>
+                <SafeAspect ratio={16 / 9}>
                   <Skeleton />
-                </AspectRatio>
+                </SafeAspect>
                 <Box p={4}>
                   <Skeleton height="20px" mb={2} />
                   <SkeletonText noOfLines={2} spacing="2" />
@@ -275,7 +290,7 @@ export default function HomeFeatured() {
             ))}
           </SimpleGrid>
         ) : error ? (
-          <Alert status="error" mb={6} rounded="md" bg="white">
+          <Alert status="error" mb={6} rounded="md" bg="white" color="red.700">
             <AlertIcon />
             {error}
           </Alert>
@@ -285,13 +300,12 @@ export default function HomeFeatured() {
           </Center>
         ) : (
           <Box position="relative">
-            {/* Controles */}
             <IconButton
               aria-label="Desplazar a la izquierda"
               icon={<FiChevronLeft />}
               onClick={() => scrollBy("left")}
               position="absolute"
-              left={-2}
+              left={-10}
               top="50%"
               transform="translateY(-50%)"
               zIndex={2}
@@ -305,9 +319,10 @@ export default function HomeFeatured() {
             <IconButton
               aria-label="Desplazar a la derecha"
               icon={<FiChevronRight />}
+
               onClick={() => scrollBy("right")}
               position="absolute"
-              right={-2}
+              right={-10}
               top="50%"
               transform="translateY(-50%)"
               zIndex={2}
@@ -319,7 +334,6 @@ export default function HomeFeatured() {
               display={{ base: "none", md: "inline-flex" }}
             />
 
-            {/* Pista scroll-snap */}
             <Box
               ref={trackRef}
               display="flex"
@@ -341,7 +355,7 @@ export default function HomeFeatured() {
           </Box>
         )}
 
-        <Center mt={10}>
+        <Center mt={5}>
           <Button
             as={NextLink}
             href="/propiedades"
@@ -358,7 +372,6 @@ export default function HomeFeatured() {
         </Center>
       </Container>
 
-      {/* SEO: ItemList JSON-LD */}
       {itemListJson && (
         <VisuallyHidden aria-hidden="true">
           <script
