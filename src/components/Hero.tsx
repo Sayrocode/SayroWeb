@@ -45,7 +45,7 @@ export default function Hero({
     <header role="banner" aria-label="Hero Sayro Bienes Raíces">
       <Box
         position="relative"
-        minH={{ base: "80vh", md: "90vh" }}
+        minH={{ base: "80vh", md: "100vh" }}
         bgImage={`${overlay}, url(${backgroundUrl})`}
         bgPos="center"
         bgSize="cover"
@@ -61,7 +61,7 @@ export default function Hero({
           pointerEvents="none"
         />
 
-        <Container maxW="7xl" h="full" pt={{ base: 28, md: 36 }}>
+        <Container maxW="7xl" h="full"  pt={{ base: 28, md: 36 }}>
           <VStack
             align="flex-start"
             spacing={6}
@@ -177,6 +177,7 @@ export default function Hero({
               direction={{ base: "column", sm: "row" }}
               spacing={{ base: 3, sm: 6 }}
               pt={4}
+             
               color="whiteAlpha.900"
             >
               <TrustBadge label="+10 años de experiencia" />
@@ -187,22 +188,7 @@ export default function Hero({
         </Container>
 
         {/* Scroll cue */}
-        <chakra.button
-          aria-label="Desplazarse a contenido"
-          position="absolute"
-          left="50%"
-          transform="translateX(-50%)"
-          bottom={6}
-          bg="whiteAlpha.200"
-          _hover={{ bg: "whiteAlpha.300" }}
-          rounded="full"
-          p={2}
-          onClick={() =>
-            document?.getElementById("contenido")?.scrollIntoView({ behavior: "smooth" })
-          }
-        >
-          <Icon as={FiChevronDown} boxSize={6} color="white" />
-        </chakra.button>
+      
       </Box>
     </header>
   );
