@@ -83,7 +83,7 @@ export default function ContactoPage() {
         {/* HERO */}
         <Box
           position="relative"
-          bgImage="url(/images/contact-hero.jpg)"
+          bgImage="url(/image6.jpg)"
           bgSize="cover"
           bgPos="center"
           bgRepeat="no-repeat"
