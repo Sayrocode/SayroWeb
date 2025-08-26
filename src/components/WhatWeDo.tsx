@@ -111,12 +111,10 @@ export default function WhatWeDoFullBleed({
       as="section"
       id={id}
       ref={sectionRef}
-      w="100vw"
+      w="auto"
       position="relative"
-      left="50%"
-      right="50%"
-      ml="-50vw"
-      mr="-50vw"
+    
+     
       /* sin padding/márgenes para que quede pegado a los bordes */
     >
       <Grid
