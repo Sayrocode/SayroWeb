@@ -20,9 +20,11 @@ export default function Hero({
   backgroundUrl = "/hero.png",
 }: HeroProps) {
   // Tinte verde + leve oscurecido para legibilidad
-  const overlay =
-    "linear-gradient(0deg, rgba(6, 78, 59, 0.38), rgba(6, 78, 59, 0.38)), linear-gradient(180deg, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.20) 40%, rgba(0,0,0,0.28) 100%)";
-
+ // Verde MUY transparente + contraste con negro
+ const overlay =
+ "linear-gradient(0deg, rgba(6,78,59,.08), rgba(6,78,59,.08)), \
+  linear-gradient(180deg, rgba(0,0,0,.10) 0%, rgba(0,0,0,.18) 45%, rgba(0,0,0,.28) 100%), \
+  radial-gradient(1600px 600px at 50% 20%, rgba(0,0,0,.04) 0%, transparent 70%)";
   return (
     <header role="banner" aria-label="Hero Sayro Bienes Raíces">
       <Box
