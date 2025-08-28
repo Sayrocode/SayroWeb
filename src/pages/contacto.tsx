@@ -22,7 +22,10 @@ import {
   useToast,
   VisuallyHidden,
   Divider,
+  usePrefersReducedMotion,
+  Image as ChakraImage,
 } from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
 import { FiMail, FiPhone, FiMapPin, FiClock, FiArrowRight } from "react-icons/fi";
 import { FaWhatsapp, FaFacebook, FaInstagram } from "react-icons/fa";
 import Layout from "components/Layout";
@@ -35,6 +38,66 @@ const WHATSAPP_NUMBER = "521234567890"; // solo dígitos, con país (52 México)
 const EMAIL_TO = "hola@tu-dominio.com";
 const ADDRESS = "Querétaro, Qro., México";
 const HOURS = "Lun–Vie 9:00–18:00";
+
+/* ========= Animación igual que /servicios ========= */
+const fadeUp = keyframes`
+  from { opacity: 0; transform: translateY(16px) }
+  to   { opacity: 1; transform: translateY(0) }
+`;
+
+/* ========= HERO idéntico al de /servicios ========= */
+function HeroContacto() {
+  const prefersReduced = usePrefersReducedMotion();
+  const anim = prefersReduced ? undefined : `${fadeUp} .6s ease .05s both`;
+
+  return (
+    <Box as="section" position="relative" bg="gray.900" color="white">
+      <Box position="absolute" inset={0} zIndex={0} aria-hidden>
+        <ChakraImage
+          src="/image6.jpg" // tu imagen de contacto
+          alt="Atención y contacto Sayro"
+          w="100%"
+          h={{ base: "42vh", md: "48vh", lg: "52vh" }}   // ← mismas alturas
+          objectFit="cover"
+          draggable={false}
+        />
+        <Box
+          position="absolute"
+          inset={0}
+          bg="blackAlpha.600"
+          h={{ base: "42vh", md: "48vh", lg: "52vh" }}   // ← mismas alturas
+          sx={{
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(1200px 180px at 20% 20%, rgba(255,255,255,.10), transparent 60%)",
+            },
+          }}
+        />
+      </Box>
+
+      <Container maxW="7xl" position="relative" zIndex={1} py={{ base: 16, md: 20 }}>
+        <Heading
+          as="h1"
+          fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+          fontWeight="400"
+          fontSize={{ base: "2.2rem", md: "3.2rem" }}     // ← iguales a /servicios
+          lineHeight="1.1"
+          letterSpacing="-0.01em"
+          textTransform="uppercase"
+          animation={anim}
+        >
+          CONTACTO
+        </Heading>
+        <Text mt={3} maxW="3xl" color="whiteAlpha.900" animation={anim}>
+          Escríbenos y cuéntanos qué necesitas; estamos listos para ayudarte.
+        </Text>
+      </Container>
+    </Box>
+  );
+}
 
 export default function ContactoPage() {
   const toast = useToast();
@@ -70,57 +133,20 @@ export default function ContactoPage() {
 
   return (
     <>
-    <Layout>
-      <Head>
-        <title>Contacto — Sayro Bienes Raíces</title>
-        <meta
-          name="description"
-          content="Ponte en contacto con Sayro Bienes Raíces. Resolvemos dudas sobre venta, renta y comercialización de inmuebles."
-        />
-      </Head>
-
-      <Box as="main" bg="gray.900">
-        {/* HERO */}
-        <Box
-          position="relative"
-          bgImage="url(/image6.jpg)"
-          bgSize="cover"
-          bgPos="center"
-          bgRepeat="no-repeat"
-          minH={{ base: "36vh", md: "48vh" }}
-        >
-          <Box
-            position="absolute"
-            inset={0}
-            bg="linear-gradient(0deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.25) 55%, rgba(0,0,0,.15) 100%)"
+      <Layout>
+        <Head>
+          <title>Contacto — Sayro Bienes Raíces</title>
+          <meta
+            name="description"
+            content="Ponte en contacto con Sayro Bienes Raíces. Resolvemos dudas sobre venta, renta y comercialización de inmuebles."
           />
-          <Container maxW="7xl" position="relative" zIndex={1} h="100%">
-            <Box display="grid" placeItems="center" h="100%">
-              <Heading
-                as="p"
-                mt={15}
-                color="white"
-                fontSize={{ base: "2xl", md: "4xl" }}
-                letterSpacing="-0.01em"
-                textAlign="center"
-                textShadow="0 2px 18px rgba(0,0,0,.5)"
-              >
-                ¿Hablamos?
-              </Heading>
-              <Text
-                mt={2}
-                color="whiteAlpha.900"
-                textAlign="center"
-                maxW="620px"
-              >
-                Escríbenos y cuéntanos qué necesitas; estamos listos para ayudarte.
-              </Text>
-            </Box>
-          </Container>
-        </Box>
+        </Head>
+
+        {/* HERO unificado */}
+        <HeroContacto />
 
         {/* CONTENIDO */}
-        <Container bgColor={'white'} maxW="auto" py={{ base: 10, md: 14 }}>
+        <Container bgColor="white" maxW="auto" my={10} py={{ base: 10, md: 14 }}>
           <Grid templateColumns={{ base: "1fr", md: "0.9fr 1.1fr" }} gap={{ base: 6, md: 10 }}>
             {/* LADO IZQUIERDO: Info + redes + WhatsApp */}
             <GridItem>
@@ -192,7 +218,7 @@ export default function ContactoPage() {
             </GridItem>
 
             {/* LADO DERECHO: Formulario */}
-            <GridItem>
+            <GridItem >
               <Box
                 bg="white"
                 rounded="xl"
@@ -256,7 +282,6 @@ export default function ContactoPage() {
             </GridItem>
           </Grid>
         </Container>
-      </Box>
       </Layout>
     </>
   );
