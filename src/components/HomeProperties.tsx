@@ -370,21 +370,7 @@ export default function HomeFeaturedCarousel() {
           </CarouselFrame>
         )}
 
-        <Center mt={8}>
-          <Button
-            as={NextLink}
-            href="/propiedades"
-            size="lg"
-            colorScheme="whiteAlpha"
-            bg="white"
-            color="#0E3B30"
-            _hover={{ bg: "white" }}
-            rounded="full"
-            px={8}
-          >
-            Ver todas las propiedades
-          </Button>
-        </Center>
+      
       </Container>
 
       {itemListJson && (
