@@ -36,7 +36,7 @@ export default function AboutSplitHeroParallax({
   ],
   imageSrc,
   imageAlt = "Edificio moderno",
-  logoSrc = "/logos/sayro-sello-blanco.svg",
+  logoSrc = "/sayrowhite.png",
   logoAlt = "Sayro Bienes Raíces S.A. de C.V.",
   desktopMaxShift = 80,
   mobileMaxShift = 46,
@@ -178,17 +178,18 @@ export default function AboutSplitHeroParallax({
           </Box>
 
           {/* Logo centrado */}
-          {logoSrc && (
+         
             <Box position="absolute" inset={0} display="grid" placeItems="center" pointerEvents="none">
               <ChakraImage
-                src={logoSrc}
+                src={"/sayrowhite.png"}
                 alt={logoAlt}
-                maxW={{ base: "48%", md: "42%" }}
+                maxW={{ base: "48%", md: "100%" }}
                 opacity={0.95}
+                mr={20}
                 filter="drop-shadow(0 4px 20px rgba(0,0,0,.35))"
               />
             </Box>
-          )}
+        
         </GridItem>
       </Grid>
     </Box>
