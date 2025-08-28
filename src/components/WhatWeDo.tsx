@@ -255,79 +255,93 @@ export default function WhatWeDoFullBleed({
   </Text>
 </Stack>
 
-            <Button
-              as={NextLink}
-              href={ctaHref}
-              variant="solid"
-              bg="white"
-              color={green}
-              _hover={{ bg: "whiteAlpha.900" }}
-              rounded="md"
-              px={8}
-              size="lg"
-              w={{ base: "full", sm: "auto" }} // CTA ancho completo en móvil
-            >
-              {ctaText}
-            </Button>
+<Button
+  as={NextLink}
+  href={ctaHref}
+  bg="white"
+  color={green}
+  size="lg"
+  rounded="full"
+  px={{ base: 6, md: 8 }}
+  w={{ base: "full", sm: "auto" }} // CTA ancho completo en móvil
+  _hover={{ bg: "white", transform: "translateY(-2px)", boxShadow: "lg" }}
+  _active={{ transform: "translateY(-1px)" }}
+  _focusVisible={{ boxShadow: "0 0 0 3px rgba(255,255,255,.55)" }}
+>
+  {ctaText}
+</Button>
+
 
             {/* Redes: visibles dentro del flujo en móvil */}
-            <HStack spacing={4} display={{ base: "flex", md: "none" }}>
-              <IconButton
-                as={Link}
-                href={facebookUrl}
-                aria-label="Facebook"
-                icon={<FaFacebookF />}
-                variant="ghost"
-                color="whiteAlpha.900"
-                _hover={{ color: "white" }}
-                size="lg"
-                isExternal
-              />
-              <IconButton
-                as={Link}
-                href={instagramUrl}
-                aria-label="Instagram"
-                icon={<FaInstagram />}
-                variant="ghost"
-                color="whiteAlpha.900"
-                _hover={{ color: "white" }}
-                size="lg"
-                isExternal
-              />
-            </HStack>
+           {/* Redes: visibles dentro del flujo en móvil */}
+<HStack spacing={3} display={{ base: "flex", md: "none" }}>
+  <IconButton
+    as={Link}
+    href={facebookUrl}
+    aria-label="Facebook"
+    icon={<FaFacebookF />}
+    variant="outline"
+    rounded="full"
+    size="md"
+    borderColor="whiteAlpha.500"
+    color="whiteAlpha.900"
+    _hover={{ bg: "whiteAlpha.200" }}
+    isExternal
+  />
+  <IconButton
+    as={Link}
+    href={instagramUrl}
+    aria-label="Instagram"
+    icon={<FaInstagram />}
+    variant="outline"
+    rounded="full"
+    size="md"
+    borderColor="whiteAlpha.500"
+    color="whiteAlpha.900"
+    _hover={{ bg: "whiteAlpha.200" }}
+    isExternal
+  />
+</HStack>
+
           </Stack>
 
           {/* Redes pegadas a la esquina en desktop */}
-          <HStack
-            spacing={4}
-            position="absolute"
-            left={{ md: 10, lg: 12 }}
-            bottom={{ md: 8 }}
-            display={{ base: "none", md: "flex" }}
-          >
-            <IconButton
-              as={Link}
-              href={facebookUrl}
-              aria-label="Facebook"
-              icon={<FaFacebookF />}
-              variant="ghost"
-              color="whiteAlpha.900"
-              _hover={{ color: "white" }}
-              size="lg"
-              isExternal
-            />
-            <IconButton
-              as={Link}
-              href={instagramUrl}
-              aria-label="Instagram"
-              icon={<FaInstagram />}
-              variant="ghost"
-              color="whiteAlpha.900"
-              _hover={{ color: "white" }}
-              size="lg"
-              isExternal
-            />
-          </HStack>
+        {/* Redes pegadas a la esquina en desktop */}
+<HStack
+  spacing={3}
+  position="absolute"
+  left={{ md: 10, lg: 12 }}
+  bottom={{ md: 8 }}
+  display={{ base: "none", md: "flex" }}
+>
+  <IconButton
+    as={Link}
+    href={facebookUrl}
+    aria-label="Facebook"
+    icon={<FaFacebookF />}
+    variant="outline"
+    rounded="full"
+    size="md"
+    borderColor="whiteAlpha.500"
+    color="whiteAlpha.900"
+    _hover={{ bg: "whiteAlpha.200" }}
+    isExternal
+  />
+  <IconButton
+    as={Link}
+    href={instagramUrl}
+    aria-label="Instagram"
+    icon={<FaInstagram />}
+    variant="outline"
+    rounded="full"
+    size="md"
+    borderColor="whiteAlpha.500"
+    color="whiteAlpha.900"
+    _hover={{ bg: "whiteAlpha.200" }}
+    isExternal
+  />
+</HStack>
+
         </GridItem>
       </Grid>
 
