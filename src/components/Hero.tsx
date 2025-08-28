@@ -5,41 +5,23 @@ import {
   Heading,
   Text,
   Button,
-  HStack,
   VStack,
-  Stack,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  Icon,
-  useToken,
-  useColorModeValue,
-  chakra,
-  Badge,
 } from "@chakra-ui/react";
 import { motion } from "framer-motion";
-import { FiSearch, FiPhoneCall, FiChevronDown, FiHome } from "react-icons/fi";
 import NextLink from "next/link";
 
 const MotionBox = motion(Box);
-const MotionHStack = motion(HStack);
 
 type HeroProps = {
   backgroundUrl?: string;
 };
 
 export default function Hero({
-  backgroundUrl = "/hero.png", // cámbialo por tu asset
+  backgroundUrl = "/hero.png",
 }: HeroProps) {
-  const [green500, green600, blackAlpha700] = useToken("colors", [
-    "green.500",
-    "green.600",
-    "blackAlpha.700",
-  ]);
-
-  const overlay = `linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.6) 100%)`;
-  const accent = useColorModeValue("whiteAlpha.900", "whiteAlpha.900");
-  const sub = useColorModeValue("whiteAlpha.800", "whiteAlpha.800");
+  // Tinte verde + leve oscurecido para legibilidad
+  const overlay =
+    "linear-gradient(0deg, rgba(6, 78, 59, 0.38), rgba(6, 78, 59, 0.38)), linear-gradient(180deg, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.20) 40%, rgba(0,0,0,0.28) 100%)";
 
   return (
     <header role="banner" aria-label="Hero Sayro Bienes Raíces">
@@ -50,163 +32,62 @@ export default function Hero({
         bgPos="center"
         bgSize="cover"
         bgRepeat="no-repeat"
+        display="flex"
+        alignItems="center"
       >
-        {/* Gradient edge at bottom */}
-        <Box
-          position="absolute"
-          insetX={0}
-          bottom={0}
-          h="24"
-          bgGradient="linear(to-b, transparent, blackAlpha.700)"
-          pointerEvents="none"
-        />
-
-        <Container maxW="7xl" h="full"  pt={{ base: 28, md: 36 }}>
+        <Container maxW="7xl">
           <VStack
-            align="flex-start"
-            spacing={6}
-            color={accent}
-            maxW={{ base: "full", md: "3xl", lg: "4xl" }}
+            spacing={{ base: 4, md: 6 }}
+            align="center"
+            textAlign="center"
           >
             <MotionBox
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
             >
-              <Badge
-                colorScheme="green"
-                variant="solid"
-                rounded="full"
-                px={3}
-                py={1}
-                mb={3}
-                bg="green.500"
-              >
-                Nuevo • Inventario actualizado
-              </Badge>
-
               <Heading
                 as="h1"
-                lineHeight={1.1}
+                textTransform="uppercase"
+                color="green.700"
                 fontWeight="extrabold"
                 fontSize={{ base: "4xl", md: "6xl", lg: "7xl" }}
-                letterSpacing="-0.02em"
-                textShadow="0 2px 12px rgba(0,0,0,0.35)"
+                letterSpacing="wide"
+                lineHeight={1.1}
+                // sombra marcada para parecerse al ejemplo
+                textShadow="0 2px 20px rgba(0,0,0,0.65)"
               >
-                SAYRO BIENES RAÍCES
+                Sayro Bienes Raíces
               </Heading>
 
               <Text
-                mt={3}
-                fontSize={{ base: "lg", md: "xl" }}
-                color={sub}
-                maxW="2xl"
+                mt={{ base: 2, md: 3 }}
+                color="whiteAlpha.900"
+                fontSize={{ base: "md", md: "lg" }}
+                textTransform="uppercase"
+                letterSpacing="widest"
               >
-                El mejor precio, rápido y seguro. Encuentra tu propiedad ideal
-                con atención personalizada y procesos claros.
+                El mejor precio, rápido y seguro.
               </Text>
             </MotionBox>
 
-            {/* Quick Search (decorativo, puedes conectarlo a tus filtros) */}
-            <MotionBox
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-              w="full"
-            >
-              <InputGroup
-                size="lg"
-                maxW={{ base: "full", md: "xl" }}
-                bg="white"
-                rounded="xl"
-                shadow="lg"
-              >
-                <InputLeftElement pointerEvents="none">
-                  <Icon as={FiSearch} color="gray.500" />
-                </InputLeftElement>
-                <Input
-                  aria-label="Buscar propiedades"
-                  placeholder="Busca por ubicación, tipo o ID (ej. EB-1234)…"
-                  _placeholder={{ color: "gray.500" }}
-                  bg="white"
-                  color="gray.800"
-                  rounded="xl"
-                />
-              </InputGroup>
-            </MotionBox>
-
-            {/* CTAs */}
-            <MotionHStack
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35, duration: 0.45 }}
-              spacing={4}
-              pt={2}
-              flexWrap="wrap"
-            >
-              <Button
-                as={NextLink}
-                href="/propiedades"
-                size="lg"
-                colorScheme="green"
-                bg="green.600"
-                _hover={{ bg: "green.500", transform: "translateY(-1px)" }}
-                leftIcon={<FiHome />}
-                rounded="xl"
-              >
-                Ver Propiedades
-              </Button>
-
-              <Button
-                as="a"
-                href="https://wa.me/5210000000000?text=Hola%20quisiera%20más%20información"
-                size="lg"
-                variant="outline"
-                colorScheme="whiteAlpha"
-                borderColor="whiteAlpha.700"
-                _hover={{ bg: "whiteAlpha.200" }}
-                leftIcon={<FiPhoneCall />}
-                rounded="xl"
-              >
-                Hablemos por WhatsApp
-              </Button>
-            </MotionHStack>
-
-            {/* Trust signals */}
-            <Stack
-              direction={{ base: "column", sm: "row" }}
-              spacing={{ base: 3, sm: 6 }}
-              pt={4}
-             
+            <Button
+              as={NextLink}
+              href="/propiedades"
+              variant="link"
               color="whiteAlpha.900"
+              fontWeight="semibold"
+              textTransform="uppercase"
+              letterSpacing="widest"
+              fontSize="sm"
+              mt={{ base: 1, md: 2 }}
+              _hover={{ opacity: 0.9, textDecoration: "none" }}
             >
-              <TrustBadge label="+10 años de experiencia" />
-              <TrustBadge label="+500 propiedades colocadas" />
-              <TrustBadge label="4.9/5 en satisfacción" />
-            </Stack>
+              Ver Propiedades
+            </Button>
           </VStack>
         </Container>
-
-        {/* Scroll cue */}
-      
       </Box>
     </header>
-  );
-}
-
-function TrustBadge({ label }: { label: string }) {
-  return (
-    <HStack
-      spacing={2}
-      bg="blackAlpha.500"
-      px={3}
-      py={2}
-      rounded="full"
-      backdropFilter="auto"
-      backdropBlur="6px"
-    >
-      <Box boxSize={2} bg="green.400" rounded="full" />
-      <Text fontWeight="medium">{label}</Text>
-    </HStack>
   );
 }

@@ -13,7 +13,9 @@ import {
   VisuallyHidden,
   useColorModeValue,
   usePrefersReducedMotion,
+  useBreakpointValue,
   Image as ChakraImage,
+  Link,
 } from "@chakra-ui/react";
 import { FaInstagram, FaFacebookF } from "react-icons/fa";
 import { useEffect, useMemo, useRef } from "react";
@@ -51,49 +53,54 @@ export default function WhatWeDoFullBleed({
 }: WhatWeDoProps) {
   const green = useColorModeValue("#0E3B30", "#0E3B30");
   const prefersReduced = usePrefersReducedMotion();
-
-  /** Parallax SUAVE, sin espacios blancos */
+  const amplitude = useBreakpointValue({ base: 18, md: 32, lg: 48 }) || 24;
   const imgRef = useRef<HTMLImageElement | null>(null);
   const sectionRef = useRef<HTMLDivElement | null>(null);
 
+  /** Parallax SUAVE y responsive (usa rAF + amplitud por breakpoint) */
   useEffect(() => {
     if (prefersReduced) return;
-  
     const section = sectionRef.current;
     const img = imgRef.current;
     if (!section || !img) return;
-  
-    const FROM = -40; // inicia ARRIBA (-40px)
-    const TO = 40;    // termina ABAJO (+40px)
-  
+
+    const FROM = -amplitude;
+    const TO = amplitude;
+    let raf = 0;
+
     const update = () => {
       const r = section.getBoundingClientRect();
       const vh = window.innerHeight || 1;
-  
-      // progreso 0..1 mientras la sección entra y sale del viewport
       const progress = Math.min(1, Math.max(0, (vh - r.top) / (vh + r.height)));
-  
-      // ahora se mueve de -40px a +40px (baja)
       const translate = FROM + progress * (TO - FROM);
-      img.style.transform = `translateY(${translate}px) scale(1.08)`;
+      // Variables CSS para evitar layout thrash
+      img.style.setProperty("--y", `${translate}px`);
+      img.style.setProperty("--s", "1.08");
+      raf = 0;
     };
-  
+
+    const onScrollOrResize = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+
     update();
-  
-    const io = new IntersectionObserver(update, {
+
+    const io = new IntersectionObserver(onScrollOrResize, {
       threshold: Array.from({ length: 11 }, (_, i) => i / 10),
     });
     io.observe(section);
-  
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-  
+
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
+
     return () => {
       io.disconnect();
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+      if (raf) cancelAnimationFrame(raf);
     };
-  }, [prefersReduced]);
+  }, [prefersReduced, amplitude]);
+
   /** JSON-LD para SEO */
   const jsonLd = useMemo(
     () =>
@@ -107,24 +114,20 @@ export default function WhatWeDoFullBleed({
   );
 
   return (
-    <Box
-      as="section"
-      id={id}
-      ref={sectionRef}
-      w="auto"
-      position="relative"
-    
-     
-      /* sin padding/márgenes para que quede pegado a los bordes */
-    >
+    <Box as="section" id={id} ref={sectionRef} w="auto" position="relative">
       <Grid
         templateColumns={{ base: "1fr", md: "1fr 1fr" }}
         gap={0}
-        alignItems="stretch"
-        minH={{ base: "70vh", md: "80vh" }}
+        // En móvil dejamos que crezca natural; en desktop pedimos altura generosa
+        minH={{ base: "auto", md: "80vh" }}
       >
-        {/* Lado IZQUIERDO (verde), sin bordes ni espacios */}
-        <GridItem position="relative" overflow="hidden">
+        {/* IMAGEN full-bleed con parallax */}
+        <GridItem
+          position="relative"
+          overflow="hidden"
+          // altura agradable en móvil con clamp
+          h={{ base: "clamp(260px, 50vh, 420px)", md: "auto" }}
+        >
           <ChakraImage
             ref={imgRef}
             src={imageSrc}
@@ -132,40 +135,65 @@ export default function WhatWeDoFullBleed({
             w="100%"
             h="100%"
             objectFit="cover"
-            objectPosition={imageObjectPosition}
-            transform="scale(1.06)"          // un pelín de zoom para que el parallax no deje bordes
+            objectPosition={{
+              base: "center",
+              md: imageObjectPosition,
+            }}
+            // Usamos variables CSS para el parallax
+            style={{
+              transform:
+                "translate3d(0, var(--y, 0), 0) scale(var(--s, 1.06))",
+            }}
             transition="transform .2s ease-out"
             willChange="transform"
             draggable={false}
           />
-          {/* Sombreado sutil inferior para contraste */}
-          <Box position="absolute" inset={0} bgGradient="linear(to-b, transparent, rgba(0,0,0,.22))" />
+          <Box
+            position="absolute"
+            inset={0}
+            bgGradient="linear(to-b, transparent, rgba(0,0,0,.22))"
+            pointerEvents="none"
+          />
         </GridItem>
-       
 
-        {/* Lado DERECHO (IMAGEN) — full-bleed con parallax */}
+        {/* CONTENIDO */}
         <GridItem
           bg={green}
           color="white"
           display="flex"
           flexDir="column"
           justifyContent="center"
-          px={{ base: 6, md: 12 }}
-          py={{ base: 10, md: 10 }}
+          px={{ base: 6, md: 10, lg: 12 }}
+          py={{ base: 10, md: 12 }}
           position="relative"
         >
-          <Stack spacing={{ base: 6, md: 7 }} align="center" textAlign="center" maxW="56ch" mx="auto">
+          <Stack
+            spacing={{ base: 6, md: 7 }}
+            align={{ base: "center", md: "start", lg: "center" }}
+            textAlign={{ base: "center", md: "left", lg: "center" }}
+            maxW={{ base: "unset", md: "56ch" }}
+            mx="auto"
+          >
+            {/* acento superior para impacto en móvil */}
+            <Box
+              display={{ base: "block", md: "none" }}
+              w="56px"
+              h="2px"
+              bg="green.300"
+              borderRadius="full"
+            />
+
             <Stack spacing={2}>
               <Heading
                 as="h2"
                 fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
                 fontWeight="400"
-                fontSize={{ base: "xl", md: "2xl" }}
+                fontSize={{ base: "2xl", md: "3xl" }}
                 letterSpacing="-0.01em"
               >
                 {leftTitle}
               </Heading>
-              <Text fontSize={{ base: "sm", md: "md" }} lineHeight={1.9} opacity={0.98}>
+              <Text fontSize={{ base: "md", md: "md" }} lineHeight={1.8} opacity={0.98}>
                 {leftBodyTop}
               </Text>
             </Stack>
@@ -175,12 +203,12 @@ export default function WhatWeDoFullBleed({
                 as="h3"
                 fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
                 fontWeight="400"
-                fontSize={{ base: "xl", md: "2xl" }}
+                fontSize={{ base: "2xl", md: "3xl" }}
                 letterSpacing="-0.01em"
               >
                 {rightTitle}
               </Heading>
-              <Text fontSize={{ base: "sm", md: "md" }} lineHeight={1.9} opacity={0.98}>
+              <Text fontSize={{ base: "md", md: "md" }} lineHeight={1.8} opacity={0.98}>
                 {rightBody}
               </Text>
             </Stack>
@@ -188,21 +216,55 @@ export default function WhatWeDoFullBleed({
             <Button
               as={NextLink}
               href={ctaHref}
-              variant="outline"
-              borderColor="whiteAlpha.700"
-              color="white"
-              _hover={{ bg: "white", color: green }}
+              variant="solid"
+              bg="white"
+              color={green}
+              _hover={{ bg: "whiteAlpha.900" }}
               rounded="md"
               px={8}
+              size="lg"
+              w={{ base: "full", sm: "auto" }} // CTA ancho completo en móvil
             >
               {ctaText}
             </Button>
+
+            {/* Redes: visibles dentro del flujo en móvil */}
+            <HStack spacing={4} display={{ base: "flex", md: "none" }}>
+              <IconButton
+                as={Link}
+                href={facebookUrl}
+                aria-label="Facebook"
+                icon={<FaFacebookF />}
+                variant="ghost"
+                color="whiteAlpha.900"
+                _hover={{ color: "white" }}
+                size="lg"
+                isExternal
+              />
+              <IconButton
+                as={Link}
+                href={instagramUrl}
+                aria-label="Instagram"
+                icon={<FaInstagram />}
+                variant="ghost"
+                color="whiteAlpha.900"
+                _hover={{ color: "white" }}
+                size="lg"
+                isExternal
+              />
+            </HStack>
           </Stack>
 
-          {/* Redes, pegadas a la ESQUINA inferior izquierda */}
-          <HStack spacing={4} position="absolute" left={{ base: 6, md: 12 }} bottom={{ base: 6, md: 8 }}>
+          {/* Redes pegadas a la esquina en desktop */}
+          <HStack
+            spacing={4}
+            position="absolute"
+            left={{ md: 10, lg: 12 }}
+            bottom={{ md: 8 }}
+            display={{ base: "none", md: "flex" }}
+          >
             <IconButton
-              as={NextLink}
+              as={Link}
               href={facebookUrl}
               aria-label="Facebook"
               icon={<FaFacebookF />}
@@ -210,9 +272,10 @@ export default function WhatWeDoFullBleed({
               color="whiteAlpha.900"
               _hover={{ color: "white" }}
               size="lg"
+              isExternal
             />
             <IconButton
-              as={NextLink}
+              as={Link}
               href={instagramUrl}
               aria-label="Instagram"
               icon={<FaInstagram />}
@@ -220,6 +283,7 @@ export default function WhatWeDoFullBleed({
               color="whiteAlpha.900"
               _hover={{ color: "white" }}
               size="lg"
+              isExternal
             />
           </HStack>
         </GridItem>

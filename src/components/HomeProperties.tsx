@@ -102,16 +102,33 @@ function FeaturedCard({ p }: { p: EBListItem }) {
     >
       {/* Imagen prominente 4:3 + gradiente */}
       <Box position="relative">
-        <SafeAspect ratio={4 / 3}>
-          <ChakraImage src={img} alt={p.title || `Propiedad ${p.public_id}`} objectFit="cover" fallbackSrc="/house.jpg" />
-        </SafeAspect>
-        <Box
-          pointerEvents="none"
-          position="absolute"
-          inset={0}
-          bgGradient="linear(to-b, rgba(0,0,0,0) 55%, rgba(0,0,0,.35))"
-        />
-        {/* Ribbon de precio (alineado a la derecha) */}
+      <Box position="relative" lineHeight={0}>
+      <AspectRatio ratio={6 / 5} overflow="hidden">
+    <ChakraImage
+      src={img}
+      alt={p.title || `Propiedad ${p.public_id}`}
+      w="100%"
+      h="100%"
+      objectFit="cover"
+      objectPosition="center"
+      display="block"          // sin huecos por baseline
+      verticalAlign="top"      // por si algún user agent lo respeta
+      draggable={false}
+      // tapamos cualquier hairline de subpíxel (Safari/zoom)
+      transform="translateZ(0) scale(1.01)"
+    />
+  </AspectRatio>
+
+  {/* overlay y ribbon se quedan igual */}
+  <Box pointerEvents="none" position="absolute" inset={0}
+       bgGradient="linear(to-b, rgba(0,0,0,0) 55%, rgba(0,0,0,.35))" />
+  <Box position="absolute" bottom={2} right={2} /* ... */>
+    {price}
+  </Box>
+</Box>
+
+        <Box pointerEvents="none" position="absolute" inset={0} bgGradient="linear(to-b, rgba(0,0,0,0) 55%, rgba(0,0,0,.35))" />
+        {/* Ribbon de precio */}
         <Box
           position="absolute"
           bottom={2}
@@ -233,7 +250,7 @@ export default function HomeFeaturedCarousel() {
 
   return (
     <Box as="section" py={{ base: 12, md: 16 }} bg={bg} color={fg} position="relative">
-      <Container maxW="auto" position="relative">
+      <Container maxW="7xl" px={{ base: 4, md: 6 }} position="relative">
         <Heading
           as="h2"
           textAlign="center"
@@ -263,57 +280,61 @@ export default function HomeFeaturedCarousel() {
           </Center>
         ) : (
           <CarouselFrame>
-            {/* Track con páginas: cada página es un grid de perPage columnas */}
-            <CarouselTrack page={page}>
-              {Array.from({ length: pageCount }).map((_, pi) => {
-                const slice = properties.slice(pi * perPage, pi * perPage + perPage);
-                return (
-                  <PageGrid key={pi} perPage={perPage}>
-                    {slice.map((p) => (
-                      <FeaturedCard key={p.public_id} p={p} />
-                    ))}
-                  </PageGrid>
-                );
-              })}
-            </CarouselTrack>
+            {/* Viewport con overflow hidden */}
+            <CarouselViewport>
+              <CarouselTrack page={page}>
+                {Array.from({ length: Math.max(1, Math.ceil(properties.length / perPage)) }).map((_, pi) => {
+                  const slice = properties.slice(pi * perPage, pi * perPage + perPage);
+                  return (
+                    <PageGrid key={pi} perPage={perPage}>
+                      {slice.map((p) => (
+                        <FeaturedCard key={p.public_id} p={p} />
+                      ))}
+                    </PageGrid>
+                  );
+                })}
+              </CarouselTrack>
+            </CarouselViewport>
 
-            {/* Controles */}
-            <IconButton
-              aria-label="Anterior"
-              icon={<FiChevronLeft />}
-              onClick={() => canPrev && setPage((p) => p - 1)}
-              isDisabled={!canPrev}
-              position="absolute"
-              left={{ base: 2, md: -6 }}
-              top="50%"
-              transform="translateY(-50%)"
-              zIndex={2}
-              rounded="full"
-              size="lg"
-              bg="white"
-              color="#0E3B30"
-              _hover={{ bg: "white" }}
-            />
-            <IconButton
-              aria-label="Siguiente"
-              icon={<FiChevronRight />}
-              onClick={() => canNext && setPage((p) => p + 1)}
-              isDisabled={!canNext}
-              position="absolute"
-              right={{ base: 2, md: -6 }}
-              top="50%"
-              transform="translateY(-50%)"
-              zIndex={2}
-              rounded="full"
-              size="lg"
-              bg="white"
-              color="#0E3B30"
-              _hover={{ bg: "white" }}
-            />
+            {/* Overlay de flechas (por fuera del overflow hidden) */}
+            <ArrowsOverlay>
+              <IconButton
+                aria-label="Anterior"
+                icon={<FiChevronLeft />}
+                onClick={() => canPrev && setPage((p) => p - 1)}
+                isDisabled={!canPrev}
+                position="absolute"
+                left={2}
+                top="50%"
+                transform="translateY(-50%)"
+                zIndex={3}
+                rounded="full"
+                size="lg"
+                bg="white"
+                color="#0E3B30"
+                _hover={{ bg: "white" }}
+              />
+              <IconButton
+                aria-label="Siguiente"
+                icon={<FiChevronRight />}
+                onClick={() => canNext && setPage((p) => p + 1)}
+                isDisabled={!canNext}
+                position="absolute"
+                right={2}
+                top="50%"
+                transform="translateY(-50%)"
+                zIndex={3}
+                rounded="full"
+                size="lg"
+                bg="white"
+                color="#0E3B30"
+                _hover={{ bg: "white" }}
+              />
+            </ArrowsOverlay>
 
             {/* Bullets */}
             <HStack justify="center" spacing={2} mt={6}>
-              {Array.from({ length: pageCount }).map((_, i) => (
+              {Array.from({ length: Math.max(1, Math.ceil(properties.length / perPage)) }).map((_, i) => (
                 <Box
                   as="button"
                   key={i}
@@ -363,9 +384,25 @@ export default function HomeFeaturedCarousel() {
 /* ---------- Subcomponentes del carrusel ---------- */
 
 function CarouselFrame({ children }: { children: ReactNode }) {
+  // Marco externo sin overflow -> no recorta las flechas
+  return <Box position="relative">{children}</Box>;
+}
+
+function CarouselViewport({ children }: { children: ReactNode }) {
+  // Viewport interno con overflow hidden y borde redondeado
   return (
-    <Box position="relative" overflow="hidden" rounded="2xl">
+    <Box overflow="hidden" rounded="2xl" position="relative">
       {children}
+    </Box>
+  );
+}
+
+function ArrowsOverlay({ children }: { children: ReactNode }) {
+  // Capa por encima del viewport (no se recorta)
+  return (
+    <Box position="absolute" inset={0} pointerEvents="none">
+      {/* los botones sí deben responder al click */}
+      <Box pointerEvents="auto">{children}</Box>
     </Box>
   );
 }
@@ -385,11 +422,7 @@ function CarouselTrack({ children, page }: { children: ReactNode; page: number }
 
 function PageGrid({ perPage, children }: { perPage: number; children: ReactNode }) {
   return (
-    <Box
-      minW="100%"
-      px={{ base: 2, md: 3 }}
-      // grid responsivo, pero el carrusel siempre muestra 1/2/3 por página
-    >
+    <Box minW="100%" px={{ base: 2, md: 3 }}>
       <Box
         display="grid"
         gridTemplateColumns={
