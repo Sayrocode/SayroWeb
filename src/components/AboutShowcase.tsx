@@ -9,6 +9,7 @@ import {
   Image as ChakraImage,
   useColorModeValue,
   usePrefersReducedMotion,
+  useBreakpointValue,
   Center,
 } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
@@ -16,12 +17,14 @@ import { useEffect, useRef, useState } from "react";
 type Props = {
   title?: string;
   paragraphs?: string[];
-  imageSrc: string;          // imagen del showcase (única)
+  imageSrc: string;
   imageAlt?: string;
-  logoSrc?: string;          // logo centrado sobre la imagen
+  logoSrc?: string;
   logoAlt?: string;
-  /** Intensidad del parallax (0.1–0.6 recomendado). Default: 0.28 */
-  parallaxStrength?: number;
+  /** Intensidad base desktop (px máx. de desplazamiento). Default 80 */
+  desktopMaxShift?: number;
+  /** Intensidad base mobile (px máx. de desplazamiento). Default 46 */
+  mobileMaxShift?: number;
 };
 
 export default function AboutSplitHeroParallax({
@@ -35,115 +38,148 @@ export default function AboutSplitHeroParallax({
   imageAlt = "Edificio moderno",
   logoSrc = "/logos/sayro-sello-blanco.svg",
   logoAlt = "Sayro Bienes Raíces S.A. de C.V.",
-  parallaxStrength = 0.28,
+  desktopMaxShift = 80,
+  mobileMaxShift = 46,
 }: Props) {
-  const leftBg = useColorModeValue("#0E3B30", "#0E3B30"); // verde profundo
+  const leftBg = useColorModeValue("#0E3B30", "#0E3B30");
   const prefersReduced = usePrefersReducedMotion();
 
-  // --- PARALLAX ---
-  const rightRef = useRef<HTMLDivElement | null>(null);
+  // Intensidad responsive
+  const maxShift = useBreakpointValue(
+    { base: mobileMaxShift, md: desktopMaxShift },
+    { fallback: "md" }
+  ) as number;
+
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [y, setY] = useState(0);
 
   useEffect(() => {
-    if (prefersReduced) return; // respeta reduce-motion
+    if (prefersReduced) return;
 
-    const handleScroll = () => {
-      const el = rightRef.current;
+    let raf = 0;
+    const update = () => {
+      const el = sectionRef.current;
       if (!el) return;
-      const rect = el.getBoundingClientRect();
-      // Desfase proporcional al scroll, más sutil que 1:1
-      // translateY negativo cuando vamos bajando:
-      const offset = -rect.top * parallaxStrength;
-      setY(offset);
+
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight || 1;
+
+      // progreso 0..1 desde que empieza a entrar hasta que sale
+      const total = r.height + vh;
+      const progress = Math.min(1, Math.max(0, (vh - r.top) / total));
+
+      // -maxShift .. +maxShift (para que en móvil baje/ suba sin “jalar” bordes)
+      const translate = (progress - 0.5) * 2 * maxShift;
+
+      setY(translate);
     };
 
-    handleScroll(); // inicial
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleScroll);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleScroll);
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(update);
     };
-  }, [parallaxStrength, prefersReduced]);
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [maxShift, prefersReduced]);
+
+  // “Sangre” vertical para que el translate nunca descubra fondo.
+  // Usamos top/bottom negativos en vez de height arbitraria.
+  const bleed = Math.max(30, Math.round(maxShift * 1.2)); // px extra arriba/abajo
 
   return (
-    // Full-bleed: sin contenedor ni padding
-    <Box as="section" w="100%" bg="white" _dark={{ bg: "gray.900" }}>
-      <Grid
-        templateColumns={{ base: "1fr", md: "1.05fr 1fr" }}
-        gap={0}                 // ❌ sin espacios
-        alignItems="stretch"
+    <Box as="section" w="100%" ref={sectionRef} bg="white" _dark={{ bg: "gray.900" }}>
+      <Grid templateColumns={{ base: "1fr", md: "1.05fr 1fr" }} gap={0} alignItems="stretch">
+        {/* IZQUIERDA */}
+        <GridItem
+  bg={leftBg}
+  color="white"
+  px={{ base: 6, md: 10 }}
+  py={{ base: 8, md: 12 }}
+>
+  <Center textAlign="center">
+    <Box>
+      <Heading
+        as="h2" // semántico; si quieres conservar "p", cámbialo
+        fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+        fontWeight="500"
+        fontSize={{ base: "2.4rem", md: "3.6rem" }} // un pelín más grande para “hero copy”
+        lineHeight="1.08"
+        letterSpacing="-0.015em"
+        mb={{ base: 3, md: 4 }}
+        textShadow="0 1px 10px rgba(0,0,0,.22)"
       >
-        {/* COLUMNA IZQUIERDA */}
-        <GridItem
-          bg={leftBg}
-          color="white"
-          px={{ base: 6, md: 10 }}     // padding interno (solo del bloque)
-          py={{ base: 8, md: 12 }}
-        >
-        
-<Center>
-          <Heading
-            as="p"
-            fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-            fontWeight="400"
-            fontSize={{ base: "2.25rem", md: "5rem" }}
-            lineHeight="1.1"
-            mb={{ base: 6, md: 8 }}
-            letterSpacing="-0.01em"
-          >
-            {title}
-          </Heading>
-          </Center>
-          <Stack spacing={{ base: 3, md: 4 }} maxW="42ch" mx="auto">
-            {paragraphs.map((p, i) => (
-              <Text
-                key={i}
-                fontSize={{ base: "md", md: "lg" }}
-                lineHeight={{ base: 1.8, md: 1.85 }}
-                opacity={0.98}
-                textAlign="center"
-              >
-                {p}
-              </Text>
-            ))}
-          </Stack>
-        </GridItem>
+        {title}
+      </Heading>
 
-        {/* COLUMNA DERECHA (PARALLAX) */}
-        <GridItem
-          ref={rightRef}
-          position="relative"
-          minH={{ base: "58vw", md: "80vh" }} // alto generoso y sin bordes
-          overflow="hidden"
-        >
-          {/* Capa de imagen: hacemos la imagen un poco más alta para que el translate no descubra bordes */}
-          <Box
-            position="absolute"
-            inset={0}
-            overflow="hidden"
-          >
+      {/* Línea/acento centrada debajo del título */}
+      <Box
+        aria-hidden
+        mx="auto"
+        w={{ base: "64px", md: "88px" }}
+        h="3px"
+        bg="green.300"
+        rounded="full"
+        mb={{ base: 5, md: 7 }}
+      />
+    </Box>
+  </Center>
+
+  <Stack
+    spacing={{ base: 4, md: 5 }}
+    maxW="62ch"               // ancho de lectura ideal
+    mx="auto"
+  >
+    {paragraphs.map((p, i) => (
+      <Text
+        key={i}
+        fontSize={{ base: i === 0 ? "lg" : "md", md: i === 0 ? "xl" : "lg" }} // “lead” en el primero
+        lineHeight={{ base: 1.85, md: 1.9 }}
+        color={i === 0 ? "whiteAlpha.950" : "whiteAlpha.900"}                  // más contraste en el primero
+        letterSpacing=".005em"
+        sx={{
+          textWrap: "balance",   // cortes de línea más agradables (soporte variable)
+          hyphens: "auto",
+        }}
+        textAlign="center"
+      >
+        {p}
+      </Text>
+    ))}
+  </Stack>
+</GridItem>
+
+        {/* DERECHA: Imagen con parallax */}
+        <GridItem position="relative" minH={{ base: "60vw", md: "80vh" }} overflow="hidden">
+          {/* Capa con “sangre”: top/bottom negativos para cubrir cuando se traslada */}
+          <Box position="absolute" left={0} right={0} top={`-${bleed}px`} bottom={`-${bleed}px`} overflow="hidden">
             <ChakraImage
+              ref={imgRef}
               src={imageSrc}
               alt={imageAlt}
               w="100%"
-              h="120%"                // ↑ más alta para que “sobre”
+              h="100%"
               objectFit="cover"
-              transform={!prefersReduced ? `translateY(${y}px)` : undefined}
+              transform={
+                prefersReduced ? undefined : `translate3d(0, ${y}px, 0) scale(1.06)`
+              }
               transition="transform 40ms linear"
               willChange="transform"
+              draggable={false}
             />
           </Box>
 
-          {/* Logo centrado al medio */}
+          {/* Logo centrado */}
           {logoSrc && (
-            <Box
-              position="absolute"
-              inset={0}
-              display="grid"
-              placeItems="center"
-              pointerEvents="none"
-            >
+            <Box position="absolute" inset={0} display="grid" placeItems="center" pointerEvents="none">
               <ChakraImage
                 src={logoSrc}
                 alt={logoAlt}

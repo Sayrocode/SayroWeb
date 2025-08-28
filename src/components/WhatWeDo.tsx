@@ -183,35 +183,77 @@ export default function WhatWeDoFullBleed({
               borderRadius="full"
             />
 
-            <Stack spacing={2}>
-              <Heading
-                as="h2"
-                fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-                fontWeight="400"
-                fontSize={{ base: "2xl", md: "3xl" }}
-                letterSpacing="-0.01em"
-              >
-                {leftTitle}
-              </Heading>
-              <Text fontSize={{ base: "md", md: "md" }} lineHeight={1.8} opacity={0.98}>
-                {leftBodyTop}
-              </Text>
-            </Stack>
+<Stack
+  spacing={{ base: 4, md: 5 }}
+  align={{ base: "center", md: "start" }}
+  textAlign={{ base: "center", md: "left" }}
+>
+  {/* barra acento */}
+ 
 
-            <Stack spacing={2}>
-              <Heading
-                as="h3"
-                fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-                fontWeight="400"
-                fontSize={{ base: "2xl", md: "3xl" }}
-                letterSpacing="-0.01em"
-              >
-                {rightTitle}
-              </Heading>
-              <Text fontSize={{ base: "md", md: "md" }} lineHeight={1.8} opacity={0.98}>
-                {rightBody}
-              </Text>
-            </Stack>
+  <Heading
+    as="h2"
+    fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+    fontWeight="500"
+    fontSize={{ base: "2xl", md: "3xl", lg: "3.5xl" }}
+    letterSpacing="-0.015em"
+    lineHeight={1.15}
+    textShadow="0 1px 10px rgba(0,0,0,.22)"
+  >
+    {leftTitle}
+  </Heading>
+  <Box
+    w={{ base: "56px", md: "72px" }}
+    h="2px"
+    bg="green.300"
+    rounded="full"
+  />
+  <Text
+    fontSize={{ base: "lg", md: "lg" }}
+    lineHeight={1.85}
+    color="whiteAlpha.900"            // contraste real en fondo oscuro
+    maxW="62ch"                       // ancho de lectura ideal
+    sx={{ textWrap: "balance" }}      // mejor “rag” en títulos/primeras líneas
+  >
+    {leftBodyTop}
+  </Text>
+</Stack>
+
+{/* Bloque DERECHO mejorado */}
+<Stack
+  spacing={{ base: 4, md: 5 }}
+  align={{ base: "center", md: "start" }}
+  textAlign={{ base: "center", md: "left" }}
+>
+  
+
+  <Heading
+    as="h3"
+    fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+    fontWeight="500"
+    fontSize={{ base: "2xl", md: "3xl", lg: "3.5xl" }}
+    letterSpacing="-0.015em"
+    lineHeight={1.15}
+    textShadow="0 1px 10px rgba(0,0,0,.22)"
+  >
+    {rightTitle}
+  </Heading>
+  <Box
+    w={{ base: "56px", md: "72px" }}
+    h="2px"
+    bg="green.300"
+    rounded="full"
+  />
+  <Text
+    fontSize={{ base: "lg", md: "lg" }}
+    lineHeight={1.85}
+    color="whiteAlpha.900"
+    maxW="62ch"
+    sx={{ textWrap: "balance" }}
+  >
+    {rightBody}
+  </Text>
+</Stack>
 
             <Button
               as={NextLink}

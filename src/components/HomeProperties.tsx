@@ -16,6 +16,7 @@ import {
   Skeleton,
   SkeletonText,
   useColorModeValue,
+  Stack,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { useEffect, useMemo, useRef, useState, ReactNode } from "react";
@@ -251,21 +252,39 @@ export default function HomeFeaturedCarousel() {
   return (
     <Box as="section" py={{ base: 12, md: 16 }} bg={bg} color={fg} position="relative">
       <Container maxW="7xl" px={{ base: 4, md: 6 }} position="relative">
-        <Heading
-          as="h2"
-          textAlign="center"
-          mb={2}
-          letterSpacing="-0.02em"
-          fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-          fontWeight="400"
-          fontSize={{ base: "2.2rem", md: "3rem" }}
-          lineHeight="1.1"
-        >
-          Propiedades destacadas
-        </Heading>
-        <Text textAlign="center" color={subtitle} mb={8}>
-          Selección curada y actualizada. Encuentra tu próximo hogar o inversión.
-        </Text>
+      <Stack
+  spacing={{ base: 4, md: 3 }}
+  align="center"
+  textAlign="center"
+  maxW="72ch"
+  mx="auto"
+>
+  <Heading
+    as="h2"
+    fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+    fontWeight="500"
+    letterSpacing="-0.015em"
+    fontSize={{ base: "2.4rem", md: "3.2rem" }}
+    lineHeight={1.08}
+    color="white"
+    textShadow="0 1px 10px rgba(0,0,0,.25)"
+  >
+    Propiedades destacadas
+  </Heading>
+
+  {/* Línea/acento debajo del título */}
+  <Box
+    aria-hidden
+    w={{ base: "80px", md: "200px" }}
+    h="3px"
+    bg="green.300"
+    rounded="full"
+    mb={{ base: 0, md: 10 }}
+  />
+
+ 
+</Stack>
+
 
         {loading ? (
           <SkeletonRow />
