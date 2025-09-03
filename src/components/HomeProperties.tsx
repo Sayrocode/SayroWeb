@@ -84,8 +84,8 @@ function FeaturedCard({ p }: { p: EBListItem }) {
   const price = priceLabel(p.operations);
   const loc = (getLocationText(p.location) || "México").toUpperCase();
 
-  const cardBg = useColorModeValue("white", "gray.800");
-  const priceBg = useColorModeValue("green.700", "green.600");
+  const cardBg = "transparent";
+  const priceBg = "blackAlpha.700";
 
   return (
     <Box
@@ -93,18 +93,18 @@ function FeaturedCard({ p }: { p: EBListItem }) {
       href={`/propiedades/${encodeURIComponent(p.public_id)}`}
       aria-label={p.title || `Propiedad ${p.public_id}`}
       role="article"
-      rounded="2xl"
+      rounded="none"
       overflow="hidden"
       bg={cardBg}
-      _hover={{ textDecoration: "none", transform: "translateY(-4px)", boxShadow: "xl" }}
-      transition="transform .25s ease, box-shadow .25s ease"
+      _hover={{ textDecoration: "none", transform: "translateY(-3px)" }}
+      transition="transform .25s ease"
       display="flex"
       flexDirection="column"
     >
       {/* Imagen prominente 4:3 + gradiente */}
       <Box position="relative">
       <Box position="relative" lineHeight={0}>
-      <AspectRatio ratio={6 / 5} overflow="hidden">
+      <AspectRatio ratio={4 / 3} overflow="hidden">
     <ChakraImage
       src={img}
       alt={p.title || `Propiedad ${p.public_id}`}
@@ -120,12 +120,9 @@ function FeaturedCard({ p }: { p: EBListItem }) {
     />
   </AspectRatio>
 
-  {/* overlay y ribbon se quedan igual */}
+  {/* overlay para dar contraste al precio */}
   <Box pointerEvents="none" position="absolute" inset={0}
        bgGradient="linear(to-b, rgba(0,0,0,0) 55%, rgba(0,0,0,.35))" />
-  <Box position="absolute" bottom={2} right={2} /* ... */>
-    {price}
-  </Box>
 </Box>
 
         <Box pointerEvents="none" position="absolute" inset={0} bgGradient="linear(to-b, rgba(0,0,0,0) 55%, rgba(0,0,0,.35))" />
@@ -138,8 +135,8 @@ function FeaturedCard({ p }: { p: EBListItem }) {
           py={1.5}
           bg={priceBg}
           color="white"
-          rounded="md"
-          fontWeight="black"
+          rounded="sm"
+          fontWeight="bold"
           fontSize="sm"
           letterSpacing="wide"
           textTransform="uppercase"
@@ -150,26 +147,20 @@ function FeaturedCard({ p }: { p: EBListItem }) {
       </Box>
 
       {/* Texto */}
-      <Box px={4} pt={3} pb={4} color={useColorModeValue("gray.800", "whiteAlpha.900")}>
+      <Box px={2} pt={3} pb={4} color="whiteAlpha.900">
         <Heading
           as="h3"
           fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
           fontWeight="400"
-          fontSize="lg"
+          fontSize="md"
           lineHeight="1.15"
           noOfLines={2}
         >
           {(p.title || `Propiedad ${p.public_id}`).toUpperCase()}
         </Heading>
+        {/* Ocultamos la fila de ubicación para igualar el mock */}
 
-        <HStack mt={2} spacing={2} color={useColorModeValue("gray.600", "gray.300")} fontSize="sm">
-          <FiMapPin />
-          <Text noOfLines={1} letterSpacing="wider">
-            {loc}
-          </Text>
-        </HStack>
-
-        <HStack mt={3} spacing={6} fontSize="sm" color={useColorModeValue("gray.700", "gray.300")}>
+        <HStack mt={3} spacing={6} fontSize="sm" color="whiteAlpha.900">
           {typeof p.bedrooms === "number" && (
             <HStack spacing={1}>
               <FiHome />
@@ -329,9 +320,11 @@ export default function HomeFeaturedCarousel() {
                 zIndex={3}
                 rounded="full"
                 size="lg"
-                bg="white"
-                color="#0E3B30"
-                _hover={{ bg: "white" }}
+                bg="transparent"
+                color="white"
+                borderWidth="1px"
+                borderColor="whiteAlpha.600"
+                _hover={{ bg: "whiteAlpha.200" }}
               />
               <IconButton
                 aria-label="Siguiente"
@@ -345,9 +338,11 @@ export default function HomeFeaturedCarousel() {
                 zIndex={3}
                 rounded="full"
                 size="lg"
-                bg="white"
-                color="#0E3B30"
-                _hover={{ bg: "white" }}
+                bg="transparent"
+                color="white"
+                borderWidth="1px"
+                borderColor="whiteAlpha.600"
+                _hover={{ bg: "whiteAlpha.200" }}
               />
             </ArrowsOverlay>
 
@@ -394,9 +389,9 @@ function CarouselFrame({ children }: { children: ReactNode }) {
 }
 
 function CarouselViewport({ children }: { children: ReactNode }) {
-  // Viewport interno con overflow hidden y borde redondeado
+  // Viewport interno con overflow hidden (sin borde redondeado)
   return (
-    <Box overflow="hidden" rounded="2xl" position="relative">
+    <Box overflow="hidden" rounded="none" position="relative">
       {children}
     </Box>
   );
