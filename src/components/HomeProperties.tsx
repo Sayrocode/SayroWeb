@@ -49,7 +49,7 @@ function getLocationText(loc: unknown): string {
   return [o.name, o.neighborhood, o.municipality || o.delegation, o.city, o.state, o.country].filter(Boolean).join(", ");
 }
 function firstImage(p: EBListItem) {
-  return p.title_image_full || p.title_image_thumb || (Array.isArray(p.property_images) && p.property_images[0]?.url) || "/house.jpg";
+  return p.title_image_full || p.title_image_thumb || (Array.isArray(p.property_images) && p.property_images[0]?.url) || "/image3.jpg";
 }
 function priceLabel(ops?: EBOperation[]) {
   if (!ops?.length) return "PRECIO A CONSULTAR";
@@ -229,7 +229,7 @@ export default function HomeFeaturedCarousel() {
   const canPrev = page > 0;
   const canNext = page < pageCount - 1;
 
-  const bg = useColorModeValue("#0E3B30", "#0E3B30");
+  const bg = useColorModeValue("#013927", "#013927");
   const fg = useColorModeValue("white", "white");
   const subtitle = useColorModeValue("whiteAlpha.800", "whiteAlpha.800");
 

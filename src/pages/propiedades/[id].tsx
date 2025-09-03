@@ -113,7 +113,7 @@ function pickPrice(ops?: EBOperation[]) {
 }
 
 function firstImage(p: EBListItem) {
-  return p.title_image_full || p.title_image_thumb || "/house.jpg";
+  return p.title_image_full || p.title_image_thumb || "/image3.jpg";
 }
 
 /** Heurística simple para “propiedad única” */
@@ -182,7 +182,7 @@ const gallery = useMemo(() => {
     property.title_image_full ||
     property.title_image_thumb ||
     (Array.isArray(property.property_images) && property.property_images[0]?.url) ||
-    "/house.jpg";
+    "/image3.jpg";
 
   // construimos thumbs únicos y sin duplicar el cover
   const thumbs = Array.isArray(property.property_images)
@@ -299,7 +299,7 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                 src={coverSrc}
                 alt={property.title || `Propiedad ${property.public_id}`}
                 objectFit="cover"
-                fallbackSrc="/house.jpg"
+                fallbackSrc="/image3.jpg"
                 onError={() => setCoverSrc("/house.jpg")}
                 referrerPolicy="no-referrer"
                 rounded="lg"
@@ -314,8 +314,8 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                       src={u}
                       alt={`${property.title || "Propiedad"} - ${i + 1}`}
                       objectFit="cover"
-                      fallbackSrc="/house.jpg"
-                      onError={(e: any) => (e.currentTarget.src = "/house.jpg")}
+                      fallbackSrc="/image3.jpg"
+                      onError={(e: any) => (e.currentTarget.src = "/image3.jpg")}
                       referrerPolicy="no-referrer"
                       rounded="md"
                       cursor="pointer"

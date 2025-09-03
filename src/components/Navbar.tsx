@@ -20,6 +20,7 @@ import {
 import NextLink from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
 
 const links = [
@@ -27,17 +28,40 @@ const links = [
   { name: "Nosotros", href: "/nosotros" },
   { name: "Servicios", href: "/servicios" },
   { name: "Contacto", href: "/contacto" },
+  // Mantener orden según diseño de referencia
+  { name: "Noticias", href: "/#noticias" },
 ];
 
 export default function Navbar() {
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  const isHome = router.pathname === "/";
+  const [overHero, setOverHero] = useState(true);
+  useEffect(() => {
+    if (!isHome) return;
+    const hero = document.getElementById("hero");
+    if (!hero || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        setOverHero(entries[0]?.isIntersecting ?? false);
+      },
+      { threshold: 0.1 }
+    );
+    io.observe(hero);
+    return () => io.disconnect();
+  }, [isHome]);
+
   const border = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
   const linkColor = useColorModeValue("gray.900", "gray.100");
   const hoverColor = useColorModeValue("gray.700", "white");
   const activeBar = useColorModeValue("green.600", "green.400");
-  const bg = useColorModeValue("white", "gray.900");
+  const bg = isHome ? "transparent" : useColorModeValue("white", "gray.900");
+  const drawerBg = useColorModeValue("white", "gray.900");
+  const overlayGradient = useColorModeValue(
+    "linear-gradient(to bottom, rgba(255,255,255,0.90), rgba(255,255,255,0.72))",
+    "linear-gradient(to bottom, rgba(17,24,39,0.90), rgba(17,24,39,0.72))"
+  );
 
   const isActive = (href: string) =>
     href === "/" ? router.pathname === "/" : router.pathname.startsWith(href);
@@ -66,19 +90,36 @@ export default function Navbar() {
       <Box
         as="nav"
         bg={bg}
-        boxShadow="sm"
-        borderBottom="1px solid"
-        borderColor={border}
-        position="sticky"
+        backdropFilter={isHome && !overHero ? "saturate(180%) blur(10px)" : undefined}
+        boxShadow={isHome ? (overHero ? "none" : "sm") : "sm"}
+        borderBottom={isHome ? (overHero ? undefined : "1px solid") : "1px solid"}
+        borderColor={isHome ? (overHero ? undefined : border) : border}
+        transition="box-shadow .35s ease, border-color .35s ease, backdrop-filter .35s ease, transform .3s ease"
+        position="fixed"
         top={0}
+        left={0}
+        right={0}
         zIndex={1000}
         role="navigation"
         aria-label="Navegación principal"
       >
-        <Container maxW="6xl" px={{ base: 4, md: 6 }}>
+        {/* Fondo degradado animado (debajo del contenido) */}
+        <Box
+          position="absolute"
+          inset={0}
+          bgGradient={overlayGradient}
+          opacity={isHome && !overHero ? 1 : 0}
+          transition="opacity .35s ease"
+          pointerEvents="none"
+          zIndex={0}
+        />
+        <Container maxW="7xl" px={{ base: 4, md: 6 }} position="relative" zIndex={1}>
           <Flex h={{ base: 14, md: 16 }} align="center" justify="space-between">
-            {/* Desktop: links */}
-            <HStack spacing={{ base: 4, md: 6 }} display={{ base: "none", md: "flex" }}>
+            {/* Desktop: links (izquierda) */}
+            <HStack
+              spacing={{ base: 4, md: 6 }}
+              display={{ base: "none", md: "flex" }}
+            >
               {links.map((link) => (
                 <NavItem
                   key={link.href}
@@ -93,27 +134,29 @@ export default function Navbar() {
               ))}
             </HStack>
 
-            {/* Logo (siempre visible) */}
-            <ChakraLink as={NextLink} href="/" display="inline-flex" alignItems="center">
-              <Image
-                src="/sayrologo.png" // reemplaza por tu asset
-                width={110}
-                height={30}
-                alt="Sayro Bienes Raíces"
-                priority
-              />
-              <VisuallyHidden>Sayro Bienes Raíces</VisuallyHidden>
-            </ChakraLink>
+            {/* Lado derecho: logo + botón móvil */}
+            <HStack spacing={2} align="center">
+              <ChakraLink as={NextLink} href="/" display="inline-flex" alignItems="center">
+                <Image
+                  src="/sayrologo.png"
+                  width={110}
+                  height={30}
+                  alt="Sayro Bienes Raíces"
+                  priority
+                />
+                <VisuallyHidden>Sayro Bienes Raíces</VisuallyHidden>
+              </ChakraLink>
 
-            {/* Mobile: botón menú */}
-            <IconButton
-              aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
-              icon={isOpen ? <FiX /> : <FiMenu />}
-              variant="ghost"
-              display={{ base: "inline-flex", md: "none" }}
-              onClick={onOpen}
-              fontSize="xl"
-            />
+              {/* Mobile: botón menú */}
+              <IconButton
+                aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+                icon={isOpen ? <FiX /> : <FiMenu />}
+                variant="ghost"
+                display={{ base: "inline-flex", md: "none" }}
+                onClick={onOpen}
+                fontSize="xl"
+              />
+            </HStack>
           </Flex>
         </Container>
       </Box>
@@ -121,7 +164,7 @@ export default function Navbar() {
       {/* Drawer de navegación móvil */}
       <Drawer isOpen={isOpen} onClose={onClose} placement="top" size="full">
         <DrawerOverlay />
-        <DrawerContent bg={bg}>
+        <DrawerContent bg={drawerBg}>
           <DrawerHeader
             display="flex"
             alignItems="center"
@@ -183,7 +226,9 @@ function NavItem({
       as={NextLink}
       href={href}
       position="relative"
-      fontWeight="semibold"
+      fontWeight="bold"
+      fontSize="md"
+      letterSpacing="wide"
       color={color}
       _hover={{ color: hoverColor, textDecoration: "none" }}
       _focusVisible={{ boxShadow: "0 0 0 2px rgba(0,0,0,0.2)", outline: "none" }}

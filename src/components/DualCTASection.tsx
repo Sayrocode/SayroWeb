@@ -27,14 +27,10 @@ type CardProps = {
   imgSrc: string;
   imgAlt?: string;
   subtitle?: string;
-  /** Intensidad (0.1 – 0.6 aprox) */
-  strength: number;
-  /** Amplitud base por breakpoint */
-  amplitude: number;
-  /** Dirección: -1 sube, +1 baja */
-  dir: number;
-  /** Respeta preferencias del usuario */
-  prefersReduced: boolean;
+  strength: number; // no usado (parallax desactivado)
+  amplitude: number; // no usado
+  dir: number; // no usado
+  prefersReduced: boolean; // no usado
 };
 
 function useCardParallax(
@@ -62,12 +58,18 @@ function useCardParallax(
     const update = () => {
       const r = el.getBoundingClientRect();
       const vh = window.innerHeight || 1;
+      // Normaliza [-1, 1] con respecto al centro de la pantalla
       const centerDelta = r.top + r.height / 2 - vh / 2;
-      const progress = centerDelta / vh; // ~ -1..1
-      const offset = progress * amplitude * (strength * 3.5) * dir;
+      const norm = Math.max(-1, Math.min(1, centerDelta / (vh / 2)));
+      // Movimiento reducido + zoom sutil. Mantener offset pequeño para evitar bordes.
+      const sFactor = Math.max(0.12, Math.min(0.2, Math.abs(norm) * 0.12)); // 1.12..1.2 como máximo
+      const scale = 1.1 + sFactor * 0.2; // ligeramente reactivo (1.1 - 1.124 aprox)
+      const reducedAmp = Math.min(18, Math.max(6, amplitude));
+      const reducedStrength = Math.max(0.1, Math.min(0.35, strength));
+      const offset = norm * reducedAmp * reducedStrength * dir;
 
-      img.style.setProperty("--y", `${offset}px`);
-      img.style.setProperty("--s", "1.06");
+      img.style.setProperty("--y", `${offset.toFixed(2)}px`);
+      img.style.setProperty("--s", `${scale.toFixed(3)}`);
       raf = 0;
     };
 
@@ -108,7 +110,7 @@ function ClickCard({
   const ring = useColorModeValue("white", "whiteAlpha.700");
   const cardRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
-
+  // Parallax sutil
   useCardParallax(cardRef, imgRef, { strength, amplitude, dir, prefersReduced });
 
   return (
@@ -119,12 +121,13 @@ function ClickCard({
       role="group"
       aria-label={title}
       position="relative"
-      rounded="xl"
+      rounded="none"
       overflow="hidden"
       outline="0"
+      borderWidth="1px"
+      borderColor={useColorModeValue("blackAlpha.300", "whiteAlpha.400")}
       _focusVisible={{ boxShadow: `0 0 0 4px ${ring}` }}
-      _hover={{ transform: "translateY(-2px)" }}
-      transition="transform 160ms ease, box-shadow 160ms ease"
+      transition="box-shadow 160ms ease"
     >
       <AspectRatio ratio={{ base: 1, sm: 4 / 3 }}>
         <ChakraImage
@@ -134,43 +137,38 @@ function ClickCard({
           objectFit="cover"
           loading="lazy"
           referrerPolicy="no-referrer"
-          style={{ transform: "translate3d(0, var(--y, 0px), 0) scale(var(--s, 1.06))" }}
+          style={{ transform: "translate3d(0, var(--y, 0px), 0) scale(var(--s, 1.10))" }}
           transition="transform 60ms linear"
           willChange="transform"
           draggable={false}
         />
       </AspectRatio>
 
-      {/* Overlay */}
+      {/* Overlay claro, más transparente */}
       <Box
         pointerEvents="none"
         position="absolute"
         inset={0}
-        bg="blackAlpha.450"
-        transition="background .18s ease, backdrop-filter .18s ease"
-        _groupHover={{ bg: "blackAlpha.600", backdropFilter: "saturate(130%) blur(1px)" }}
+        bg="whiteAlpha.400"
+        transition="background .18s ease"
+        _groupHover={{ bg: "whiteAlpha.300" }}
       />
 
-      {/* Texto */}
+      {/* Texto central negro */}
       <Box pointerEvents="none" position="absolute" inset={0} display="grid" placeItems="center" textAlign="center" px={4}>
         <Box>
           <Heading
             as="h3"
             fontSize={{ base: "2xl", md: "3xl" }}
-            color="blackAlpha.800"
+            color="black"
             letterSpacing="widest"
             textTransform="uppercase"
-            fontWeight="black"
+            fontWeight="bold"
             lineHeight="1.1"
-            textShadow="0 2px 16px rgba(0,0,0,.35)"
           >
             {title}
           </Heading>
-          {subtitle && (
-            <Text mt={2} color="blackAlpha.800" fontSize={{ base: "sm", md: "md" }}>
-              {subtitle}
-            </Text>
-          )}
+          {/* En el diseño no hay subtítulo visible */}
         </Box>
       </Box>
     </Box>
@@ -191,7 +189,7 @@ export default function DualCTASection({
   acquireHref = "/#adquiere",
   advertiseImage = "/anuncia.png",
   acquireImage = "/adquiere.png",
-  parallaxStrength = 0.28,
+  parallaxStrength = 0.24,
   fullBleed = false,
 }: DualCTASectionProps) {
   const bg = useColorModeValue("#FBF6E9", "gray.900"); // crema
@@ -199,7 +197,7 @@ export default function DualCTASection({
   const prefersReduced = usePrefersReducedMotion();
 
   // Amplitud por breakpoint (más sutil en móvil)
-  const amplitude = useBreakpointValue({ base: 14, md: 24, lg: 36 }) ?? 20;
+  const amplitude = useBreakpointValue({ base: 10, md: 14, lg: 18 }) ?? 12;
 
   // Dirección coherente:
   // mobile: ambas +1 (apiladas se mueven igual)
@@ -221,48 +219,37 @@ export default function DualCTASection({
   return (
     <Box as="section" bg={bg} py={{ base: 10, md: 14 }} px={fullBleed ? 0 : undefined}>
       <Container maxW="7xl" px={fullBleed ? 0 : { base: 4, md: 6 }}>
-      <Stack align="center" spacing={4} mb={{ base: 8, md: 10 }}>
-  <Heading
-    as="p"
-    textAlign="center"
-    fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-    fontWeight="400"
-    fontSize={{ base: "2xl", md: "3xl", lg: "4xl" }}
-    letterSpacing="-0.005em"
-    lineHeight={1.15}
-    textTransform="none"
-    bgGradient="linear(to-r, green.700, green.400)"
-    bgClip="text"
-  >
-   ANUNCIANTES Y ADQUIRIENTES
-  </Heading>
-
-  <Box
-    w="full"
-    maxW="520px"
-    h="1px"
-    bgGradient="linear(to-r, transparent, blackAlpha.200, transparent)"
-  />
-</Stack>
+      <Stack align="center" spacing={2} mb={{ base: 8, md: 10 }}>
+        <Heading
+          as="h2"
+          textAlign="center"
+          fontWeight="600"
+          fontSize={{ base: "xl", md: "2xl" }}
+          color={titleColor}
+          letterSpacing="wide"
+        >
+          ANUNCIANTES Y ADQUIRIENTES
+        </Heading>
+      </Stack>
 
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={{ base: 4, md: 8 }}>
           <ClickCard
-            title="Anuncia"
+            title="ANUNCIA"
             href={advertiseHref}
             imgSrc={advertiseImage}
             imgAlt="Anuncia tu propiedad"
-            subtitle="Publica con nosotros y llega a más compradores"
+            subtitle={undefined}
             strength={parallaxStrength}
             amplitude={amplitude}
             dir={leftDir}
             prefersReduced={prefersReduced}
           />
           <ClickCard
-            title="Adquiere"
+            title="ADQUIERE"
             href={acquireHref}
             imgSrc={acquireImage}
             imgAlt="Encuentra tu próxima propiedad"
-            subtitle="Explora inmuebles seleccionados para ti"
+            subtitle={undefined}
             strength={parallaxStrength}
             amplitude={amplitude}
             dir={rightDir}

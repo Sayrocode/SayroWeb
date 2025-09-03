@@ -1,4 +1,4 @@
-// components/WhatWeDoFullBleed.tsx
+// components/WhatWeDo.tsx
 import NextLink from "next/link";
 import {
   Box,
@@ -11,7 +11,6 @@ import {
   HStack,
   IconButton,
   VisuallyHidden,
-  useColorModeValue,
   usePrefersReducedMotion,
   useBreakpointValue,
   Image as ChakraImage,
@@ -36,12 +35,14 @@ type WhatWeDoProps = {
   brandName?: string; // para JSON-LD
 };
 
-export default function WhatWeDoFullBleed({
+export default function WhatWeDo({
   id = "que-hacemos",
   leftTitle = "¿Qué hacemos?",
-  leftBodyTop = "Brindamos asesoría profesional y personalizada a particulares y empresas interesadas en comprar, vender o rentar inmuebles en Querétaro.",
+  leftBodyTop =
+    "Brindamos asesoría profesional y personalizada a particulares y empresas interesadas en comprar, vender o rentar inmuebles en Querétaro.",
   rightTitle = "¿Cómo lo hacemos?",
-  rightBody = "Ofrecemos un servicio integral que proporciona seguridad, confianza y acompañamiento en cada etapa del proceso inmobiliario, ya sea en la compra, venta o renta de su propiedad. Contamos con uno de los inventarios más amplios de inmuebles en Querétaro. Y si no tenemos lo que busca, lo encontramos por usted.",
+  rightBody =
+    "Ofrecemos un servicio integral que proporciona seguridad, confianza y acompañamiento en cada etapa del proceso inmobiliario, ya sea en la compra, venta o renta de su propiedad. Nuestro valor agregado: contamos con uno de los inventarios más amplios de inmuebles en Querétaro. Y si no tenemos lo que busca, lo encontramos por usted.",
   ctaHref = "/contacto",
   ctaText = "Contáctanos",
   imageSrc,
@@ -51,13 +52,13 @@ export default function WhatWeDoFullBleed({
   facebookUrl = "https://www.facebook.com/",
   brandName = "Sayro Bienes Raíces",
 }: WhatWeDoProps) {
-  const green = useColorModeValue("#0E3B30", "#0E3B30");
+  const green = "#013927";
   const prefersReduced = usePrefersReducedMotion();
   const amplitude = useBreakpointValue({ base: 18, md: 32, lg: 48 }) || 24;
   const imgRef = useRef<HTMLImageElement | null>(null);
   const sectionRef = useRef<HTMLDivElement | null>(null);
 
-  /** Parallax SUAVE y responsive (usa rAF + amplitud por breakpoint) */
+  // Parallax suave para la imagen (solo si el usuario no lo desactiva)
   useEffect(() => {
     if (prefersReduced) return;
     const section = sectionRef.current;
@@ -73,7 +74,6 @@ export default function WhatWeDoFullBleed({
       const vh = window.innerHeight || 1;
       const progress = Math.min(1, Math.max(0, (vh - r.top) / (vh + r.height)));
       const translate = FROM + progress * (TO - FROM);
-      // Variables CSS para evitar layout thrash
       img.style.setProperty("--y", `${translate}px`);
       img.style.setProperty("--s", "1.08");
       raf = 0;
@@ -101,7 +101,7 @@ export default function WhatWeDoFullBleed({
     };
   }, [prefersReduced, amplitude]);
 
-  /** JSON-LD para SEO */
+  // JSON-LD para SEO
   const jsonLd = useMemo(
     () =>
       ({
@@ -116,18 +116,120 @@ export default function WhatWeDoFullBleed({
   return (
     <Box as="section" id={id} ref={sectionRef} w="auto" position="relative">
       <Grid
-        templateColumns={{ base: "1fr", md: "1fr 1fr" }}
+        templateColumns={{ base: "1fr", md: "1.5fr 1fr", lg: "1.5fr 1fr" }}
         gap={0}
-        // En móvil dejamos que crezca natural; en desktop pedimos altura generosa
         minH={{ base: "auto", md: "80vh" }}
       >
-        {/* IMAGEN full-bleed con parallax */}
+        {/* Contenido a la izquierda (verde) */}
         <GridItem
-          position="relative"
-          overflow="hidden"
-          // altura agradable en móvil con clamp
-          h={{ base: "clamp(260px, 50vh, 420px)", md: "auto" }}
+          bg={green}
+          color="white"
+          display="flex"
+          flexDir="column"
+          justifyContent="center"
+          px={{ base: 6, md: 10, lg: 14 }}
+          py={{ base: 10, md: 14 }}
         >
+          <Stack spacing={{ base: 8, md: 10 }} align="center" textAlign="left" mx="auto" w="full">
+            {/* Disposición “entrelazada”: cada bloque en su propia fila y alineado a lados opuestos */}
+            <Box
+              w="full"
+              display={{ base: "block", md: "grid" }}
+              gridTemplateColumns={{ md: "repeat(12, 1fr)" }}
+              rowGap={{ base: 8, md: 8 }}
+              columnGap={{ md: 8 }}
+            >
+              {/* Bloque izquierdo - Fila 1, alineado a la izquierda */}
+              <Box
+                gridColumn={{ md: "2 / span 7", lg: "2 / span 8" }}
+                gridRow={{ md: 1 }}
+                textAlign={{ base: "left", md: "left" }}
+                mb={{ base: 8, md: 0 }}
+              >
+                <Heading
+                  as="h2"
+                  fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+                  fontWeight="600"
+                  fontStyle="italic"
+                  fontSize={{ base: "lg", md: "xl" }}
+                  letterSpacing="-0.01em"
+                  lineHeight={1.25}
+                >
+                  {leftTitle}
+                </Heading>
+                <Text mt={2} fontSize={{ base: "sm", md: "md" }} lineHeight={1.9} color="whiteAlpha.900">
+                  {leftBodyTop}
+                </Text>
+              </Box>
+
+              {/* Bloque derecho - Fila 2, alineado a la derecha */}
+              <Box
+                gridColumn={{ md: "4 / -2", lg: "3 / -2" }}
+                gridRow={{ md: 2 }}
+                textAlign={{ base: "left", md: "right" }}
+                w="full"
+              >
+                <Heading
+                  as="h3"
+                  fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+                  fontWeight="600"
+                  fontStyle="italic"
+                  fontSize={{ base: "lg", md: "xl" }}
+                  letterSpacing="-0.01em"
+                  lineHeight={1.25}
+                >
+                  {rightTitle}
+                </Heading>
+                <Text mt={2} fontSize={{ base: "sm", md: "md" }} lineHeight={1.9} color="whiteAlpha.900">
+                  {rightBody}
+                </Text>
+              </Box>
+            </Box>
+
+            <Button
+              as={NextLink}
+              href={ctaHref}
+              variant="outline"
+              color="white"
+              borderColor="white"
+              px={{ base: 6, md: 8 }}
+              rounded="md"
+              _hover={{ bg: "whiteAlpha.200" }}
+              _active={{ bg: "whiteAlpha.300" }}
+              _focusVisible={{ boxShadow: "0 0 0 3px rgba(255,255,255,.55)" }}
+            >
+              {ctaText.toUpperCase()}
+            </Button>
+
+            <HStack spacing={6}>
+              <IconButton
+                as={Link}
+                href={facebookUrl}
+                aria-label="Facebook"
+                icon={<FaFacebookF />}
+                variant="ghost"
+                color="white"
+                fontSize="lg"
+                _hover={{ bg: "whiteAlpha.200" }}
+                isExternal
+              />
+              <IconButton
+                as={Link}
+                href={instagramUrl}
+                aria-label="Instagram"
+                icon={<FaInstagram />}
+                variant="ghost"
+                color="white"
+                fontSize="lg"
+                _hover={{ bg: "whiteAlpha.200" }}
+                isExternal
+              />
+            </HStack>
+          </Stack>
+        </GridItem>
+
+        {/* Imagen a la derecha */}
+        <GridItem position="relative" overflow="hidden" h={{ base: "clamp(260px, 50vh, 420px)", md: "auto" }}>
           <ChakraImage
             ref={imgRef}
             src={imageSrc}
@@ -135,213 +237,13 @@ export default function WhatWeDoFullBleed({
             w="100%"
             h="100%"
             objectFit="cover"
-            objectPosition={{
-              base: "center",
-              md: imageObjectPosition,
-            }}
-            // Usamos variables CSS para el parallax
-            style={{
-              transform:
-                "translate3d(0, var(--y, 0), 0) scale(var(--s, 1.06))",
-            }}
+            objectPosition={{ base: "center", md: imageObjectPosition }}
+            style={{ transform: "translate3d(0, var(--y, 0), 0) scale(var(--s, 1.06))" }}
             transition="transform .2s ease-out"
             willChange="transform"
             draggable={false}
           />
-          <Box
-            position="absolute"
-            inset={0}
-            bgGradient="linear(to-b, transparent, rgba(0,0,0,.22))"
-            pointerEvents="none"
-          />
-        </GridItem>
-
-        {/* CONTENIDO */}
-        <GridItem
-          bg={green}
-          color="white"
-          display="flex"
-          flexDir="column"
-          justifyContent="center"
-          px={{ base: 6, md: 10, lg: 12 }}
-          py={{ base: 10, md: 12 }}
-          position="relative"
-        >
-          <Stack
-            spacing={{ base: 6, md: 7 }}
-            align={{ base: "center", md: "start", lg: "center" }}
-            textAlign={{ base: "center", md: "left", lg: "center" }}
-            maxW={{ base: "unset", md: "56ch" }}
-            mx="auto"
-          >
-            {/* acento superior para impacto en móvil */}
-            <Box
-              display={{ base: "block", md: "none" }}
-              w="56px"
-              h="2px"
-              bg="green.300"
-              borderRadius="full"
-            />
-
-<Stack
-  spacing={{ base: 4, md: 5 }}
-  align={{ base: "center", md: "start" }}
-  textAlign={{ base: "center", md: "left" }}
->
-  {/* barra acento */}
- 
-
-  <Heading
-    as="h2"
-    fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-    fontWeight="500"
-    fontSize={{ base: "2xl", md: "3xl", lg: "3.5xl" }}
-    letterSpacing="-0.015em"
-    lineHeight={1.15}
-    textShadow="0 1px 10px rgba(0,0,0,.22)"
-  >
-    {leftTitle}
-  </Heading>
-  <Box
-    w={{ base: "56px", md: "72px" }}
-    h="2px"
-    bg="green.300"
-    rounded="full"
-  />
-  <Text
-    fontSize={{ base: "lg", md: "lg" }}
-    lineHeight={1.85}
-    color="whiteAlpha.900"            // contraste real en fondo oscuro
-    maxW="62ch"                       // ancho de lectura ideal
-    sx={{ textWrap: "balance" }}      // mejor “rag” en títulos/primeras líneas
-  >
-    {leftBodyTop}
-  </Text>
-</Stack>
-
-{/* Bloque DERECHO mejorado */}
-<Stack
-  spacing={{ base: 4, md: 5 }}
-  align={{ base: "center", md: "start" }}
-  textAlign={{ base: "center", md: "left" }}
->
-  
-
-  <Heading
-    as="h3"
-    fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-    fontWeight="500"
-    fontSize={{ base: "2xl", md: "3xl", lg: "3.5xl" }}
-    letterSpacing="-0.015em"
-    lineHeight={1.15}
-    textShadow="0 1px 10px rgba(0,0,0,.22)"
-  >
-    {rightTitle}
-  </Heading>
-  <Box
-    w={{ base: "56px", md: "72px" }}
-    h="2px"
-    bg="green.300"
-    rounded="full"
-  />
-  <Text
-    fontSize={{ base: "lg", md: "lg" }}
-    lineHeight={1.85}
-    color="whiteAlpha.900"
-    maxW="62ch"
-    sx={{ textWrap: "balance" }}
-  >
-    {rightBody}
-  </Text>
-</Stack>
-
-<Button
-  as={NextLink}
-  href={ctaHref}
-  bg="white"
-  color={green}
-  size="lg"
-  rounded="full"
-  px={{ base: 6, md: 8 }}
-  w={{ base: "full", sm: "auto" }} // CTA ancho completo en móvil
-  _hover={{ bg: "white", transform: "translateY(-2px)", boxShadow: "lg" }}
-  _active={{ transform: "translateY(-1px)" }}
-  _focusVisible={{ boxShadow: "0 0 0 3px rgba(255,255,255,.55)" }}
->
-  {ctaText}
-</Button>
-
-
-            {/* Redes: visibles dentro del flujo en móvil */}
-           {/* Redes: visibles dentro del flujo en móvil */}
-<HStack spacing={3} display={{ base: "flex", md: "none" }}>
-  <IconButton
-    as={Link}
-    href={facebookUrl}
-    aria-label="Facebook"
-    icon={<FaFacebookF />}
-    variant="outline"
-    rounded="full"
-    size="md"
-    borderColor="whiteAlpha.500"
-    color="whiteAlpha.900"
-    _hover={{ bg: "whiteAlpha.200" }}
-    isExternal
-  />
-  <IconButton
-    as={Link}
-    href={instagramUrl}
-    aria-label="Instagram"
-    icon={<FaInstagram />}
-    variant="outline"
-    rounded="full"
-    size="md"
-    borderColor="whiteAlpha.500"
-    color="whiteAlpha.900"
-    _hover={{ bg: "whiteAlpha.200" }}
-    isExternal
-  />
-</HStack>
-
-          </Stack>
-
-          {/* Redes pegadas a la esquina en desktop */}
-        {/* Redes pegadas a la esquina en desktop */}
-<HStack
-  spacing={3}
-  position="absolute"
-  left={{ md: 10, lg: 12 }}
-  bottom={{ md: 8 }}
-  display={{ base: "none", md: "flex" }}
->
-  <IconButton
-    as={Link}
-    href={facebookUrl}
-    aria-label="Facebook"
-    icon={<FaFacebookF />}
-    variant="outline"
-    rounded="full"
-    size="md"
-    borderColor="whiteAlpha.500"
-    color="whiteAlpha.900"
-    _hover={{ bg: "whiteAlpha.200" }}
-    isExternal
-  />
-  <IconButton
-    as={Link}
-    href={instagramUrl}
-    aria-label="Instagram"
-    icon={<FaInstagram />}
-    variant="outline"
-    rounded="full"
-    size="md"
-    borderColor="whiteAlpha.500"
-    color="whiteAlpha.900"
-    _hover={{ bg: "whiteAlpha.200" }}
-    isExternal
-  />
-</HStack>
-
+          <Box position="absolute" inset={0} bgGradient="linear(to-b, transparent, rgba(0,0,0,.22))" pointerEvents="none" />
         </GridItem>
       </Grid>
 

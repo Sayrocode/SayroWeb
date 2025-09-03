@@ -39,13 +39,14 @@ export default function HomePage() {
         "Nos especializamos en la comercialización de bienes raíces en venta y renta de todo tipo en la Ciudad de Querétaro.",
       ]}
     />
-    <HomeProperties />
+   
         <WhatWeDo  
   imageSrc="know.png"
   // ajusta el encuadre si quieres
   instagramUrl="https://instagram.com/tu_cuenta"
   facebookUrl="https://facebook.com/tu_pagina"
 />
+ <HomeProperties />
       </main>
       </Layout>
     </>

@@ -12,7 +12,7 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { FiMapPin, FiHome, FiDroplet } from "react-icons/fi";
+import { FiMapPin, FiHome, FiDroplet, FiMaximize } from "react-icons/fi";
 
 type EBOperation = {
   prices?: { amount?: number; currency?: string; formatted_amount?: string }[];
@@ -23,12 +23,14 @@ type EBProperty = {
   title?: string;
   title_image_full?: string;
   title_image_thumb?: string;
-  location?: string;
+  location?: unknown;
   property_type?: string;
   bedrooms?: number;
   bathrooms?: number;
   parking_spaces?: number;
   operations?: EBOperation[];
+  lot_size?: number | null;
+  construction_size?: number | null;
 };
 
 type Props = { property: EBProperty };
@@ -50,11 +52,25 @@ function formatPrice(p?: EBOperation) {
   return "Precio a consultar";
 }
 
+//
+
+function getLocationText(loc: unknown): string {
+  if (typeof loc === "string") return loc;
+  if (!loc || typeof loc !== "object") return "";
+  const o = loc as any;
+  return [o.name, o.neighborhood, o.municipality || o.delegation, o.city, o.state, o.country].filter(Boolean).join(", ");
+}
+
 export default function PropertyCard({ property }: Props) {
-  const img = property.title_image_full || property.title_image_thumb || "/house.jpg";
+  const img = property.title_image_full || property.title_image_thumb || "/image3.jpg";
   const price = formatPrice(property?.operations?.[0]);
   const cardBg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
+  const titleColorHover = useColorModeValue("green.700", "green.300");
+  const locationText = getLocationText(property.location);
+  const isLand = (property.property_type || "").toLowerCase().includes("terreno");
+  const lotSize = typeof property.lot_size === "number" ? property.lot_size : undefined;
+  //
 
   return (
     <LinkBox
@@ -73,7 +89,7 @@ export default function PropertyCard({ property }: Props) {
           src={img}
           alt={property.title || `Propiedad ${property.public_id}`}
           objectFit="cover"
-          fallbackSrc="/house.jpg"
+          fallbackSrc="/image3.jpg"
         />
       </AspectRatio>
 
@@ -95,20 +111,27 @@ export default function PropertyCard({ property }: Props) {
             fontWeight="bold"
             fontSize="lg"
             noOfLines={2}
-            _groupHover={{ color: "green.600" }}
+            _groupHover={{ color: titleColorHover }}
           >
             {property.title || "Propiedad"}
           </Text>
         </LinkOverlay>
 
-        {property.location && (
+        {locationText && (
           <HStack spacing={2} color="gray.600" fontSize="sm">
             <Icon as={FiMapPin} />
-            <Text noOfLines={1}>{property.location}</Text>
+            <Text noOfLines={1}>{locationText}</Text>
           </HStack>
         )}
 
         <HStack spacing={4} color="gray.600" fontSize="sm">
+          {isLand && typeof lotSize === "number" && lotSize > 0 && (
+            <HStack spacing={1}>
+              <Icon as={FiMaximize} />
+              <Text>{new Intl.NumberFormat("es-MX").format(lotSize)} m²</Text>
+            </HStack>
+          )}
+          
           {typeof property.bedrooms === "number" && (
             <HStack spacing={1}>
               <Icon as={FiHome} />
@@ -128,7 +151,6 @@ export default function PropertyCard({ property }: Props) {
             </HStack>
           )}
         </HStack>
-
         <Text fontWeight="semibold" color="green.700" fontSize="lg">
           {price}
         </Text>

@@ -26,7 +26,7 @@ export default function Hero({
   linear-gradient(180deg, rgba(0,0,0,.10) 0%, rgba(0,0,0,.18) 45%, rgba(0,0,0,.28) 100%), \
   radial-gradient(1600px 600px at 50% 20%, rgba(0,0,0,.04) 0%, transparent 70%)";
   return (
-    <header role="banner" aria-label="Hero Sayro Bienes Raíces">
+    <header id="hero" role="banner" aria-label="Hero Sayro Bienes Raíces">
       <Box
         position="relative"
         minH={{ base: "80vh", md: "100vh" }}
@@ -51,13 +51,15 @@ export default function Hero({
               <Heading
                 as="h1"
                 textTransform="uppercase"
-                color="green.700"
+                color="#013927"
                 fontWeight="extrabold"
                 fontSize={{ base: "4xl", md: "6xl", lg: "7xl" }}
                 letterSpacing="wide"
                 lineHeight={1.1}
                 // sombra marcada para parecerse al ejemplo
-                textShadow="0 2px 20px rgba(0,0,0,0.65)"
+                textShadow="0 2px 20px rgba(0,0,0,0.65), 0 0 10px rgba(255,255,255,0.15)"
+                // Usa Binggo Wood si está disponible; si no, cae a Cinzel
+                fontFamily="'Binggo Wood', heading"
               >
                 Sayro Bienes Raíces
               </Heading>
@@ -68,6 +70,7 @@ export default function Hero({
                 fontSize={{ base: "md", md: "lg" }}
                 textTransform="uppercase"
                 letterSpacing="widest"
+                className="text-shiny-white"
               >
                 El mejor precio, rápido y seguro.
               </Text>
@@ -84,6 +87,7 @@ export default function Hero({
               fontSize="sm"
               mt={{ base: 1, md: 2 }}
               _hover={{ opacity: 0.9, textDecoration: "none" }}
+              className="text-shiny-white"
             >
               Ver Propiedades
             </Button>

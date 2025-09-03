@@ -41,7 +41,7 @@ export default function AboutSplitHeroParallax({
   desktopMaxShift = 80,
   mobileMaxShift = 46,
 }: Props) {
-  const leftBg = useColorModeValue("#0E3B30", "#0E3B30");
+  const leftBg = useColorModeValue("#013927", "#013927");
   const prefersReduced = usePrefersReducedMotion();
 
   // Intensidad responsive
@@ -97,12 +97,12 @@ export default function AboutSplitHeroParallax({
 
   return (
     <Box as="section" w="100%" ref={sectionRef} bg="white" _dark={{ bg: "gray.900" }}>
-      <Grid templateColumns={{ base: "1fr", md: "1.05fr 1fr" }} gap={0} alignItems="stretch">
+      <Grid templateColumns={{ base: "1fr", md: "1.5fr 1fr" }} gap={0} alignItems="stretch">
         {/* IZQUIERDA */}
         <GridItem
   bg={leftBg}
   color="white"
-  px={{ base: 6, md: 10 }}
+  px={{ base: 6, md: 10, lg: 14 }}
   py={{ base: 8, md: 12 }}
 >
   <Center textAlign="center">
