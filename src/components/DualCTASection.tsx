@@ -185,8 +185,8 @@ type DualCTASectionProps = {
 };
 
 export default function DualCTASection({
-  advertiseHref = "/#anuncia",
-  acquireHref = "/#adquiere",
+  advertiseHref = "/anunciate",
+  acquireHref = "/propiedades",
   advertiseImage = "/anuncia.png",
   acquireImage = "/adquiere.png",
   parallaxStrength = 0.24,
