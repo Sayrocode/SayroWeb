@@ -1,0 +1,105 @@
+// Prisma schema for EasyBroker properties storage
+// Using SQLite for local/dev. You can switch provider/url later.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Property {
+  id                 Int     @id @default(autoincrement())
+  publicId           String  @unique
+  title              String?
+  titleImageFull     String?
+  titleImageThumb    String?
+  propertyType       String?
+  status             String?
+  bedrooms           Int?
+  bathrooms          Float?
+  parkingSpaces      Int?
+  lotSize            Float?
+  constructionSize   Float?
+  brokerName         String?
+  locationText       String?
+  operationsJson     String? // JSON string
+  propertyImagesJson String? // JSON string
+  ebDetailJson       String? // JSON string with full EB detail
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  media      MediaObject[]
+  leads      Lead[]
+
+  @@index([publicId])
+  @@index([propertyType])
+  @@index([status])
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique
+  passwordHash  String
+  role          String    @default("ADMIN")
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([username])
+}
+
+model MediaObject {
+  id         Int       @id @default(autoincrement())
+  key        String    @unique
+  mimeType   String
+  size       Int
+  data       Bytes
+  filename   String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId Int?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([propertyId])
+}
+
+model Lead {
+  id               Int       @id @default(autoincrement())
+  source           String    // 'meta' | 'website' | 'easybroker' (guardamos EB solo si sincronizas)
+  name             String?
+  email            String?
+  phone            String?
+  message          String?
+
+  // A qué propiedad está asociado el lead
+  property         Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  propertyId       Int?
+  propertyPublicId String?
+
+  // Tracking/atribución
+  campaignId       String?   // Meta campaign_id
+  adsetId          String?   // Meta adset_id
+  adId             String?   // Meta ad_id
+  fbclid           String?   // Facebook Click ID
+
+  // UTM params
+  utm_source       String?
+  utm_medium       String?
+  utm_campaign     String?
+  utm_content      String?
+  utm_term         String?
+
+  // Contexto de navegación
+  pagePath         String?
+  referrer         String?
+
+  createdAt        DateTime  @default(now())
+
+  @@index([source])
+  @@index([propertyId])
+  @@index([utm_source, utm_campaign])
+}
