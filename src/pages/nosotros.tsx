@@ -64,8 +64,8 @@ function HeroNosotros() {
       <Container maxW="7xl" position="relative" zIndex={1} py={{ base: 16, md: 20 }}>
         <Heading
           as="h1"
-          fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-          fontWeight="400"
+          fontFamily="heading"
+          fontWeight="700"
           fontSize={{ base: "2.2rem", md: "3.2rem" }}   // ← igual que servicios
           lineHeight="1.1"
           letterSpacing="-0.01em"
@@ -110,7 +110,7 @@ function ValueCard({
     >
       <Stack direction="row" spacing={4} align="center" mb={2}>
         <Icon as={icon} boxSize={6} color="green.600" />
-        <Heading as="h3" size="md">
+        <Heading as="h3" size="md" fontFamily="heading" fontWeight="700">
           {title}
         </Heading>
       </Stack>
@@ -160,8 +160,8 @@ export default function NosotrosPage() {
               <GridItem>
                 <Heading
                   as="h2"
-                  fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-                  fontWeight="500"
+                  fontFamily="heading"
+                  fontWeight="700"
                   fontSize={{ base: "2xl", md: "3xl" }}
                   letterSpacing="-0.01em"
                   mb={4}
@@ -263,7 +263,8 @@ export default function NosotrosPage() {
               size="lg"
               textAlign="center"
               mb={{ base: 8, md: 10 }}
-              fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+              fontFamily="heading"
+              fontWeight="700"
             >
               Nuestros valores
             </Heading>
@@ -301,7 +302,8 @@ export default function NosotrosPage() {
               as="h3"
               size="lg"
               mb={3}
-              fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
+              fontFamily="heading"
+              fontWeight="700"
               letterSpacing="-0.01em"
             >
               ¿Listo para hablar de tu próximo paso?

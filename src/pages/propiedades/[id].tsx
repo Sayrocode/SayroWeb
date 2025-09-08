@@ -32,7 +32,9 @@ import {
   CardFooter,
 } from "@chakra-ui/react";
 import { useMemo, useState } from "react";
-import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink } from "react-icons/fi";
+import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail } from "react-icons/fi";
+import { FaWhatsapp } from 'react-icons/fa';
+import { CONTACT_EMAIL, waHref } from "../../lib/site";
 
 /* =============================
  * TIPOS (ajustados a EB)
@@ -220,6 +222,9 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
   };
 
   const mapQuery = locationText ? encodeURIComponent(locationText) : "";
+  const contactMsg = `Hola, me interesa ${property.title || 'esta propiedad'} (${canonicalUrl}).`;
+  const waUrl = waHref(contactMsg);
+  const mailtoUrl = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Interés en ' + (property.title || 'propiedad'))}&body=${encodeURIComponent(contactMsg)}`;
 
   // JSON-LD
   const jsonLd = {
@@ -384,23 +389,11 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
 
             <Wrap>
               <WrapItem>
-                <Button
-                  as="a"
-                  href={`https://wa.me/521234567890?text=${encodeURIComponent(
-                    `Hola, estoy interesado en la propiedad ${property.title || property.public_id} (${shareUrl})`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  colorScheme="whatsapp"
-                >
-                  Contactar por WhatsApp
-                </Button>
+                <Button as="a" href={waUrl} target="_blank" rel="noopener noreferrer" colorScheme="whatsapp" leftIcon={<FaWhatsapp />}>WhatsApp</Button>
               </WrapItem>
 
               <WrapItem>
-                <Button as="a" href="/contacto" variant="outline" colorScheme="green">
-                  Solicitar información
-                </Button>
+                <Button as="a" href={mailtoUrl} variant="outline" colorScheme="green" leftIcon={<FiMail />}>Email</Button>
               </WrapItem>
 
               <WrapItem>

@@ -4,6 +4,8 @@ import { Box } from "@chakra-ui/react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { useRouter } from "next/router";
+import dynamic from 'next/dynamic';
+const ContactWidget = dynamic(() => import('./ContactWidget'), { ssr: false });
 
 type Props = {
   children: ReactNode;
@@ -34,6 +36,7 @@ export default function Layout({ children, title }: Props) {
           {children}
         </Box>
         <Footer />
+        <ContactWidget />
       </Box>
     </>
   );

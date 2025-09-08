@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import Layout from "../../components/Layout";
 import { SimpleGrid, Container, Spinner, Center, Heading, Text, Box, Skeleton } from "@chakra-ui/react";
 import PropertyCard from "../../components/PropertyCard";
 import Filters, { FiltersState } from "../../components/Filters";
 
 export default function Propiedades() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allProperties, setAllProperties] = useState<any[]>([]);
   const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "" });
@@ -191,6 +193,21 @@ export default function Propiedades() {
     return null;
   }
 
+  const typeParam = String((router.query.type as string) || "").toLowerCase();
+
+  const TYPE_HINTS: Record<string, string[]> = {
+    departamentos: ["departamento", "depa", "dept"],
+    departamento: ["departamento"],
+    casas: ["casa"],
+    casa: ["casa"],
+    oficinas: ["oficina", "despacho"],
+    bodegas: ["bodega"],
+    granjas: ["granja", "rancho"],
+    locales: ["local", "comercial"],
+    terrenos: ["terreno", "lote", "predio", "parcela"],
+    naves: ["nave", "industrial"],
+  };
+
   const filtered = useMemo(() => {
     const q = (appliedFilters.q || "").trim();
     const parsed = parseQuery(q);
@@ -229,6 +246,13 @@ export default function Propiedades() {
       const id = norm(String(p?.public_id || ""));
       const loc = norm(getLocationString(p));
       const typeText = norm(String(p?.property_type || ""));
+
+      // filtro por tipo proveniente de la home (?type=...)
+      if (typeParam) {
+        const tokens = TYPE_HINTS[typeParam] || [typeParam];
+        const ok = tokens.some((t) => typeText.includes(t));
+        if (!ok) return false;
+      }
 
       // consulta libre: si hay q sin señales estructuradas, exige coincidencia textual
       if (q) {

@@ -150,8 +150,8 @@ function FeaturedCard({ p }: { p: EBListItem }) {
       <Box px={2} pt={3} pb={4} color="whiteAlpha.900">
         <Heading
           as="h3"
-          fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-          fontWeight="400"
+          fontFamily="heading"
+          fontWeight="700"
           fontSize="md"
           lineHeight="1.15"
           noOfLines={2}
@@ -252,8 +252,8 @@ export default function HomeFeaturedCarousel() {
 >
   <Heading
     as="h2"
-    fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-    fontWeight="500"
+    fontFamily="heading"
+    fontWeight="700"
     letterSpacing="-0.015em"
     fontSize={{ base: "2.4rem", md: "3.2rem" }}
     lineHeight={1.08}

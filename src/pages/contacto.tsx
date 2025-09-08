@@ -29,13 +29,14 @@ import { keyframes } from "@emotion/react";
 import { FiMail, FiPhone, FiMapPin, FiClock, FiArrowRight } from "react-icons/fi";
 import { FaWhatsapp, FaFacebook, FaInstagram } from "react-icons/fa";
 import Layout from "components/Layout";
+import { WA_PHONE, CONTACT_EMAIL, waHref } from "../lib/site";
 
 const GREEN = "#0E3B30";
 const GREEN_DARK = "#0B2B23";
 
 // ✅ Ajusta tus datos
-const WHATSAPP_NUMBER = "521234567890"; // solo dígitos, con país (52 México)
-const EMAIL_TO = "hola@tu-dominio.com";
+const WHATSAPP_NUMBER = WA_PHONE; // centralizado
+const EMAIL_TO = CONTACT_EMAIL;
 const ADDRESS = "Querétaro, Qro., México";
 const HOURS = "Lun–Vie 9:00–18:00";
 
@@ -81,8 +82,8 @@ function HeroContacto() {
       <Container maxW="7xl" position="relative" zIndex={1} py={{ base: 16, md: 20 }}>
         <Heading
           as="h1"
-          fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-          fontWeight="400"
+          fontFamily="heading"
+          fontWeight="700"
           fontSize={{ base: "2.2rem", md: "3.2rem" }}     // ← iguales a /servicios
           lineHeight="1.1"
           letterSpacing="-0.01em"
@@ -103,9 +104,7 @@ export default function ContactoPage() {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
 
-  const waHref = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-    "Hola, me gustaría más información."
-  )}`;
+  const waUrl = waHref("Hola, me gustaría más información.");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -186,7 +185,7 @@ export default function ContactoPage() {
 
                 <Button
                   as={Link}
-                  href={waHref}
+                  href={waUrl}
                   isExternal
                   leftIcon={<FaWhatsapp />}
                   size="md"

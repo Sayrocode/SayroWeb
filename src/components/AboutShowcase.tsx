@@ -53,6 +53,7 @@ export default function AboutSplitHeroParallax({
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [y, setY] = useState(0);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     if (prefersReduced) return;
@@ -91,6 +92,24 @@ export default function AboutSplitHeroParallax({
     };
   }, [maxShift, prefersReduced]);
 
+  // Aparición suave del bloque izquierdo
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e?.isIntersecting) {
+          setRevealed(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "-40px 0px", threshold: 0.25 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   // “Sangre” vertical para que el translate nunca descubra fondo.
   // Usamos top/bottom negativos en vez de height arbitraria.
   const bleed = Math.max(30, Math.round(maxShift * 1.2)); // px extra arriba/abajo
@@ -104,16 +123,26 @@ export default function AboutSplitHeroParallax({
   color="white"
   px={{ base: 6, md: 10, lg: 14 }}
   py={{ base: 8, md: 12 }}
+  sx={
+    prefersReduced
+      ? undefined
+      : {
+          opacity: revealed ? 1 : 0,
+          transform: revealed ? "translateY(0)" : "translateY(18px)",
+          transition: "opacity .45s ease-out, transform .55s cubic-bezier(.22,.61,.36,1)",
+          willChange: "opacity, transform",
+        }
+  }
 >
   <Center textAlign="center">
     <Box>
       <Heading
         as="h2" // semántico; si quieres conservar "p", cámbialo
-        fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-        fontWeight="500"
-        fontSize={{ base: "2.4rem", md: "3.6rem" }} // un pelín más grande para “hero copy”
+        fontFamily="heading"
+        fontWeight="700"
+        fontSize={{ base: "2.6rem", md: "3.8rem" }}
         lineHeight="1.08"
-        letterSpacing="-0.015em"
+        letterSpacing=".02em"
         mb={{ base: 3, md: 4 }}
         textShadow="0 1px 10px rgba(0,0,0,.22)"
       >

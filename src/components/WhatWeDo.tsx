@@ -17,7 +17,7 @@ import {
   Link,
 } from "@chakra-ui/react";
 import { FaInstagram, FaFacebookF } from "react-icons/fa";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type WhatWeDoProps = {
   id?: string;
@@ -57,6 +57,7 @@ export default function WhatWeDo({
   const amplitude = useBreakpointValue({ base: 18, md: 32, lg: 48 }) || 24;
   const imgRef = useRef<HTMLImageElement | null>(null);
   const sectionRef = useRef<HTMLDivElement | null>(null);
+  const [revealed, setRevealed] = useState(false);
 
   // Parallax suave para la imagen (solo si el usuario no lo desactiva)
   useEffect(() => {
@@ -101,6 +102,24 @@ export default function WhatWeDo({
     };
   }, [prefersReduced, amplitude]);
 
+  // Aparición suave del contenido para que el cambio entre secciones se vea más limpio
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e?.isIntersecting) {
+          setRevealed(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "-40px 0px", threshold: 0.25 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   // JSON-LD para SEO
   const jsonLd = useMemo(
     () =>
@@ -129,6 +148,17 @@ export default function WhatWeDo({
           justifyContent="center"
           px={{ base: 6, md: 10, lg: 14 }}
           py={{ base: 10, md: 14 }}
+          sx={
+            prefersReduced
+              ? undefined
+              : {
+                  opacity: revealed ? 1 : 0,
+                  transform: revealed ? "translateY(0)" : "translateY(18px)",
+                  transition:
+                    "opacity .45s ease-out, transform .55s cubic-bezier(.22,.61,.36,1)",
+                  willChange: "opacity, transform",
+                }
+          }
         >
           <Stack spacing={{ base: 8, md: 10 }} align="center" textAlign="left" mx="auto" w="full">
             {/* Disposición “entrelazada”: cada bloque en su propia fila y alineado a lados opuestos */}
@@ -148,12 +178,11 @@ export default function WhatWeDo({
               >
                 <Heading
                   as="h2"
-                  fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-                  fontWeight="600"
-                  fontStyle="italic"
-                  fontSize={{ base: "lg", md: "xl" }}
-                  letterSpacing="-0.01em"
-                  lineHeight={1.25}
+                  fontFamily="heading"
+                  fontWeight="700"
+                  fontSize={{ base: "1.5rem", md: "2rem" }}
+                  letterSpacing=".02em"
+                  lineHeight={1.15}
                 >
                   {leftTitle}
                 </Heading>
@@ -171,12 +200,11 @@ export default function WhatWeDo({
               >
                 <Heading
                   as="h3"
-                  fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-                  fontWeight="600"
-                  fontStyle="italic"
-                  fontSize={{ base: "lg", md: "xl" }}
-                  letterSpacing="-0.01em"
-                  lineHeight={1.25}
+                  fontFamily="heading"
+                  fontWeight="700"
+                  fontSize={{ base: "1.5rem", md: "2rem" }}
+                  letterSpacing=".02em"
+                  lineHeight={1.15}
                 >
                   {rightTitle}
                 </Heading>

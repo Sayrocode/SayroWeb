@@ -2,6 +2,8 @@ import Head from "next/head";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, PropsWithChildren } from "react";
 import Hero from "../components/Hero"; // above-the-fold: keep static
+
+const PropertyCategoriesLazy = dynamic(() => import("../components/PropertyCategories"), { ssr: true, loading: () => null });
 import Layout from "components/Layout";
 
 // Below-the-fold components via dynamic import (code-splitting)
@@ -65,11 +67,11 @@ export default function HomePage() {
 
         <Hero />
 
+      
         <Viewport>
           <DualCTASectionLazy />
         </Viewport>
 
-        <Viewport>
           <AboutShowcaseLazy
             imageSrc="/about.png"
             imageAlt="Fachada curvada"
@@ -82,19 +84,20 @@ export default function HomePage() {
               "Nos especializamos en la comercialización de bienes raíces en venta y renta de todo tipo en la Ciudad de Querétaro.",
             ]}
           />
-        </Viewport>
 
-        <Viewport>
           <WhatWeDoLazy
             imageSrc="know.png"
             instagramUrl="https://instagram.com/tu_cuenta"
             facebookUrl="https://facebook.com/tu_pagina"
           />
-        </Viewport>
 
         <Viewport>
           <HomePropertiesLazy />
         </Viewport>
+          <Viewport>
+          <PropertyCategoriesLazy />
+        </Viewport>
+
       </main>
       </Layout>
     </>

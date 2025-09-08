@@ -79,8 +79,8 @@ function HeroServices() {
       <Container maxW="7xl" position="relative" zIndex={1} py={{ base: 16, md: 20 }}>
         <Heading
           as="h1"
-          fontFamily="'DM Serif Display', ui-serif, Georgia, serif"
-          fontWeight="400"
+          fontFamily="heading"
+          fontWeight="700"
           fontSize={{ base: "2.2rem", md: "3.2rem" }}
           lineHeight="1.1"
           letterSpacing="-0.01em"

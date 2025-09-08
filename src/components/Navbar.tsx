@@ -23,7 +23,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
 
-const links = [
+const publicLinks = [
   { name: "Inicio", href: "/" },
   { name: "Nosotros", href: "/nosotros" },
   { name: "Servicios", href: "/servicios" },
@@ -37,6 +37,13 @@ export default function Navbar() {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const isHome = router.pathname === "/";
+  // Solo mostramos navegación de admin cuando NO estamos en la pantalla de login
+  const isAdmin = router.pathname.startsWith("/admin") && router.pathname !== "/admin/login";
+  const adminLinks = [
+    { name: "Propiedades", href: "/admin" },
+    { name: "Leads", href: "/admin/leads" },
+  ];
+  const links = isAdmin ? adminLinks : publicLinks;
   const [overHero, setOverHero] = useState(true);
   useEffect(() => {
     if (!isHome) return;
@@ -136,7 +143,7 @@ export default function Navbar() {
 
             {/* Lado derecho: logo + botón móvil */}
             <HStack spacing={2} align="center">
-              <ChakraLink as={NextLink} href="/" display="inline-flex" alignItems="center">
+              <ChakraLink as={NextLink} href={isAdmin ? "/admin" : "/"} display="inline-flex" alignItems="center">
                 <Image
                   src="/sayrologo.png"
                   width={110}
