@@ -26,9 +26,6 @@
   },
   "include": [
     "pages",
-    "lib",
-    "utils",
-    "theme",
     "next-env.d.ts"
   ],
   "exclude": ["node_modules"]
