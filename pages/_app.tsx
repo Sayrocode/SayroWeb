@@ -4,7 +4,7 @@ import type { AppProps } from "next/app";
 import theme from "../theme";
 import "../styles/fonts.css";
 import Script from "next/script";
-import { FB_PIXEL_ID } from "lib/fbpixel";
+import { FB_PIXEL_ID } from "../lib/fbpixel";
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
