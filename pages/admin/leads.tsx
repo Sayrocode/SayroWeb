@@ -1,7 +1,7 @@
 import type { GetServerSideProps } from 'next';
 import { getIronSession } from 'iron-session';
-import { AppSession, sessionOptions } from '../../../src/lib/session';
-import Layout from '../../../src/components/Layout';
+import { AppSession, sessionOptions } from 'lib/session';
+import Layout from 'components/Layout';
 import useSWR from 'swr';
 import { Box, Container, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, Table, Thead, Tr, Th, Tbody, Td, Badge, Text, HStack, Button, Link as CLink, Spacer } from '@chakra-ui/react';
 import { FaWhatsapp } from 'react-icons/fa';
@@ -211,4 +211,3 @@ export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
   if (!session.user) return { redirect: { destination: '/admin/login', permanent: false } };
   return { props: {} };
 };
-

@@ -1,8 +1,8 @@
 import type { GetServerSideProps } from 'next';
 import React from 'react';
 import { getIronSession } from 'iron-session';
-import Layout from '../../../src/components/Layout';
-import { sessionOptions, AppSession } from '../../../src/lib/session';
+import Layout from 'components/Layout';
+import { sessionOptions, AppSession } from 'lib/session';
 import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2 } from 'react-icons/fi';
@@ -417,4 +417,3 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ req, res }
   }
   return { props: { username: session.user.username } };
 };
-

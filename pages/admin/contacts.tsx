@@ -1,8 +1,8 @@
 import type { GetServerSideProps } from 'next';
 import React from 'react';
 import { getIronSession } from 'iron-session';
-import { AppSession, sessionOptions } from '../../../src/lib/session';
-import Layout from '../../../src/components/Layout';
+import { AppSession, sessionOptions } from 'lib/session';
+import Layout from 'components/Layout';
 import Link from 'next/link';
 import useSWRInfinite from 'swr/infinite';
 import { Box, Button, Container, Heading, Text, SimpleGrid, HStack, Input, InputGroup, InputLeftElement, Badge, Stack, Spacer, Skeleton, Editable, EditablePreview, EditableInput } from '@chakra-ui/react';
@@ -161,4 +161,3 @@ export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
   }
   return { props: {} };
 };
-
