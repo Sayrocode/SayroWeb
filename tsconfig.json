@@ -16,16 +16,19 @@
     "baseUrl": ".",
     "paths": {
       "components/*": ["../src/components/*"],
-      "lib/*": ["../src/lib/*"],
-      "utils/*": ["../src/utils/*"],
+      "lib/*": ["./lib/*", "../src/lib/*"],
+      "utils/*": ["./utils/*", "../src/utils/*"],
       "styles/*": ["../src/styles/*"],
-      "theme": ["../src/theme/index.ts", "../src/theme"],
+      "theme": ["./theme/index.ts", "./theme", "../src/theme/index.ts", "../src/theme"],
       "theme/*": ["../src/theme/*"],
       "pages/*": ["../src/pages/*"]
     }
   },
   "include": [
     "pages",
+    "lib",
+    "utils",
+    "theme",
     "next-env.d.ts"
   ],
   "exclude": ["node_modules"]
