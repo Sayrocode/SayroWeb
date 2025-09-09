@@ -1,0 +1,12 @@
+/* Local font: Binggo Wood (para títulos), coloca los archivos reales */
+@font-face {
+  font-family: 'Binggo Wood';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url('/fonts/Binggo-Wood.woff2') format('woff2'),
+    url('/fonts/Binggo-Wood.woff') format('woff'),
+    url('/fonts/Binggo-Wood.ttf') format('truetype');
+}
+
