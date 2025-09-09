@@ -1,10 +1,10 @@
 import { ChakraProvider } from "@chakra-ui/react";
 import Head from "next/head";
 import type { AppProps } from "next/app";
-import theme from "../../src/theme";
+import theme from "theme";
 import "../styles/fonts.css";
 import Script from "next/script";
-import { FB_PIXEL_ID } from "../../src/lib/fbpixel";
+import { FB_PIXEL_ID } from "lib/fbpixel";
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
