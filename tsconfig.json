@@ -19,6 +19,7 @@
       "lib/*": ["../src/lib/*"],
       "utils/*": ["../src/utils/*"],
       "styles/*": ["../src/styles/*"],
+      "theme": ["../src/theme/index.ts", "../src/theme"],
       "theme/*": ["../src/theme/*"],
       "pages/*": ["../src/pages/*"]
     }
