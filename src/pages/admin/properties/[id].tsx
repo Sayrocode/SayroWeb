@@ -284,9 +284,44 @@ export default function AdminPropertyEdit() {
                   {data.propertyType}
                 </Badge>
               )}
-              {data.status && (
-                <Badge variant="subtle" rounded="full" px={2}>
-                  {data.status}
+              {(
+                <Badge
+                  variant="subtle"
+                  rounded="full"
+                  px={2}
+                  cursor="pointer"
+                  title="Cambiar estado"
+                  onClick={async () => {
+                    if (!id) return;
+                    const current = (data.status || 'unknown').toLowerCase();
+                    const next = current === 'available' ? 'retired' : 'retired';
+                    // unknown -> retired, retired -> available, available -> retired
+                    const resolved = current === 'retired' ? 'available' : next;
+                    const prev = data.status;
+                    setField('status', resolved);
+                    try {
+                      const r = await fetch(`/api/admin/properties/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: resolved }),
+                      });
+                      if (!r.ok) throw new Error('No se pudo actualizar');
+                      toast({ title: `Estado actualizado a ${resolved}`, status: 'success', duration: 1200 });
+                    } catch (e) {
+                      // revert
+                      setField('status', prev as any);
+                      toast({ title: 'No se pudo actualizar estado', status: 'error', duration: 1500 });
+                    }
+                  }}
+                  colorScheme={
+                    (data.status || 'unknown').toLowerCase() === 'available'
+                      ? 'green'
+                      : (data.status || 'unknown').toLowerCase() === 'retired'
+                      ? 'gray'
+                      : 'yellow'
+                  }
+                >
+                  {data.status || 'unknown'}
                 </Badge>
               )}
               <Badge variant="subtle" rounded="full" px={2}>

@@ -8,6 +8,7 @@ import { SearchIcon } from '@chakra-ui/icons';
 import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2 } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import useSWR from 'swr';
+import useSWRInfinite from 'swr/infinite';
 import Link from 'next/link';
 
 type Props = {
@@ -21,7 +22,28 @@ export default function AdminHome({ username }: Props) {
     router.replace('/admin/login');
   };
   const fetcher = (url: string) => fetch(url).then((r) => r.json());
-  const { data, mutate, isLoading } = useSWR('/api/admin/properties?take=50', fetcher);
+  const PAGE_SIZE = 36;
+  const getKey = (index: number) => `/api/admin/properties?take=${PAGE_SIZE}&page=${index + 1}`;
+  const { data, mutate, size, setSize, isLoading } = useSWRInfinite(getKey, fetcher);
+  const pages = data || [];
+  const total: number = pages.length ? (pages[0]?.total ?? 0) : 0;
+  const aggregated = pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : []);
+  const isInitial = !data || data.length === 0;
+  const isLoadingMore = isLoading || (size > 0 && !!data && typeof data[size - 1] === 'undefined');
+  const isReachingEnd = (pages.length > 0 && (pages[pages.length - 1]?.items?.length || 0) < PAGE_SIZE) || (total > 0 && aggregated.length >= total);
+  const loaderRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const el = loaderRef.current;
+    if (!el) return;
+    const ob = new IntersectionObserver((entries) => {
+      const e = entries[0];
+      if (e.isIntersecting && !isLoadingMore && !isReachingEnd) {
+        setSize((s) => s + 1);
+      }
+    }, { rootMargin: '300px 0px' });
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [loaderRef.current, isLoadingMore, isReachingEnd, setSize]);
   const [q, setQ] = React.useState('');
   const [campaignMode, setCampaignMode] = React.useState(false);
   const [selected, setSelected] = React.useState<number[]>([]);
@@ -35,13 +57,14 @@ export default function AdminHome({ username }: Props) {
   const [copyDesc, setCopyDesc] = React.useState('');
   const [copyPrimary, setCopyPrimary] = React.useState('');
   const [genLoading, setGenLoading] = React.useState(false);
+  const [egoLoading, setEgoLoading] = React.useState(false);
   // Carousel
   const [carouselMsg, setCarouselMsg] = React.useState('');
   const [carouselCopies, setCarouselCopies] = React.useState<Record<number, {headline: string, description: string}>>({});
   // Preview
   const [preview, setPreview] = React.useState<any | null>(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
-  const items = (data?.items || []).filter((p: any) => {
+  const items = aggregated.filter((p: any) => {
     const term = q.trim().toLowerCase();
     if (!term) return true;
     return (
@@ -61,7 +84,22 @@ export default function AdminHome({ username }: Props) {
   const doSync = async () => {
     if (!confirm('Importar/actualizar propiedades desde EasyBroker?')) return;
     const r = await fetch('/api/admin/sync', { method: 'POST' });
-    if (r.ok) mutate();
+    if (r.ok) { await mutate(); }
+  };
+
+  const doEgoScrape = async () => {
+    if (!confirm('Iniciar scraping (headless) desde EgoRealEstate?')) return;
+    setEgoLoading(true);
+    try {
+      const r = await fetch('/api/admin/ego/scrape', { method: 'POST' });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        alert(`Error al ejecutar scraper: ${j?.error || r.statusText}`);
+      }
+      await mutate();
+    } finally {
+      setEgoLoading(false);
+    }
   };
 
   const toggleSelect = (id: number) => {
@@ -216,10 +254,11 @@ export default function AdminHome({ username }: Props) {
       <Container maxW="7xl" py={8}>
         <Flex align="center" mb={3} gap={3} wrap="wrap">
           <Heading size="lg">Propiedades</Heading>
-          <Badge colorScheme="gray" variant="subtle">{data?.total ?? 0} total</Badge>
+          <Badge colorScheme="gray" variant="subtle">{total || 0} total</Badge>
           <Spacer />
           <HStack spacing={2}>
             <Button as={Link} href="/admin/leads" colorScheme="green" variant="solid">Leads</Button>
+            <Button as={Link} href="/admin/contacts" colorScheme="purple" variant="outline">Contactos EGO</Button>
             <InputGroup w={{ base: 'full', md: '280px' }}>
               <InputLeftElement pointerEvents="none"><SearchIcon color="gray.400" /></InputLeftElement>
               <Input placeholder="Buscar por título, ID, tipo, status" value={q} onChange={(e) => setQ(e.target.value)} bg="white" />
@@ -227,6 +266,11 @@ export default function AdminHome({ username }: Props) {
             <Tooltip label="Importar desde EasyBroker">
               <Button colorScheme="green" onClick={doSync} isLoading={isLoading} leftIcon={<FiRefreshCw />}>
                 Importar
+              </Button>
+            </Tooltip>
+            <Tooltip label="Scrapear desde EgoRealEstate (headless)">
+              <Button colorScheme="purple" onClick={doEgoScrape} isLoading={egoLoading} leftIcon={<FiRefreshCw />}>
+                Ego: Importar
               </Button>
             </Tooltip>
             <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
@@ -238,7 +282,7 @@ export default function AdminHome({ username }: Props) {
         </Flex>
 
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-          {(isLoading && (!data || !data.items)) ? Array.from({ length: 6 }).map((_, i) => (
+          {(isInitial && aggregated.length === 0) ? Array.from({ length: 6 }).map((_, i) => (
             <Box key={i} borderWidth="1px" rounded="lg" overflow="hidden" bg="white" p={0}>
               <Skeleton height="180px" />
               <Box p={3}>
@@ -315,6 +359,26 @@ export default function AdminHome({ username }: Props) {
             </Box>
           ))}
         </SimpleGrid>
+
+        {/* Sentinel para cargar más */}
+        <Box ref={loaderRef} h="1px" />
+
+        {/* Indicador de carga incremental */}
+        {isLoadingMore && (
+          <Box mt={6}>
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Box key={i} borderWidth="1px" rounded="lg" overflow="hidden" bg="white" p={0}>
+                  <Skeleton height="180px" />
+                  <Box p={3}>
+                    <Skeleton height="20px" mb={2} />
+                    <Skeleton height="16px" width="60%" />
+                  </Box>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </Box>
+        )}
 
         {campaignMode && (
           <Flex position="fixed" bottom={6} left={0} right={0} justify="center">

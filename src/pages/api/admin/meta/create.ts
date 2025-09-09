@@ -44,7 +44,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Tipo de anuncio inválido' });
   }
 
-  const baseUrl = process.env.SITE_BASE_URL || getBaseUrlFromReq(req);
+  // Normalizamos y validamos la base pública del sitio (requerida para que Meta pueda resolver los enlaces)
+  const rawBase = (process.env.SITE_BASE_URL || getBaseUrlFromReq(req) || '').trim().replace(/\/$/, '');
+  let baseUrl = rawBase;
+  try {
+    const u = new URL(baseUrl);
+    // Evita localhost/127.0.0.1 u hosts privados que Meta no puede alcanzar
+    const host = u.hostname.toLowerCase();
+    const isLocal = host === 'localhost' || host.endsWith('.local') || /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host);
+    if (!/^https?:$/.test(u.protocol) || isLocal) {
+      throw new Error('SITE_BASE_URL must be a public http(s) URL');
+    }
+    baseUrl = u.toString().replace(/\/$/, '');
+  } catch (e) {
+    return res.status(400).json({ error: 'Config SITE_BASE_URL inválida. Define una URL pública (https://tu-dominio.com) en .env.local' });
+  }
 
   // Fetch properties
   const props = await prisma.property.findMany({
@@ -80,7 +94,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       utm_content: String(p.publicId || p.id || ''),
       ...(extra || {}),
     } as any);
-    return `${baseUrl}/fb/p/${encodeURIComponent(p.publicId)}?${sp.toString()}`;
+    // Usa URL() para construir un enlace absoluto válido
+    const u = new URL(`/fb/p/${encodeURIComponent(p.publicId)}`, baseUrl);
+    u.search = sp.toString();
+    return u.toString();
   };
 
   // Generate copy per property
@@ -111,7 +128,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   };
 
   const env = readMetaEnv();
-  const missingCreds = !env.accessToken || !env.adAccountId || !env.pageId || !env.siteBaseUrl;
+  // Allow SITE_BASE_URL to be optional in creds (we can compute from req)
+  const missingCreds = !env.accessToken || !env.adAccountId || !env.pageId;
 
   // Prepare creative spec
   const now = new Date();
@@ -132,7 +150,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const imagesWithHash: { url: string; hash?: string }[] = env.accessToken && env.adAccountId && !dryRun
       ? await uploadImages(env.adAccountId, env.accessToken, images.map((u) => ({ url: u })))
       : images.map((u) => ({ url: u }));
-    const imageArg = imagesWithHash[0].hash ? { image_hash: imagesWithHash[0].hash } : { image_url: imagesWithHash[0].url };
+    // v19: no se admite image_url en link_data; si no hay hash, omitimos la imagen para que Meta tome OG del link
+    const imageArg = imagesWithHash[0]?.hash ? { image_hash: imagesWithHash[0].hash } : {};
 
     const storySpec = {
       page_id: env.pageId || '0',
@@ -147,7 +166,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     if (dryRun || missingCreds) {
-      return res.status(200).json({ ok: false, dryRun: true, reason: missingCreds ? 'Faltan credenciales META_* o SITE_BASE_URL' : 'dryRun', storySpec, budgetMinor: dailyBudgetMinor });
+      return res.status(200).json({ ok: false, dryRun: true, reason: missingCreds ? 'Faltan credenciales META_*' : 'dryRun', storySpec, budgetMinor: dailyBudgetMinor });
     }
 
     const creds = requireMetaEnv();
@@ -185,7 +204,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? { ...toCopy(p), headline: override.headline ?? toCopy(p).headline, description: override.description ?? toCopy(p).description }
       : toCopy(p);
     const up = uploaded[idx++];
-    const imageArg = up?.hash ? { image_hash: up.hash } : { image_url: up?.url };
+    // v19: no usar image_url en child_attachments; si no hay hash, omitimos
+    const imageArg = up?.hash ? { image_hash: up.hash } : {};
     child_attachments.push({
       link,
       name: copy.headline,
@@ -205,7 +225,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   };
 
   if (dryRun || missingCreds) {
-    return res.status(200).json({ ok: false, dryRun: true, reason: missingCreds ? 'Faltan credenciales META_* o SITE_BASE_URL' : 'dryRun', storySpec, budgetMinor: dailyBudgetMinor });
+    return res.status(200).json({ ok: false, dryRun: true, reason: missingCreds ? 'Faltan credenciales META_*' : 'dryRun', storySpec, budgetMinor: dailyBudgetMinor });
   }
 
   const creds = requireMetaEnv();

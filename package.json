@@ -8,12 +8,14 @@
     "start": "next start",
     "lint": "next lint",
     "ego:export": "node --loader ts-node/esm src/cli/ego-export.ts",
+    "ego:scrape": "node --loader ts-node/esm src/ego/scrapeToDb.ts",
     "prisma:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
     "db:sql": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/schema.sql",
-    "db:deploy:turso": "node prisma/deploy-to-turso.mjs"
+    "db:deploy:turso": "node prisma/deploy-to-turso.mjs",
+    "db:create-admin": "node prisma/create-admin.mjs"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.1.1",
@@ -31,7 +33,8 @@
     "iron-session": "^8.0.2",
     "bcryptjs": "^2.4.3",
     "@libsql/client": "^0.8.1",
-    "@prisma/adapter-libsql": "^5.22.0"
+    "@prisma/adapter-libsql": "^5.22.0",
+    "playwright": "^1.46.1"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

@@ -15,8 +15,9 @@ export default function Propiedades() {
   useEffect(() => {
     const fetchProperties = async () => {
       try {
-        // Cargamos más elementos para permitir filtrado en cliente
-        let res = await fetch("/api/easybroker?endpoint=properties&all=1&limit=60", { cache: "no-store" });
+        // DB-backed list (excludes retired/unknown)
+        let res = await fetch("/api/properties?limit=120", { cache: "no-store" });
+        // Fallback to EB if needed
         if (!res.ok) res = await fetch("/api/easybroker?all=1&limit=60", { cache: "no-store" });
         const data = await res.json();
         setAllProperties(Array.isArray(data.content) ? data.content : []);

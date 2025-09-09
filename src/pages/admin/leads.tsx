@@ -3,7 +3,7 @@ import { getIronSession } from 'iron-session';
 import { AppSession, sessionOptions } from '../../lib/session';
 import Layout from '../../components/Layout';
 import useSWR from 'swr';
-import { Box, Container, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, Table, Thead, Tr, Th, Tbody, Td, Badge, Text, HStack, IconButton, Tooltip, Stack, Button, Link as CLink } from '@chakra-ui/react';
+import { Box, Container, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, Table, Thead, Tr, Th, Tbody, Td, Badge, Text, HStack, IconButton, Tooltip, Stack, Button, Link as CLink, Spacer } from '@chakra-ui/react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiMail, FiPhone } from 'react-icons/fi';
 import Link from 'next/link';
@@ -123,6 +123,19 @@ export default function LeadsPage() {
   const { data: eb } = useSWR('/api/admin/easybroker/contacts', fetcher);
   const ebItems: any[] = eb?.items || [];
 
+  // EgoRealEstate contacts (as leads-like list)
+  type EgoC = { id: number; name?: string | null; phone?: string | null; email?: string | null; createdText?: string | null; responsible?: string | null; personId?: string | null };
+  const { data: ego } = useSWR('/api/admin/egocontacts?take=100', fetcher);
+  const egoItems: EgoC[] = ego?.items || [];
+  const importEgo = async () => {
+    if (!confirm('¿Importar contactos desde EgoRealEstate?')) return;
+    const r = await fetch('/api/admin/ego/contacts', { method: 'POST' });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      alert(j?.error || 'No se pudo importar');
+    }
+  };
+
   return (
     <Layout title='Leads'>
       <Container maxW='7xl' py={{ base: 6, md: 10 }}>
@@ -131,6 +144,7 @@ export default function LeadsPage() {
           <TabList>
             <Tab>Meta</Tab>
             <Tab>Website</Tab>
+            <Tab>EgoRealEstate</Tab>
             <Tab>EasyBroker</Tab>
           </TabList>
           <TabPanels>
@@ -139,6 +153,47 @@ export default function LeadsPage() {
             </TabPanel>
             <TabPanel>
               <LeadsTable items={websiteLeads} />
+            </TabPanel>
+            <TabPanel>
+              <HStack mb={3}>
+                <Heading size='md'>Contactos EGO</Heading>
+                <Badge variant='subtle'>{ego?.total ?? 0} total</Badge>
+                <Spacer />
+                <Button colorScheme='purple' size='sm' onClick={importEgo}>Importar</Button>
+              </HStack>
+              {egoItems.length === 0 ? (
+                <Text color='gray.600'>No hay contactos aún. Usa “Importar”.</Text>
+              ) : (
+                <Table size='sm' variant='simple'>
+                  <Thead>
+                    <Tr>
+                      <Th>Nombre</Th>
+                      <Th>Contacto</Th>
+                      <Th>Creada</Th>
+                      <Th>Responsable</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {egoItems.map((c) => (
+                      <Tr key={c.id}>
+                        <Td>{c.name || '-'}</Td>
+                        <Td>
+                          <Stack spacing={1} align='start'>
+                            <HStack spacing={2}>
+                              <CLink href={c.phone ? `tel:${c.phone}` : '#'} color='green.700'>{c.phone || '-'}</CLink>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <CLink href={c.email ? `mailto:${c.email}` : '#'} color='blue.600'>{c.email || '-'}</CLink>
+                            </HStack>
+                          </Stack>
+                        </Td>
+                        <Td>{c.createdText || '-'}</Td>
+                        <Td>{c.responsible || '-'}</Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              )}
             </TabPanel>
             <TabPanel>
               {!ebItems.length ? (

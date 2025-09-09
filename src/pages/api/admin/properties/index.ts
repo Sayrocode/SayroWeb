@@ -40,7 +40,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (p.ebDetailJson) {
           const j = JSON.parse(p.ebDetailJson);
           if (Array.isArray(j?.operations)) operations = j.operations;
-        } else if (p.operationsJson) {
+        }
+        if ((!operations || operations.length === 0) && p.operationsJson) {
           const j = JSON.parse(p.operationsJson);
           if (Array.isArray(j)) operations = j;
         }

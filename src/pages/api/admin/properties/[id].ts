@@ -22,7 +22,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (detail) {
         if (Array.isArray(detail.operations)) operations = detail.operations;
         if (typeof detail.description === 'string') description = detail.description;
-      } else if (prop.operationsJson) {
+      }
+      // Fallback: if no operations in detail, try operationsJson column
+      if ((!operations || operations.length === 0) && prop.operationsJson) {
         const ops = JSON.parse(prop.operationsJson);
         if (Array.isArray(ops)) operations = ops;
       }

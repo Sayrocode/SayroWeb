@@ -11,11 +11,15 @@ export type MetaEnv = {
 };
 
 export function readMetaEnv(): MetaEnv {
+  const token = process.env.META_ACCESS_TOKEN?.trim();
+  const adRaw = process.env.META_AD_ACCOUNT_ID?.trim();
+  const page = process.env.META_PAGE_ID?.trim();
+  const site = process.env.SITE_BASE_URL?.trim();
   return {
-    accessToken: process.env.META_ACCESS_TOKEN,
-    adAccountId: process.env.META_AD_ACCOUNT_ID?.replace(/^act_/, ''),
-    pageId: process.env.META_PAGE_ID,
-    siteBaseUrl: process.env.SITE_BASE_URL,
+    accessToken: token,
+    adAccountId: adRaw ? adRaw.replace(/^act_/, '') : undefined,
+    pageId: page,
+    siteBaseUrl: site,
   };
 }
 
@@ -102,11 +106,27 @@ export async function createCampaign(params: {
   }, token);
 
   // 2) Ad Set
+  // Derivar optimization_goal a partir del objective (v19)
+  const optimizationGoal = (() => {
+    switch (objective) {
+      case 'OUTCOME_TRAFFIC':
+        return 'LINK_CLICKS';
+      case 'LINK_CLICKS':
+        return 'LINK_CLICKS';
+      case 'OUTCOME_REACH':
+        return 'REACH';
+      default:
+        return 'LINK_CLICKS';
+    }
+  })();
+
   const adset = await postForm(`/act_${adAccountId}/adsets`, {
     name: `${name} - AdSet`,
     campaign_id: campaign.id,
     billing_event: 'IMPRESSIONS',
-    optimization_goal: objective === 'LINK_CLICKS' ? 'LINK_CLICKS' : 'REACH',
+    optimization_goal: optimizationGoal,
+    // Para evitar errores de puja requeridos, usar estrategia de menor costo sin tope
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     daily_budget: String(dailyBudgetMinor),
     start_time: startTime,
     end_time: endTime,
@@ -140,4 +160,3 @@ export function limitText(s: string, max: number): string {
   const str = (s || '').replace(/\s+/g, ' ').trim();
   return str.length > max ? str.slice(0, max - 1).trimEnd() + '…' : str;
 }
-

@@ -104,3 +104,25 @@ model Lead {
   @@index([propertyId])
   @@index([utm_source, utm_campaign])
 }
+
+// Contacts scraped from EgoRealEstate (/egocore/contacts)
+model EgoContact {
+  id            Int       @id @default(autoincrement())
+  personId      String?   @unique // numeric id in /egocore/person/:id
+  name          String?
+  role          String?
+  phone         String?
+  email         String?
+  createdText   String?   // raw text e.g., "28 ago."
+  createdAtEgo  DateTime? // parsed if possible
+  responsible   String?   // Responsabilidad de X
+
+  rawJson       String?   // JSON blob with extras for debugging
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([personId])
+  @@index([email])
+  @@index([phone])
+}

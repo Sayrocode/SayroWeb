@@ -71,6 +71,22 @@ CREATE TABLE "Lead" (
     CONSTRAINT "Lead_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
+-- CreateTable
+CREATE TABLE "EgoContact" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "personId" TEXT,
+    "name" TEXT,
+    "role" TEXT,
+    "phone" TEXT,
+    "email" TEXT,
+    "createdText" TEXT,
+    "createdAtEgo" DATETIME,
+    "responsible" TEXT,
+    "rawJson" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Property_publicId_key" ON "Property"("publicId");
 
@@ -103,4 +119,13 @@ CREATE INDEX "Lead_propertyId_idx" ON "Lead"("propertyId");
 
 -- CreateIndex
 CREATE INDEX "Lead_utm_source_utm_campaign_idx" ON "Lead"("utm_source", "utm_campaign");
+
+-- CreateIndex
+CREATE INDEX "EgoContact_personId_idx" ON "EgoContact"("personId");
+
+-- CreateIndex
+CREATE INDEX "EgoContact_email_idx" ON "EgoContact"("email");
+
+-- CreateIndex
+CREATE INDEX "EgoContact_phone_idx" ON "EgoContact"("phone");
 

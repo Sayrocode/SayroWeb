@@ -119,72 +119,77 @@ export default function AboutSplitHeroParallax({
       <Grid templateColumns={{ base: "1fr", md: "1.5fr 1fr" }} gap={0} alignItems="stretch">
         {/* IZQUIERDA */}
         <GridItem
-  bg={leftBg}
-  color="white"
-  px={{ base: 6, md: 10, lg: 14 }}
-  py={{ base: 8, md: 12 }}
-  sx={
-    prefersReduced
-      ? undefined
-      : {
-          opacity: revealed ? 1 : 0,
-          transform: revealed ? "translateY(0)" : "translateY(18px)",
-          transition: "opacity .45s ease-out, transform .55s cubic-bezier(.22,.61,.36,1)",
-          willChange: "opacity, transform",
-        }
-  }
->
-  <Center textAlign="center">
-    <Box>
-      <Heading
-        as="h2" // semántico; si quieres conservar "p", cámbialo
-        fontFamily="heading"
-        fontWeight="700"
-        fontSize={{ base: "2.6rem", md: "3.8rem" }}
-        lineHeight="1.08"
-        letterSpacing=".02em"
-        mb={{ base: 3, md: 4 }}
-        textShadow="0 1px 10px rgba(0,0,0,.22)"
-      >
-        {title}
-      </Heading>
+          bg={leftBg}
+          color="white"
+          px={{ base: 6, md: 10, lg: 14 }}
+          py={{ base: 8, md: 12 }}
+        >
+          {/* Animamos solo el contenido para mantener el fondo verde visible */}
+          <Box
+            sx={
+              prefersReduced
+                ? undefined
+                : {
+                    opacity: revealed ? 1 : 0,
+                    transform: revealed ? "translateY(0)" : "translateY(18px)",
+                    transition:
+                      "opacity .45s ease-out, transform .55s cubic-bezier(.22,.61,.36,1)",
+                    willChange: "opacity, transform",
+                  }
+            }
+          >
+            <Center textAlign="center">
+              <Box>
+                <Heading
+                  as="h2" // semántico; si quieres conservar "p", cámbialo
+                  fontFamily="heading"
+                  fontWeight="700"
+                  fontSize={{ base: "2.6rem", md: "3.8rem" }}
+                  lineHeight="1.08"
+                  letterSpacing=".02em"
+                  mb={{ base: 3, md: 4 }}
+                  textShadow="0 1px 10px rgba(0,0,0,.22)"
+                >
+                  {title}
+                </Heading>
 
-      {/* Línea/acento centrada debajo del título */}
-      <Box
-        aria-hidden
-        mx="auto"
-        w={{ base: "64px", md: "88px" }}
-        h="3px"
-        bg="green.300"
-        rounded="full"
-        mb={{ base: 5, md: 7 }}
-      />
-    </Box>
-  </Center>
+                {/* Línea/acento centrada debajo del título */}
+                <Box
+                  aria-hidden
+                  mx="auto"
+                  w={{ base: "64px", md: "88px" }}
+                  h="3px"
+                  bg="green.300"
+                  rounded="full"
+                  mb={{ base: 5, md: 7 }}
+                />
+              </Box>
+            </Center>
 
-  <Stack
-    spacing={{ base: 4, md: 5 }}
-    maxW="62ch"               // ancho de lectura ideal
-    mx="auto"
-  >
-    {paragraphs.map((p, i) => (
-      <Text
-        key={i}
-        fontSize={{ base: i === 0 ? "lg" : "md", md: i === 0 ? "xl" : "lg" }} // “lead” en el primero
-        lineHeight={{ base: 1.85, md: 1.9 }}
-        color={i === 0 ? "whiteAlpha.950" : "whiteAlpha.900"}                  // más contraste en el primero
-        letterSpacing=".005em"
-        sx={{
-          textWrap: "balance",   // cortes de línea más agradables (soporte variable)
-          hyphens: "auto",
-        }}
-        textAlign="center"
-      >
-        {p}
-      </Text>
-    ))}
-  </Stack>
-</GridItem>
+            <Stack
+              spacing={{ base: 4, md: 5 }}
+              maxW="62ch"               // ancho de lectura ideal
+              mx="auto"
+            >
+              {paragraphs.map((p, i) => (
+                <Text
+                  key={i}
+                  fontSize={{ base: i === 0 ? "lg" : "md", md: i === 0 ? "xl" : "lg" }} // “lead” en el primero
+                  lineHeight={{ base: 1.85, md: 1.9 }}
+                  color={i === 0 ? "whiteAlpha.950" : "whiteAlpha.900"}                  // más contraste en el primero
+                  letterSpacing=".005em"
+                  sx={{
+                    textWrap: "balance",   // cortes de línea más agradables (soporte variable)
+                    hyphens: "auto",
+                  }}
+                  textAlign="center"
+                >
+                  {p}
+                </Text>
+              ))}
+            </Stack>
+          </Box>
+        </GridItem>
 
         {/* DERECHA: Imagen con parallax */}
         <GridItem position="relative" minH={{ base: "60vw", md: "80vh" }} overflow="hidden">

@@ -148,18 +148,21 @@ export default function WhatWeDo({
           justifyContent="center"
           px={{ base: 6, md: 10, lg: 14 }}
           py={{ base: 10, md: 14 }}
-          sx={
-            prefersReduced
-              ? undefined
-              : {
-                  opacity: revealed ? 1 : 0,
-                  transform: revealed ? "translateY(0)" : "translateY(18px)",
-                  transition:
-                    "opacity .45s ease-out, transform .55s cubic-bezier(.22,.61,.36,1)",
-                  willChange: "opacity, transform",
-                }
-          }
         >
+          {/* Animamos solo el contenido, no el contenedor con el fondo */}
+          <Box
+            sx={
+              prefersReduced
+                ? undefined
+                : {
+                    opacity: revealed ? 1 : 0,
+                    transform: revealed ? "translateY(0)" : "translateY(18px)",
+                    transition:
+                      "opacity .45s ease-out, transform .55s cubic-bezier(.22,.61,.36,1)",
+                    willChange: "opacity, transform",
+                  }
+            }
+          >
           <Stack spacing={{ base: 8, md: 10 }} align="center" textAlign="left" mx="auto" w="full">
             {/* Disposición “entrelazada”: cada bloque en su propia fila y alineado a lados opuestos */}
             <Box
@@ -254,6 +257,7 @@ export default function WhatWeDo({
               />
             </HStack>
           </Stack>
+          </Box>
         </GridItem>
 
         {/* Imagen a la derecha */}

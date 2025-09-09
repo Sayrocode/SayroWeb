@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../../../lib/prisma';
-import { requireAdmin, methodNotAllowed } from '../../_utils';
+import { requireAdmin, methodNotAllowed } from '../_utils';
 import crypto from 'node:crypto';
 
 export const config = {
@@ -40,4 +40,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return methodNotAllowed(res, ['POST']);
 }
-
