@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '../../../../../lib/prisma';
-import { requireAdmin, methodNotAllowed } from '../../_utils';
+import { prisma } from '../../../../lib/prisma';
+import { requireAdmin, methodNotAllowed } from '../_utils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const admin = await requireAdmin(req, res);
@@ -36,4 +36,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return methodNotAllowed(res, ['GET','PUT','DELETE']);
 }
-
