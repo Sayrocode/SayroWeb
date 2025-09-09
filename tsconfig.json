@@ -17,6 +17,7 @@
     "paths": {
       "components/*": ["../src/components/*"],
       "lib/*": ["../src/lib/*"],
+      "utils/*": ["../src/utils/*"],
       "styles/*": ["../src/styles/*"],
       "theme/*": ["../src/theme/*"],
       "pages/*": ["../src/pages/*"]
