@@ -3,7 +3,8 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, PropsWithChildren } from "react";
 import Hero from "../components/Hero"; // above-the-fold: keep static
 
-const PropertyCategoriesLazy = dynamic(() => import("../components/PropertyCategories"), { ssr: true, loading: () => null });
+// Reemplaza PropertyCategories por grid de servicios
+const ServicesGridLazy = dynamic(() => import("components/ServicesGrid"), { ssr: true, loading: () => null });
 import Layout from "components/Layout";
 
 // Below-the-fold components via dynamic import (code-splitting)
@@ -94,8 +95,8 @@ export default function HomePage() {
         <Viewport>
           <HomePropertiesLazy />
         </Viewport>
-          <Viewport>
-          <PropertyCategoriesLazy />
+        <Viewport>
+          <ServicesGridLazy />
         </Viewport>
 
       </main>
