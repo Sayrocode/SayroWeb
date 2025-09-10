@@ -9,7 +9,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!obj) return res.status(404).end('Not found');
     res.setHeader('Content-Type', obj.mimeType);
     res.setHeader('Content-Length', String(obj.size));
-    res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate');
+    // Make images cacheable; keys are content-addressed/unique in practice
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     return res.status(200).send(Buffer.from(obj.data));
   }
 
@@ -25,4 +26,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return methodNotAllowed(res, ['GET', 'DELETE']);
 }
-
