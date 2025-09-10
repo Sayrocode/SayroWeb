@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { requireAdmin } from 'pages/api/admin/_utils';
+import { requireAdmin } from '../_utils';
 
 const EB_BASE = 'https://api.easybroker.com/v1';
 
