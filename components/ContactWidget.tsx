@@ -1,32 +1,49 @@
-import { useEffect, useState } from 'react';
-import { Box, IconButton, Tooltip } from '@chakra-ui/react';
+import { useEffect, useMemo, useState } from 'react';
+import { Box, Button, IconButton, Stack, Tooltip } from '@chakra-ui/react';
 import { FaWhatsapp } from 'react-icons/fa';
-import NextLink from 'next/link';
-import { waHref } from 'lib/site';
+import { FiMail } from 'react-icons/fi';
+import { CONTACT_EMAIL, waHref } from '../lib/site';
 
 export default function ContactWidget() {
-  const [visible, setVisible] = useState(false);
+  const [href, setHref] = useState<string>('');
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 800);
-    return () => clearTimeout(t);
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const msg = `Hola, vi esta página y me interesa: ${url}`;
+    setHref(waHref(msg));
   }, []);
-  if (!visible) return null;
+
+  const mailto = useMemo(() => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const subject = 'Información — Sayro Bienes Raíces';
+    const body = `Hola, vi esta página y me interesa:\n${url}`;
+    return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }, []);
+
   return (
-    <Box position="fixed" right={{ base: 4, md: 6 }} bottom={{ base: 4, md: 6 }} zIndex={30}>
-      <Tooltip label="Escríbenos por WhatsApp">
-        <IconButton
-          as={NextLink}
-          href={waHref('Hola, quiero información por favor.')}
-          target='_blank'
-          aria-label="WhatsApp"
-          colorScheme='whatsapp'
-          icon={<FaWhatsapp />}
-          rounded='full'
-          boxShadow='lg'
-          size='lg'
-        />
-      </Tooltip>
+    <Box position='fixed' right={{ base: 3, md: 4 }} bottom={{ base: 3, md: 4 }} zIndex={1000}>
+      <Stack spacing={2} align='end'>
+        <Tooltip label='Escríbenos por WhatsApp'>
+          <IconButton
+            as='a'
+            href={href}
+            target='_blank'
+            rel='noopener noreferrer'
+            aria-label='WhatsApp'
+            icon={<FaWhatsapp />}
+            rounded='full'
+            size='lg'
+            // Forzamos verde WhatsApp explícito para evitar overrides de tema
+            variant='solid'
+            bg='green.400'
+            color='white'
+            _hover={{ bg: 'green.600' }}
+            _active={{ bg: 'green.700' }}
+          />
+        </Tooltip>
+        <Tooltip label='Contáctanos por email'>
+          <IconButton as='a' href={mailto} aria-label='Email' icon={<FiMail />} rounded='full' size='lg' />
+        </Tooltip>
+      </Stack>
     </Box>
   );
 }
-
