@@ -165,6 +165,7 @@ function ClickCard({
             textTransform="uppercase"
             fontWeight="bold"
             lineHeight="1.1"
+            whiteSpace="pre-line"
           >
             {title}
           </Heading>
@@ -210,8 +211,8 @@ export default function DualCTASection({
       ({
         "@context": "https://schema.org",
         "@type": "CollectionPage",
-        name: "Anunciantes y Adquirientes",
-        description: "Dos accesos rápidos: Anuncia tu propiedad y Adquiere una.",
+        name: "Anunciantes y Adquierentes",
+        description: "Dos accesos rápidos: ¿Vendes o rentas? y ¿Adquieres?",
       } as const),
     []
   );
@@ -228,13 +229,13 @@ export default function DualCTASection({
           color={titleColor}
           letterSpacing="wide"
         >
-          ANUNCIANTES Y ADQUIRIENTES
+          ANUNCIANTES Y  ADQUIERENTES
         </Heading>
       </Stack>
 
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={{ base: 4, md: 8 }}>
           <ClickCard
-            title="ANUNCIA"
+            title={"¿VENDES\nO\nRENTAS?"}
             href={advertiseHref}
             imgSrc={advertiseImage}
             imgAlt="Anuncia tu propiedad"
@@ -245,7 +246,7 @@ export default function DualCTASection({
             prefersReduced={prefersReduced}
           />
           <ClickCard
-            title="ADQUIERE"
+            title={"¿ADQUIERES?"}
             href={acquireHref}
             imgSrc={acquireImage}
             imgAlt="Encuentra tu próxima propiedad"
