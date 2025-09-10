@@ -1,8 +1,8 @@
 import type { GetServerSideProps } from 'next';
 import React from 'react';
 import { getIronSession } from 'iron-session';
-import Layout from 'components/Layout';
-import { sessionOptions, AppSession } from 'lib/session';
+import Layout from '../../components/Layout';
+import { sessionOptions, AppSession } from '../../lib/session';
 import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2 } from 'react-icons/fi';
@@ -57,6 +57,11 @@ export default function AdminHome({ username }: Props) {
   const [copyDesc, setCopyDesc] = React.useState('');
   const [copyPrimary, setCopyPrimary] = React.useState('');
   const [genLoading, setGenLoading] = React.useState(false);
+  const [egoLoading, setEgoLoading] = React.useState(false);
+  // Carousel
+  const [carouselMsg, setCarouselMsg] = React.useState('');
+  const [carouselCopies, setCarouselCopies] = React.useState<Record<number, {headline: string, description: string}>>({});
+  // Preview
   const [preview, setPreview] = React.useState<any | null>(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const items = aggregated.filter((p: any) => {
@@ -82,6 +87,21 @@ export default function AdminHome({ username }: Props) {
     if (r.ok) { await mutate(); }
   };
 
+  const doEgoScrape = async () => {
+    if (!confirm('Iniciar scraping (headless) desde EgoRealEstate?')) return;
+    setEgoLoading(true);
+    try {
+      const r = await fetch('/api/admin/ego/scrape', { method: 'POST' });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        alert(`Error al ejecutar scraper: ${j?.error || r.statusText}`);
+      }
+      await mutate();
+    } finally {
+      setEgoLoading(false);
+    }
+  };
+
   const toggleSelect = (id: number) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
@@ -102,7 +122,8 @@ export default function AdminHome({ username }: Props) {
     if (adType === 'single') {
       body.copy = { headline: copyHeadline, description: copyDesc, primaryText: copyPrimary };
     } else {
-      // For carousel we rely on API to generate defaults unless provided elsewhere
+      body.message = carouselMsg;
+      body.copies = Object.entries(carouselCopies).map(([propertyId, v]) => ({ propertyId: Number(propertyId), ...v }));
     }
     const r = await fetch('/api/admin/meta/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json();
@@ -122,6 +143,9 @@ export default function AdminHome({ username }: Props) {
       const body: any = { propertyIds: selected, adType, dailyBudget: budget, durationDays: days, dryRun: true };
       if (adType === 'single') {
         body.copy = { headline: copyHeadline, description: copyDesc, primaryText: copyPrimary };
+      } else {
+        body.message = carouselMsg;
+        body.copies = Object.entries(carouselCopies).map(([propertyId, v]) => ({ propertyId: Number(propertyId), ...v }));
       }
       const r = await fetch('/api/admin/meta/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json();
@@ -217,7 +241,10 @@ export default function AdminHome({ username }: Props) {
       setCopyDesc(j.copy.description || '');
       setCopyPrimary(j.copy.primaryText || '');
     } else if (j?.type === 'carousel') {
-      // Keep simple UX; advanced per-card copy omitted here.
+      setCarouselMsg(j.message || 'Explora propiedades destacadas');
+      const dict: Record<number, {headline: string, description: string}> = {};
+      (j.copies || []).forEach((c: any) => { if (c?.id) dict[c.id] = { headline: c.headline || '', description: c.description || '' }; });
+      setCarouselCopies(dict);
     } else {
       toast({ title: 'No se pudo generar', status: 'warning', duration: 2000 });
     }
@@ -241,6 +268,11 @@ export default function AdminHome({ username }: Props) {
                 Importar
               </Button>
             </Tooltip>
+            <Tooltip label="Scrapear desde EgoRealEstate (headless)">
+              <Button colorScheme="purple" onClick={doEgoScrape} isLoading={egoLoading} leftIcon={<FiRefreshCw />}>
+                Ego: Importar
+              </Button>
+            </Tooltip>
             <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
               <Text fontSize="sm">Campaign Mode</Text>
               <Switch isChecked={campaignMode} onChange={(e) => { setCampaignMode(e.target.checked); setSelected([]); }} />
@@ -254,7 +286,7 @@ export default function AdminHome({ username }: Props) {
             <Box key={i} borderWidth="1px" rounded="lg" overflow="hidden" bg="white" p={0}>
               <Skeleton height="180px" />
               <Box p={3}>
-                <Skeleton height="20px" mb="2" />
+                <Skeleton height="20px" mb={2} />
                 <Skeleton height="16px" width="60%" />
               </Box>
             </Box>
@@ -271,52 +303,75 @@ export default function AdminHome({ username }: Props) {
               <Box position="relative">
                 <AspectRatio ratio={16/9}>
                   <Box as={Link} href={`/admin/properties/${p.id}`} display="block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.titleImageFull || p.titleImageThumb || '/image1.jpg'}
-                      alt={p.title || 'Propiedad'}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
+                    <Image src={p.coverUrl || '/image3.jpg'} alt={p.title} w="100%" h="100%" objectFit="cover" cursor="pointer" />
                   </Box>
                 </AspectRatio>
-                <Menu>
-                  <MenuButton as={IconButton} icon={<FiMoreVertical />} size="sm" position="absolute" top="2" right="2" aria-label="Más" />
+                {campaignMode && (
+                  <Checkbox
+                    isChecked={selected.includes(p.id)}
+                    onChange={() => toggleSelect(p.id)}
+                    position="absolute"
+                    top="2"
+                    left="2"
+                    bg="white"
+                    px={2}
+                    py={1}
+                    rounded="md"
+                  />
+                )}
+                <Menu placement="bottom-end" isLazy>
+                  <MenuButton
+                    as={IconButton}
+                    aria-label="Acciones"
+                    icon={<FiMoreVertical />}
+                    size="sm"
+                    variant="solid"
+                    position="absolute"
+                    top="2"
+                    right="2"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  />
                   <MenuList>
                     <MenuItem as={Link} href={`/admin/properties/${p.id}`} icon={<FiEdit2 />}>Editar</MenuItem>
-                    <MenuItem as={Link} href={`/propiedades/${p.publicId}`} icon={<FiExternalLink />} target="_blank">Ver pública</MenuItem>
-                    <MenuItem icon={<FiCopy />} onClick={() => navigator.clipboard.writeText(`${location.origin}/propiedades/${p.publicId}`)}>Copiar URL</MenuItem>
-                    <MenuItem icon={<FiTrash2 />} onClick={() => onDelete(p.id)} color="red.600">Eliminar</MenuItem>
+                    <MenuItem as={Link} href={`/propiedades/${encodeURIComponent(p.publicId)}`} target="_blank" icon={<FiExternalLink />}>Ver público</MenuItem>
+                    <MenuItem icon={<FiCopy />} onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/propiedades/${p.publicId}`); }}>Copiar enlace público</MenuItem>
+                    <MenuItem icon={<FiTrash2 />} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(p.id); }}>
+                      Eliminar
+                    </MenuItem>
                   </MenuList>
                 </Menu>
               </Box>
               <Box p={3}>
-                <HStack>
-                  <Heading size="sm" noOfLines={1}>{p.title || 'Sin título'}</Heading>
+                <Box as={Link} href={`/admin/properties/${p.id}`} _hover={{ textDecoration: 'none' }}>
+                  <Text fontWeight="bold" noOfLines={1} cursor="pointer">{p.title}</Text>
+                </Box>
+                <HStack mt={2} spacing={2} color="gray.600" wrap="wrap">
+                  {p.propertyType && <Badge colorScheme="green" variant="subtle" rounded="full">{p.propertyType}</Badge>}
+                  {p.status && <Badge variant="outline" rounded="full">{p.status}</Badge>}
+                  {p.price && <Text fontWeight="semibold" color="green.700">{p.price}</Text>}
+                  {p.publicId && <Badge variant="subtle" rounded="full">ID {p.publicId}</Badge>}
                 </HStack>
-                <HStack mt={1} spacing={2} color="gray.600" fontSize="sm">
-                  <Badge>{p.propertyType || 'Tipo'}</Badge>
-                  <Badge variant="outline">{p.status || 'Status'}</Badge>
-                </HStack>
-                <HStack mt={2}>
-                  {!campaignMode ? (
-                    <Button as={Link} href={`/admin/properties/${p.id}`} size="sm" colorScheme="blue">Editar</Button>
-                  ) : (
-                    <Checkbox isChecked={selected.includes(p.id)} onChange={() => toggleSelect(p.id)} />
-                  )}
+                <HStack mt={3} spacing={2}>
+                  <Button as={Link} href={`/admin/properties/${p.id}`} size="sm" colorScheme="blue" leftIcon={<FiEdit2 />}>Editar</Button>
+                  <Button size="sm" variant="outline" colorScheme="red" leftIcon={<FiTrash2 />} onClick={() => onDelete(p.id)}>Eliminar</Button>
                 </HStack>
               </Box>
             </Box>
           ))}
         </SimpleGrid>
+
+        {/* Sentinel para cargar más */}
         <Box ref={loaderRef} h="1px" />
+
+        {/* Indicador de carga incremental */}
         {isLoadingMore && (
           <Box mt={6}>
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
               {Array.from({ length: 3 }).map((_, i) => (
-                <Box key={i} borderWidth="1px" rounded="lg" overflow="hidden" bg="white">
+                <Box key={i} borderWidth="1px" rounded="lg" overflow="hidden" bg="white" p={0}>
                   <Skeleton height="180px" />
                   <Box p={3}>
-                    <Skeleton height="20px" mb="2" />
+                    <Skeleton height="20px" mb={2} />
                     <Skeleton height="16px" width="60%" />
                   </Box>
                 </Box>
@@ -326,17 +381,23 @@ export default function AdminHome({ username }: Props) {
         )}
 
         {campaignMode && (
-          <Flex position="fixed" bottom="4" left="0" right="0" justify="center">
-            <HStack bg="white" p={3} rounded="full" shadow="md" borderWidth="1px">
-              <Text>{selected.length} seleccionadas</Text>
-              <Button onClick={openCampaign} colorScheme="purple">Crear campaña</Button>
+          <Flex position="fixed" bottom={6} left={0} right={0} justify="center">
+            <HStack spacing={3} bg="white" borderWidth="1px" rounded="full" px={4} py={2} boxShadow="md">
+              <Text fontWeight="medium">{selected.length} seleccionadas</Text>
+              <RadioGroup value={adType} onChange={(v: any) => setAdType(v)}>
+                <HStack spacing={4}>
+                  <Radio value='single' isDisabled={selected.length !== 1}>Single</Radio>
+                  <Radio value='carousel'>Carrusel</Radio>
+                </HStack>
+              </RadioGroup>
+              <Button colorScheme="purple" onClick={openCampaign}>Crear anuncio</Button>
             </HStack>
           </Flex>
         )}
 
-        <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} size="lg">
+        <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} size='full' scrollBehavior='inside'>
           <ModalOverlay />
-          <ModalContent>
+          <ModalContent rounded='0' h='100vh'>
             <ModalHeader>Crear anuncio en Meta</ModalHeader>
             <ModalBody>
               <Stack spacing={4}>
@@ -374,7 +435,7 @@ export default function AdminHome({ username }: Props) {
                     </HStack>
                     <HStack>
                       <Button onClick={generateCopy} isLoading={genLoading} colorScheme='purple'>Generar con OpenAI</Button>
-                      <Text fontSize='sm' color='gray.600'>Usa detalles de la(s) propiedad(es) para proponer copy.</Text>
+                      <Text fontSize='sm' color='gray.600'>Usa detalles de la propiedad para proponer copy.</Text>
                     </HStack>
                     <HStack>
                       <Button onClick={requestPreview} isLoading={previewLoading} colorScheme='blue' variant='outline'>Vista previa</Button>
@@ -386,7 +447,21 @@ export default function AdminHome({ username }: Props) {
                   </Stack>
                 ) : (
                   <Stack spacing={3}>
-                    <Text fontSize='sm' color='gray.600'>Se generará un carrusel con los elementos seleccionados.</Text>
+                    <HStack>
+                      <Text w='140px'>Mensaje carrusel</Text>
+                      <Input value={carouselMsg} onChange={(e) => setCarouselMsg(e.target.value)} placeholder='Texto breve para el carrusel' />
+                    </HStack>
+                    <Button onClick={generateCopy} isLoading={genLoading} colorScheme='purple' alignSelf='start'>Generar con OpenAI</Button>
+                    {Object.keys(carouselCopies).length > 0 && (
+                      <Box borderWidth='1px' rounded='md' p={3}>
+                        <Text fontWeight='medium' mb={2}>Títulos sugeridos por tarjeta:</Text>
+                        <Stack spacing={1} maxH='180px' overflow='auto'>
+                          {Object.entries(carouselCopies).slice(0, 10).map(([pid, v]) => (
+                            <Text key={pid} fontSize='sm'>#{pid}: {v.headline} — {v.description}</Text>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
                     <HStack>
                       <Button onClick={requestPreview} isLoading={previewLoading} colorScheme='blue' variant='outline'>Vista previa</Button>
                       <Text fontSize='sm' color='gray.600'>Muestra el carrusel como en Facebook.</Text>
@@ -396,7 +471,7 @@ export default function AdminHome({ username }: Props) {
                     )}
                   </Stack>
                 )}
-                <Text fontSize='sm' color='gray.600'>El anuncio se crea en estado PAUSED para revisar y publicar desde Meta Ads Manager.</Text>
+                <Text fontSize='sm' color='gray.600'>El anuncio se crea en estado PAUSED para que lo revises y publiques desde Meta Ads Manager.</Text>
               </Stack>
             </ModalBody>
             <ModalFooter>
