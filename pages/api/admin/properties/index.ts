@@ -15,24 +15,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         orderBy: { updatedAt: 'desc' },
         skip,
         take,
-        include: { media: { take: 1, orderBy: { createdAt: 'asc' } } },
+        include: { media: { select: { key: true }, take: 1, orderBy: { createdAt: 'asc' } } },
       }),
       prisma.property.count(),
     ]);
 
     const data = items.map((p) => {
+      // Solo usar imágenes locales (Turso) o placeholder público
       let coverUrl: string | null = null;
-      if (p.media && p.media.length) {
-        coverUrl = `/api/admin/images/${encodeURIComponent(p.media[0].key)}`;
-      } else if (p.titleImageThumb) {
-        coverUrl = p.titleImageThumb;
-      } else if (p.titleImageFull) {
-        coverUrl = p.titleImageFull;
-      } else if (p.propertyImagesJson) {
-        try {
-          const arr = JSON.parse(p.propertyImagesJson);
-          if (Array.isArray(arr) && arr.length && arr[0]?.url) coverUrl = arr[0].url;
-        } catch {}
+      if (p.media && p.media.length && (p.media[0] as any).key) {
+        coverUrl = `/api/admin/images/${encodeURIComponent((p.media[0] as any).key)}`;
+      } else {
+        coverUrl = '/image3.jpg';
       }
       // derive price
       let operations: any[] = [];
