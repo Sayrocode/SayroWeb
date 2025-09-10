@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getIronSession } from 'iron-session';
-import { sessionOptions, AppSession } from 'lib/session';
+import { sessionOptions, AppSession } from '../../../lib/session';
 
 export async function requireAdmin(req: NextApiRequest, res: NextApiResponse) {
   const session = await getIronSession<AppSession>(req, res, sessionOptions);
