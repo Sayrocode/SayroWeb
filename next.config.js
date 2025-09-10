@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  images: { domains: ["assets.easybroker.com"] },
+  images: {
+    domains: ["assets.easybroker.com"],
+    formats: ["image/avif", "image/webp"],
+  },
   experimental: { externalDir: true },
   webpack: (config, { isServer }) => {
     if (isServer) {
