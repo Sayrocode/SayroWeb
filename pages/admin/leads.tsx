@@ -1,9 +1,9 @@
 import type { GetServerSideProps } from 'next';
 import { getIronSession } from 'iron-session';
-import { AppSession, sessionOptions } from 'lib/session';
-import Layout from 'components/Layout';
+import { AppSession, sessionOptions } from '../../lib/session';
+import Layout from '../../components/Layout';
 import useSWR from 'swr';
-import { Box, Container, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, Table, Thead, Tr, Th, Tbody, Td, Badge, Text, HStack, Button, Link as CLink, Spacer } from '@chakra-ui/react';
+import { Box, Container, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, Table, Thead, Tr, Th, Tbody, Td, Badge, Text, HStack, IconButton, Tooltip, Stack, Button, Link as CLink, Spacer } from '@chakra-ui/react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiMail, FiPhone } from 'react-icons/fi';
 import Link from 'next/link';
@@ -50,31 +50,47 @@ function LeadsTable({ items }: { items: Lead[] }) {
             <Td whiteSpace='nowrap'>{new Date(l.createdAt).toLocaleString()}</Td>
             <Td>{l.name || '-'}<Box color='gray.600' fontSize='xs'>{l.message?.slice(0,120)}</Box></Td>
             <Td>
-              <HStack spacing={2} align='center'>
-                <FiPhone />
-                <CLink href={`tel:${digitsOnly(l.phone || '')}`} color='green.700'>{l.phone || '-'}</CLink>
-                {l.phone && (
-                  <Button
-                    as='a'
-                    href={`https://wa.me/${digitsOnly(l.phone)}?text=${encodeURIComponent(`Hola ${l.name || ''}. Vi tu interés en ${l.property?.title || l.propertyPublicId || 'nuestra propiedad'}.`)}`}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    size='xs'
-                    colorScheme='whatsapp'
-                    leftIcon={<FaWhatsapp />}
-                    rounded='full'
-                  >
-                    WhatsApp
-                  </Button>
-                )}
-              </HStack>
-              <HStack spacing={2} mt={1} align='center'>
-                <FiMail />
-                <CLink href={l.email ? `mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}` : '#'} color='blue.600'>
-                  {l.email || '-'}
-                </CLink>
-              </HStack>
-              <Badge mt={1} variant='subtle' colorScheme={l.source === 'meta' ? 'purple' : 'gray'}>{l.source}</Badge>
+              <Stack spacing={1} align='start'>
+                <HStack spacing={2}>
+                  <FiPhone />
+                  <CLink href={`tel:${digitsOnly(l.phone || '')}`} color='green.700'>{l.phone || '-'}</CLink>
+                  {l.phone && (<Box as={FaWhatsapp} color='whatsapp.500' fontSize='lg' aria-label='WhatsApp' />)}
+                  {l.phone && (
+                    <Button
+                      as='a'
+                      href={`https://wa.me/${digitsOnly(l.phone)}?text=${encodeURIComponent(`Hola ${l.name || ''}. Vi tu interés en ${l.property?.title || l.propertyPublicId || 'nuestra propiedad'}.`)}`}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      size='xs'
+                      colorScheme='whatsapp'
+                      leftIcon={<FaWhatsapp />}
+                      rounded='full'
+                    >
+                      WhatsApp
+                    </Button>
+                  )}
+                </HStack>
+                <HStack spacing={2}>
+                  <FiMail />
+                  <CLink href={l.email ? `mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}` : '#'} color='blue.600'>
+                    {l.email || '-'}
+                  </CLink>
+                  {l.email && (
+                    <Button
+                      as='a'
+                      href={`mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}`}
+                      size='xs'
+                      colorScheme='blue'
+                      variant='outline'
+                      leftIcon={<FiMail />}
+                      rounded='full'
+                    >
+                      Email
+                    </Button>
+                  )}
+                </HStack>
+                <Badge variant='subtle' colorScheme={l.source === 'meta' ? 'purple' : 'gray'}>{l.source}</Badge>
+              </Stack>
             </Td>
             <Td>
               {l.property?.publicId || l.propertyPublicId ? (
@@ -107,10 +123,18 @@ export default function LeadsPage() {
   const { data: eb } = useSWR('/api/admin/easybroker/contacts', fetcher);
   const ebItems: any[] = eb?.items || [];
 
-  // EgoRealEstate contacts (solo lectura, sin importar en Vercel)
+  // EgoRealEstate contacts (as leads-like list)
   type EgoC = { id: number; name?: string | null; phone?: string | null; email?: string | null; createdText?: string | null; responsible?: string | null; personId?: string | null };
   const { data: ego } = useSWR('/api/admin/egocontacts?take=100', fetcher);
   const egoItems: EgoC[] = ego?.items || [];
+  const importEgo = async () => {
+    if (!confirm('¿Importar contactos desde EgoRealEstate?')) return;
+    const r = await fetch('/api/admin/ego/contacts', { method: 'POST' });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      alert(j?.error || 'No se pudo importar');
+    }
+  };
 
   return (
     <Layout title='Leads'>
@@ -135,10 +159,10 @@ export default function LeadsPage() {
                 <Heading size='md'>Contactos EGO</Heading>
                 <Badge variant='subtle'>{ego?.total ?? 0} total</Badge>
                 <Spacer />
-                {/* Botón de importar deshabilitado para despliegue sin scrapers */}
+                <Button colorScheme='purple' size='sm' onClick={importEgo}>Importar</Button>
               </HStack>
               {egoItems.length === 0 ? (
-                <Text color='gray.600'>No hay contactos aún.</Text>
+                <Text color='gray.600'>No hay contactos aún. Usa “Importar”.</Text>
               ) : (
                 <Table size='sm' variant='simple'>
                   <Thead>
@@ -154,10 +178,14 @@ export default function LeadsPage() {
                       <Tr key={c.id}>
                         <Td>{c.name || '-'}</Td>
                         <Td>
-                          <HStack spacing={2} align='center'>
-                            <CLink href={c.phone ? `tel:${c.phone}` : '#'} color='green.700'>{c.phone || '-'}</CLink>
-                            <CLink href={c.email ? `mailto:${c.email}` : '#'} color='blue.600'>{c.email || '-'}</CLink>
-                          </HStack>
+                          <Stack spacing={1} align='start'>
+                            <HStack spacing={2}>
+                              <CLink href={c.phone ? `tel:${c.phone}` : '#'} color='green.700'>{c.phone || '-'}</CLink>
+                            </HStack>
+                            <HStack spacing={2}>
+                              <CLink href={c.email ? `mailto:${c.email}` : '#'} color='blue.600'>{c.email || '-'}</CLink>
+                            </HStack>
+                          </Stack>
                         </Td>
                         <Td>{c.createdText || '-'}</Td>
                         <Td>{c.responsible || '-'}</Td>
@@ -178,19 +206,25 @@ export default function LeadsPage() {
                       <Tr key={i}>
                         <Td>{c.name || c.full_name || '-'}</Td>
                         <Td>
-                          <HStack spacing={2} align='center'>
-                            <FiPhone />
-                            <CLink href={`tel:${digitsOnly(c.phone || '')}`} color='green.700'>{c.phone || '-'}</CLink>
-                            {c.phone && (
-                              <Button as='a' href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`} target='_blank' rel='noopener noreferrer' size='xs' colorScheme='whatsapp' leftIcon={<FaWhatsapp />} rounded='full'>WhatsApp</Button>
-                            )}
-                          </HStack>
-                          <HStack spacing={2} mt={1} align='center'>
-                            <FiMail />
-                            <CLink href={c.email ? `mailto:${c.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}` : '#'} color='blue.600'>
-                              {c.email || '-'}
-                            </CLink>
-                          </HStack>
+                          <Stack spacing={1} align='start'>
+                            <HStack spacing={2}>
+                              <FiPhone />
+                              <CLink href={`tel:${digitsOnly(c.phone || '')}`} color='green.700'>{c.phone || '-'}</CLink>
+                              {c.phone && (<Box as={FaWhatsapp} color='whatsapp.500' fontSize='lg' aria-label='WhatsApp' />)}
+                              {c.phone && (
+                                <Button as='a' href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`} target='_blank' rel='noopener noreferrer' size='xs' colorScheme='whatsapp' leftIcon={<FaWhatsapp />} rounded='full'>WhatsApp</Button>
+                              )}
+                            </HStack>
+                            <HStack spacing={2}>
+                              <FiMail />
+                              <CLink href={c.email ? `mailto:${c.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}` : '#'} color='blue.600'>
+                                {c.email || '-'}
+                              </CLink>
+                              {c.email && (
+                                <Button as='a' href={`mailto:${c.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}`} size='xs' colorScheme='blue' variant='outline' leftIcon={<FiMail />} rounded='full'>Email</Button>
+                              )}
+                            </HStack>
+                          </Stack>
                         </Td>
                         <Td>{c.notes || '-'}</Td>
                       </Tr>
