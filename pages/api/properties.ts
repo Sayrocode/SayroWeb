@@ -57,17 +57,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const limit = Math.min(parseInt(String(req.query.limit ?? '100')) || 100, 200);
+  const limit = Math.min(parseInt(String(req.query.limit ?? '24')) || 24, 200);
+  const page = Math.max(parseInt(String(req.query.page ?? '1')) || 1, 1);
+  const skip = (page - 1) * limit;
 
-  const items = await prisma.property.findMany({
+  const [items, total] = await Promise.all([
+    prisma.property.findMany({
     where: {
       // Solo propiedades disponibles en el catálogo público
       status: 'available',
     },
     orderBy: { updatedAt: 'desc' },
+    include: { media: { select: { key: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
     take: limit,
-  });
+    skip,
+  }),
+    prisma.property.count({ where: { status: 'available' } }),
+  ]);
 
-  const content = items.map(toEBListItem);
-  return res.status(200).json({ content, pagination: { limit, total: content.length, page: 1, next_page: null } });
+  const content = items.map((p: any) => {
+    // Si hay imágenes en Turso, construir URL pública
+    const firstMedia = Array.isArray(p.media) && p.media.length && p.media[0]?.key
+      ? `/api/admin/images/${encodeURIComponent((p.media[0] as any).key)}`
+      : null;
+    const eb = toEBListItem(p);
+    // Siempre usar Turso o placeholder local; nunca CDNs externos
+    eb.title_image_full = firstMedia || '/image3.jpg';
+    eb.title_image_thumb = firstMedia || '/image3.jpg';
+    return eb;
+  });
+  const totalPages = Math.max(Math.ceil(total / limit), 1);
+  const next_page = page < totalPages ? page + 1 : null;
+  const prev_page = page > 1 ? page - 1 : null;
+  return res.status(200).json({
+    content,
+    pagination: { limit, total, page, total_pages: totalPages, next_page, prev_page },
+  });
 }
