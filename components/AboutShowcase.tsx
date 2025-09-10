@@ -211,18 +211,19 @@ export default function AboutSplitHeroParallax({
             />
           </Box>
 
-          {/* Logo centrado */}
-         
-            <Box position="absolute" inset={0} display="grid" placeItems="center" pointerEvents="none">
-              <ChakraImage
-                src={"/sayrowhite.png"}
-                alt={logoAlt}
-                maxW={{ base: "48%", md: "100%" }}
-                opacity={0.95}
-                mr={20}
-                filter="drop-shadow(0 4px 20px rgba(0,0,0,.35))"
-              />
-            </Box>
+          {/* Logo centrado (usa logoSrc y sin desplazamiento lateral) */}
+          <Box position="absolute" inset={0} display="grid" placeItems="center" pointerEvents="none">
+            <ChakraImage
+              src={logoSrc}
+              alt={logoAlt}
+              maxW={{ base: "85%", md: "65%" }}
+              maxH={{ base: "85%", md: "80%" }}
+              objectFit="contain"
+              opacity={0.95}
+              fallbackSrc="/sayrowhite.png"
+              filter="drop-shadow(0 4px 20px rgba(0,0,0,.35))"
+            />
+          </Box>
         
         </GridItem>
       </Grid>
