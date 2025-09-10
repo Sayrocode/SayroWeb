@@ -1,8 +1,8 @@
 import type { GetServerSideProps } from 'next';
 import React from 'react';
 import { getIronSession } from 'iron-session';
-import { AppSession, sessionOptions } from 'lib/session';
-import Layout from 'components/Layout';
+import { AppSession, sessionOptions } from '../../lib/session';
+import Layout from '../../components/Layout';
 import Link from 'next/link';
 import useSWRInfinite from 'swr/infinite';
 import { Box, Button, Container, Heading, Text, SimpleGrid, HStack, Input, InputGroup, InputLeftElement, Badge, Stack, Spacer, Skeleton, Editable, EditablePreview, EditableInput } from '@chakra-ui/react';
@@ -46,6 +46,12 @@ export default function AdminEgoContacts() {
     return () => ob.disconnect();
   }, [loaderRef.current, isLoadingMore, isReachingEnd, setSize]);
 
+  const onScrape = async () => {
+    if (!confirm('¿Importar contactos desde EgoRealEstate? Esto puede tardar.')) return;
+    const r = await fetch('/api/admin/ego/contacts', { method: 'POST' });
+    if (r.ok) mutate();
+  };
+
   const [editingId, setEditingId] = React.useState<number | null>(null);
   const [form, setForm] = React.useState<Partial<EgoContact>>({});
 
@@ -73,7 +79,7 @@ export default function AdminEgoContacts() {
             <InputLeftElement pointerEvents="none"><SearchIcon color="gray.400" /></InputLeftElement>
             <Input placeholder="Buscar nombre, email, teléfono" value={q} onChange={(e) => setQ(e.target.value)} bg="white" />
           </InputGroup>
-          {/* Importación de scrapers deshabilitada en Vercel */}
+          <Button colorScheme="purple" onClick={onScrape} isLoading={isLoading}>Importar</Button>
           <Button as={Link} href="/admin" variant="outline">Volver</Button>
         </HStack>
 
