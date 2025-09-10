@@ -73,6 +73,7 @@ export default function HomePage() {
           <DualCTASectionLazy />
         </Viewport>
 
+          <div id="nosotros" />
           <AboutShowcaseLazy
             imageSrc="/about.png"
             imageAlt="Fachada curvada"
@@ -95,6 +96,7 @@ export default function HomePage() {
         <Viewport>
           <HomePropertiesLazy />
         </Viewport>
+        <div id="servicios" />
         <Viewport>
           <ServicesGridLazy />
         </Viewport>
