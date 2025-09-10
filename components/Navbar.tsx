@@ -301,7 +301,7 @@ function MobileNavItem({
   color: string;
   hoverColor: string;
   activeBar: string;
-  onClick: () => void;
+  onClick?: (e: any) => void;
 }) {
   return (
     <ChakraLink
