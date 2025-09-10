@@ -49,7 +49,12 @@ function getLocationText(loc: unknown): string {
   return [o.name, o.neighborhood, o.municipality || o.delegation, o.city, o.state, o.country].filter(Boolean).join(", ");
 }
 function firstImage(p: EBListItem) {
-  return p.title_image_full || p.title_image_thumb || (Array.isArray(p.property_images) && p.property_images[0]?.url) || "/image3.jpg";
+  const candidate =
+    p.title_image_full ||
+    p.title_image_thumb ||
+    (Array.isArray(p.property_images) && p.property_images[0]?.url) ||
+    "";
+  return typeof candidate === "string" && candidate.startsWith("/") ? candidate : "/image3.jpg";
 }
 function priceLabel(ops?: EBOperation[]) {
   if (!ops?.length) return "PRECIO A CONSULTAR";
@@ -198,8 +203,13 @@ export default function HomeFeaturedCarousel() {
   useEffect(() => {
     const fetchProps = async () => {
       try {
-        let res = await fetch("/api/easybroker/properties?limit=12", { cache: "no-store" });
-        if (!res.ok) res = await fetch("/api/easybroker?endpoint=properties&limit=12", { cache: "no-store" });
+        // Prioriza propiedades desde nuestra DB (Turso)
+        let res = await fetch("/api/properties?limit=12", { cache: "no-store" });
+        if (!res.ok) {
+          // Fallback a EasyBroker si falla la DB
+          res = await fetch("/api/easybroker/properties?limit=12", { cache: "no-store" });
+          if (!res.ok) res = await fetch("/api/easybroker?endpoint=properties&limit=12", { cache: "no-store" });
+        }
         if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
         const data: EBListResp = await res.json();
         const items = Array.isArray(data?.content) ? data.content : [];

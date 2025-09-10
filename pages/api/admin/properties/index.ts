@@ -41,17 +41,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       } catch {}
 
+      let numericPrice: number | null = null;
       const formattedPrice = (() => {
         if (!operations.length) return null;
         const sale = operations.find((o) => o?.type === 'sale');
         const rental = operations.find((o) => o?.type === 'rental');
         const ch = sale || rental || operations[0];
+        const amt = typeof ch?.amount === 'number' ? ch.amount : (
+          Array.isArray(ch?.prices) ? ch.prices?.[0]?.amount : undefined
+        );
+        if (typeof amt === 'number') numericPrice = amt;
         if (ch?.formatted_amount) return ch.formatted_amount as string;
-        if (typeof ch?.amount === 'number') {
+        if (typeof amt === 'number') {
           const currency = ch.currency || 'MXN';
           try {
-            return new Intl.NumberFormat('es-MX', { style: 'currency', currency, maximumFractionDigits: 0 }).format(ch.amount);
-          } catch { return String(ch.amount); }
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amt);
+          } catch { return String(amt); }
         }
         return null;
       })();
@@ -63,7 +68,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         coverUrl,
         propertyType: p.propertyType,
         status: p.status,
+        locationText: p.locationText,
+        bedrooms: p.bedrooms,
+        bathrooms: p.bathrooms,
+        parkingSpaces: p.parkingSpaces,
+        lotSize: p.lotSize,
+        constructionSize: p.constructionSize,
         price: formattedPrice,
+        priceAmount: numericPrice,
         updatedAt: p.updatedAt,
       };
     });

@@ -40,12 +40,12 @@ function pickPrice(ops?: EBOperation[]) {
 }
 
 function firstImage(p: EBProperty) {
-  return (
+  const candidate =
     p.title_image_full ||
     p.title_image_thumb ||
     (Array.isArray(p.property_images) && (p.property_images[0]?.url as string)) ||
-    '/image3.jpg'
-  );
+    '';
+  return typeof candidate === 'string' && candidate.startsWith('/') ? candidate : '/image3.jpg';
 }
 
 export default function FbLanding({ property, canonicalUrl }: PageProps) {
@@ -162,14 +162,27 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
 
   let property: EBProperty | null = null;
   try {
-    if (process.env.EASYBROKER_API_KEY) {
-      const r = await fetch(`${EB_API_BASE}/properties/${encodeURIComponent(id)}`, {
+    // Priorizar nuestra API (Turso)
+    const r1 = await fetch(`${base}/api/properties/${encodeURIComponent(id)}`);
+    if (r1.ok) {
+      property = (await r1.json()) as EBProperty;
+    } else if (process.env.EASYBROKER_API_KEY) {
+      // Fallback a EB solo para datos; imágenes se sanitizan a local
+      const r2 = await fetch(`${EB_API_BASE}/properties/${encodeURIComponent(id)}`, {
         headers: { accept: 'application/json', 'X-Authorization': process.env.EASYBROKER_API_KEY as string },
       });
-      if (r.ok) property = (await r.json()) as EBProperty;
+      if (r2.ok) {
+        const j = (await r2.json()) as EBProperty;
+        // Sanitizar imágenes: usar solo local placeholder
+        property = {
+          ...j,
+          title_image_full: '/image3.jpg',
+          title_image_thumb: '/image3.jpg',
+          property_images: [],
+        } as EBProperty;
+      }
     }
   } catch {}
 
   return { props: { property, canonicalUrl } };
 };
-

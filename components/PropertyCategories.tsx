@@ -48,7 +48,8 @@ async function fetchPreview(ebTypes: string[]): Promise<string | null> {
       const j = await r.json();
       const it = Array.isArray(j.content) && j.content[0];
       const url = it?.title_image_full || it?.title_image_thumb || (Array.isArray(it?.property_images) && it.property_images[0]?.url) || null;
-      if (url) return url as string;
+      // Aceptar solo rutas locales (no CDNs externos)
+      if (typeof url === 'string' && url.startsWith('/')) return url as string;
     }
   } catch {}
   return null;

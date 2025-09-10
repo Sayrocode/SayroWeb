@@ -55,6 +55,7 @@ export default function AdminPropertyEdit() {
   const { id } = router.query as { id?: string };
   const [data, setData] = useState<PropDetail | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dlLoading, setDlLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
 
@@ -170,6 +171,44 @@ export default function AdminPropertyEdit() {
     if (fileRef.current) fileRef.current.value = '';
   };
 
+  const downloadEBImages = async () => {
+    if (!id) return;
+    if (!confirm('Descargar imágenes desde EasyBroker para esta propiedad?')) return;
+    setDlLoading(true);
+    try {
+      const r = await fetch(`/api/admin/properties/${id}/images/download?onlyMissing=1&stream=1`, { method: 'POST' });
+      if ((r as any).body && typeof (r as any).body.getReader === 'function') {
+        const reader = (r as any).body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffered = '';
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          buffered += chunk;
+          let idx;
+          while ((idx = buffered.indexOf('\n')) >= 0) {
+            const line = buffered.slice(0, idx).trimEnd();
+            buffered = buffered.slice(idx + 1);
+            // eslint-disable-next-line no-console
+            if (line) console.log(line);
+          }
+        }
+      } else {
+        await r.json().catch(() => ({}));
+      }
+      // Refresh media listing
+      const rr = await fetch(`/api/admin/properties/${id}`);
+      if (rr.ok) setData(await rr.json());
+      toast({ title: 'Imágenes descargadas', status: 'success', duration: 2000 });
+    } catch (e) {
+      toast({ title: 'Error al descargar', status: 'error', duration: 2000 });
+    } finally {
+      setDlLoading(false);
+    }
+  };
+
   // Map of local url -> key to allow deleting from cover/thumbs
   const localMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -272,6 +311,9 @@ export default function AdminPropertyEdit() {
             )}
 
             <Box mt={4}>
+              <HStack mb={2}>
+                <Button onClick={downloadEBImages} isLoading={dlLoading} colorScheme='green' variant='outline'>Descargar imágenes EB</Button>
+              </HStack>
               <Input type="file" ref={fileRef} multiple accept="image/*" onChange={(e) => uploadFiles(e.target.files)} />
             </Box>
           </Box>

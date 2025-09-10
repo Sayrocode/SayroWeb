@@ -67,21 +67,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
   if (!props.length) return res.status(404).json({ error: 'Propiedades no encontradas' });
 
-  // Pick best image URL for each property (public URL preferred for Meta to fetch)
+  // Pick image URLs strictly from Turso or local /public
   const toImageUrls = (p: any): string[] => {
     const urls: string[] = [];
-    // EB images first (public CDN)
-    try {
-      const arr = p.propertyImagesJson ? JSON.parse(p.propertyImagesJson) : [];
-      if (Array.isArray(arr)) {
-        for (const it of arr) if (it?.url) urls.push(it.url);
-      }
-    } catch {}
-    // Local images (ensure absolute URL)
+    // Local DB images (absolute URLs)
     for (const m of p.media || []) urls.push(`${baseUrl}/api/admin/images/${encodeURIComponent(m.key)}`);
-    // Fallback to title images
-    if (p.titleImageFull) urls.push(p.titleImageFull);
-    if (p.titleImageThumb) urls.push(p.titleImageThumb);
+    // Fallback to local placeholder (public)
+    urls.push(`${baseUrl}/image3.jpg`);
     return Array.from(new Set(urls));
   };
 
