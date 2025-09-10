@@ -33,7 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const id = String(req.query.id);
-  const p = await prisma.property.findUnique({ where: { publicId: id } });
+  const p = await prisma.property.findUnique({
+    where: { publicId: id },
+    include: { media: { select: { key: true }, orderBy: { createdAt: 'asc' } } },
+  });
   if (!p) return res.status(404).json({ error: 'Not Found' });
   if (p.status === 'retired' || p.status === 'unknown') return res.status(404).json({ error: 'Not Found' });
 
@@ -46,14 +49,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (detail?.broker) broker = detail.broker;
   } catch {}
 
-  let property_images: any[] = [];
-  try { const arr = p.propertyImagesJson ? JSON.parse(p.propertyImagesJson) : []; if (Array.isArray(arr)) property_images = arr; } catch {}
+  // Imágenes: prioriza media en DB; después, JSON de EB
+  const imagesFromMedia = Array.isArray((p as any).media)
+    ? (p as any).media.map((m: any) => ({ url: `/api/admin/images/${encodeURIComponent((m as any).key)}` }))
+    : [];
+
+  // Solo servir imágenes locales (Turso). No exponer CDNs externos.
+  const property_images: any[] = imagesFromMedia;
 
   const out = {
     public_id: p.publicId,
     title: p.title,
-    title_image_full: p.titleImageFull,
-    title_image_thumb: p.titleImageThumb,
+    title_image_full: imagesFromMedia.length ? imagesFromMedia[0].url : '/image3.jpg',
+    title_image_thumb: imagesFromMedia.length ? imagesFromMedia[0].url : '/image3.jpg',
     property_images,
     description,
     location: p.locationText,
@@ -70,4 +78,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json(out);
 }
-
