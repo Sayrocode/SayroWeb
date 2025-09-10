@@ -1,6 +1,7 @@
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, PropsWithChildren } from "react";
+import { Box } from "@chakra-ui/react";
 import Hero from "../components/Hero"; // above-the-fold: keep static
 
 // Reemplaza PropertyCategories por grid de servicios
@@ -54,6 +55,21 @@ export default function HomePage() {
   const description =
     "Encuentra tu próxima propiedad con Sayro Bienes Raíces. Inventario actualizado, atención personalizada y procesos claros.";
 
+  // Reintento de scroll a hash tras montaje y posibles cargas diferidas
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash?.slice(1);
+    if (!hash) return;
+    const scrollTo = () => {
+      const el = document.getElementById(hash);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    // intenta en el próximo frame y luego tras un pequeño delay
+    requestAnimationFrame(scrollTo);
+    const t = setTimeout(scrollTo, 350);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <>
     <Layout>
@@ -73,8 +89,8 @@ export default function HomePage() {
           <DualCTASectionLazy />
         </Viewport>
 
-          <div id="nosotros" />
           <AboutShowcaseLazy
+            anchorId="nosotros"
             imageSrc="/about.png"
             imageAlt="Fachada curvada"
             logoSrc="/logos/sayro-sello-blanco.svg"
@@ -93,13 +109,8 @@ export default function HomePage() {
             facebookUrl="https://facebook.com/tu_pagina"
           />
 
-        <Viewport>
-          <HomePropertiesLazy />
-        </Viewport>
-        <div id="servicios" />
-        <Viewport>
-          <ServicesGridLazy />
-        </Viewport>
+        <HomePropertiesLazy />
+        <ServicesGridLazy />
 
       </main>
       </Layout>

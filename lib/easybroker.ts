@@ -1,4 +1,4 @@
-// Copied from src/lib/easybroker.ts
+// src/lib/easybroker.ts
 const EB_API_BASE = "https://api.easybroker.com/v1";
 
 function requireKey() {

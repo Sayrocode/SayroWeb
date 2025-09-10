@@ -91,7 +91,7 @@ export default function ServicesGrid() {
   return (
     <Box as="section" py={{ base: 10, md: 14 }} bg={sectionBg}>
       <Container maxW="7xl">
-        <Heading as="h2" textAlign="center" fontWeight="600" fontSize={{ base: 'xl', md: '2xl' }} color={titleColor} letterSpacing="wide" mb={{ base: 8, md: 10 }}>
+        <Heading id="servicios" as="h2" textAlign="center" fontWeight="600" fontSize={{ base: 'xl', md: '2xl' }} color={titleColor} letterSpacing="wide" mb={{ base: 8, md: 10 }} scrollMarginTop={{ base: '56px', md: '64px' }}>
           NUESTROS SERVICIOS
         </Heading>
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
@@ -103,4 +103,3 @@ export default function ServicesGrid() {
     </Box>
   );
 }
-

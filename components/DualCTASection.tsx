@@ -229,7 +229,7 @@ export default function DualCTASection({
           color={titleColor}
           letterSpacing="wide"
         >
-          ANUNCIANTES Y  ADQUIERENTES
+          ANUNCIANTES Y ADQUIERENTES
         </Heading>
       </Stack>
 

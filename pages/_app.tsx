@@ -4,14 +4,16 @@ import type { AppProps } from "next/app";
 import theme from "../theme";
 import "../styles/fonts.css";
 import Script from "next/script";
-import { FB_PIXEL_ID } from "lib/fbpixel";
+import { FB_PIXEL_ID } from "../lib/fbpixel";
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
     <ChakraProvider theme={theme}>
       <Head>
+        {/* Preconnect for Google Fonts */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Cinzel (heading fallback) + Montserrat (body) */}
         <link
           href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Montserrat:wght@400;500;600;700&display=swap"
           rel="stylesheet"

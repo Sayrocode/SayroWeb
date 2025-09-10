@@ -33,6 +33,8 @@ type WhatWeDoProps = {
   instagramUrl?: string;
   facebookUrl?: string;
   brandName?: string; // para JSON-LD
+  /** Invierte el layout en desktop: imagen izquierda, panel verde derecha */
+  reverseDesktop?: boolean;
 };
 
 export default function WhatWeDo({
@@ -51,13 +53,19 @@ export default function WhatWeDo({
   instagramUrl = "https://www.instagram.com/",
   facebookUrl = "https://www.facebook.com/",
   brandName = "Sayro Bienes Raíces",
+  reverseDesktop = false,
 }: WhatWeDoProps) {
   const green = "#013927";
   const prefersReduced = usePrefersReducedMotion();
   const amplitude = useBreakpointValue({ base: 18, md: 32, lg: 48 }) || 24;
+  // Escala base más discreta en desktop para evitar imagen "muy amplia"
+  // Sin zoom en desktop (restaura "width" visual anterior). Mantén leve zoom solo en mobile.
+  const baseScale = useBreakpointValue({ base: 1.02, md: 1.0, lg: 1.0 }) || 1.0;
   const imgRef = useRef<HTMLImageElement | null>(null);
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const contentOrder = { base: 2, md: reverseDesktop ? 2 : 1 };
+  const imageOrder = { base: 1, md: reverseDesktop ? 1 : 2 };
 
   // Parallax suave para la imagen (solo si el usuario no lo desactiva)
   useEffect(() => {
@@ -76,7 +84,7 @@ export default function WhatWeDo({
       const progress = Math.min(1, Math.max(0, (vh - r.top) / (vh + r.height)));
       const translate = FROM + progress * (TO - FROM);
       img.style.setProperty("--y", `${translate}px`);
-      img.style.setProperty("--s", "1.08");
+      img.style.setProperty("--s", String(baseScale));
       raf = 0;
     };
 
@@ -100,7 +108,7 @@ export default function WhatWeDo({
       window.removeEventListener("resize", onScrollOrResize);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [prefersReduced, amplitude]);
+  }, [prefersReduced, amplitude, baseScale]);
 
   // Aparición suave del contenido para que el cambio entre secciones se vea más limpio
   useEffect(() => {
@@ -148,6 +156,7 @@ export default function WhatWeDo({
           justifyContent="center"
           px={{ base: 6, md: 10, lg: 14 }}
           py={{ base: 10, md: 14 }}
+          order={contentOrder}
         >
           {/* Animamos solo el contenido, no el contenedor con el fondo */}
           <Box
@@ -261,7 +270,7 @@ export default function WhatWeDo({
         </GridItem>
 
         {/* Imagen a la derecha */}
-        <GridItem position="relative" overflow="hidden" h={{ base: "clamp(260px, 50vh, 420px)", md: "auto" }}>
+        <GridItem position="relative" overflow="hidden" h={{ base: "clamp(260px, 50vh, 420px)", md: "auto" }} order={imageOrder}>
           <ChakraImage
             ref={imgRef}
             src={imageSrc}
@@ -270,7 +279,7 @@ export default function WhatWeDo({
             h="100%"
             objectFit="cover"
             objectPosition={{ base: "center", md: imageObjectPosition }}
-            style={{ transform: "translate3d(0, var(--y, 0), 0) scale(var(--s, 1.06))" }}
+            style={{ transform: "translate3d(0, var(--y, 0), 0) scale(var(--s, 1))" }}
             transition="transform .2s ease-out"
             willChange="transform"
             draggable={false}

@@ -6,3 +6,4 @@ export function waHref(message?: string) {
   if (!message) return base;
   return `${base}?text=${encodeURIComponent(message)}`;
 }
+

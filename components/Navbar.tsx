@@ -1,3 +1,4 @@
+// components/Navbar.tsx
 import {
   Box,
   Container,
@@ -27,6 +28,7 @@ const publicLinks = [
   { name: "Nosotros", href: "/#nosotros" },
   { name: "Servicios", href: "/#servicios" },
   { name: "Contacto", href: "/contacto" },
+  // Mantener orden según diseño de referencia
   { name: "Noticias", href: "/#noticias" },
 ];
 
@@ -35,6 +37,7 @@ export default function Navbar() {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const isHome = router.pathname === "/";
+  // Solo mostramos navegación de admin cuando NO estamos en la pantalla de login
   const isAdmin = router.pathname.startsWith("/admin") && router.pathname !== "/admin/login";
   const adminLinks = [
     { name: "Propiedades", href: "/admin" },
@@ -47,7 +50,9 @@ export default function Navbar() {
     const hero = document.getElementById("hero");
     if (!hero || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(
-      (entries) => { setOverHero(entries[0]?.isIntersecting ?? false); },
+      (entries) => {
+        setOverHero(entries[0]?.isIntersecting ?? false);
+      },
       { threshold: 0.1 }
     );
     io.observe(hero);
@@ -68,87 +73,266 @@ export default function Navbar() {
   const isActive = (href: string) =>
     href === "/" ? router.pathname === "/" : router.pathname.startsWith(href);
 
+  function handleNavClick(e: React.MouseEvent, href: string) {
+    if (!href.startsWith('/#')) return; // normal links
+    const id = href.slice(2);
+    if (router.pathname !== '/') {
+      // Deja que el router navegue con hash para que el ancla funcione tras montar
+      e.preventDefault();
+      router.push(`/#${id}`);
+      return;
+    }
+    e.preventDefault();
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   return (
     <>
+      {/* Skip link accesible */}
       <ChakraLink
         href="#contenido"
         position="absolute"
         left="-999px"
-        _focus={{ left: "12px", top: "10px", bg: "green.600", color: "white", px: 3, py: 1, zIndex: 1000, rounded: "md" }}
+        _focus={{
+          left: "12px",
+          top: "10px",
+          zIndex: 1000,
+          bg: "green.600",
+          color: "white",
+          px: 3,
+          py: 2,
+          rounded: "md",
+        }}
       >
-        <VisuallyHidden>Ir al contenido principal</VisuallyHidden>
+        Saltar al contenido
       </ChakraLink>
 
       <Box
         as="nav"
+        bg={bg}
+        backdropFilter={isHome && !overHero ? "saturate(180%) blur(10px)" : undefined}
+        boxShadow={isHome ? (overHero ? "none" : "sm") : "sm"}
+        borderBottom={isHome ? (overHero ? undefined : "1px solid") : "1px solid"}
+        borderColor={isHome ? (overHero ? undefined : border) : border}
+        transition="box-shadow .35s ease, border-color .35s ease, backdrop-filter .35s ease, transform .3s ease"
         position="fixed"
         top={0}
         left={0}
         right={0}
-        zIndex={20}
-        bg={isHome ? (overHero ? "transparent" : bg) : bg}
-        borderBottomWidth={isHome && overHero ? 0 : 1}
-        borderColor={border}
-        transition="background-color .2s ease, border-color .2s ease"
-        _before={isHome && overHero ? { content: '""', position: 'absolute', inset: 0, bgGradient: overlayGradient, pointerEvents: 'none' } : undefined}
+        zIndex={1000}
+        role="navigation"
+        aria-label="Navegación principal"
       >
-        <Container maxW="7xl" py={{ base: 3, md: 3 }} px={{ base: 4, md: 6 }}>
-          <Flex align="center" justify="space-between">
-            <HStack spacing={3} align="center">
-              <NextLink href={isAdmin ? "/admin" : "/"}>
-                <Image src="/sayrologo.png" alt="Sayro" width={132} height={36} priority />
-              </NextLink>
-            </HStack>
-            <HStack spacing={6} display={{ base: "none", md: "flex" }}>
-              {links.map((l) => (
-                <ChakraLink
-                  key={l.href}
-                  as={NextLink}
-                  href={l.href}
-                  color={linkColor}
-                  _hover={{ color: hoverColor, textDecoration: "none" }}
-                  position="relative"
-                  pb={2}
-                >
-                  {l.name}
-                  {isActive(l.href) && (
-                    <Box position="absolute" left={0} right={0} bottom={0} h="2px" bg={activeBar} />
-                  )}
-                </ChakraLink>
-              ))}
+        {/* Fondo degradado animado (debajo del contenido) */}
+        <Box
+          position="absolute"
+          inset={0}
+          bgGradient={overlayGradient}
+          opacity={isHome && !overHero ? 1 : 0}
+          transition="opacity .35s ease"
+          pointerEvents="none"
+          zIndex={0}
+        />
+        <Container maxW="7xl" px={{ base: 4, md: 6 }} position="relative" zIndex={1}>
+          <Flex h={{ base: 14, md: 16 }} align="center" justify="space-between">
+            {/* Izquierda: logo mobile + links desktop */}
+            <HStack spacing={{ base: 4, md: 6 }} align="center">
+              {/* Logo solo en mobile (izquierda) */}
+              <ChakraLink
+                as={NextLink}
+                href={isAdmin ? "/admin" : "/"}
+                display={{ base: 'inline-flex', md: 'none' }}
+                alignItems="center"
+              >
+                <Image src="/sayrologo.png" width={110} height={30} alt="Sayro Bienes Raíces" priority />
+                <VisuallyHidden>Sayro Bienes Raíces</VisuallyHidden>
+              </ChakraLink>
+              {/* Links solo en desktop */}
+              <HStack spacing={6} display={{ base: 'none', md: 'flex' }}>
+                {links.map((link) => (
+                  <NavItem
+                    key={link.href}
+                    href={link.href}
+                    isActive={isActive(link.href)}
+                    color={linkColor}
+                    hoverColor={hoverColor}
+                    activeBar={activeBar}
+                    onClick={(e: any) => handleNavClick(e, link.href)}
+                  >
+                    {link.name}
+                  </NavItem>
+                ))}
+              </HStack>
             </HStack>
 
-            <IconButton
-              aria-label="Abrir menú"
-              icon={isOpen ? <FiX /> : <FiMenu />}
-              onClick={isOpen ? onClose : onOpen}
-              display={{ base: "inline-flex", md: "none" }}
-              variant={isHome && overHero ? "ghost" : "outline"}
-            />
+            {/* Derecha: logo desktop + botón menú mobile */}
+            <HStack align="center" spacing={2}>
+              {/* Logo solo en desktop (derecha) */}
+              <ChakraLink as={NextLink} href={isAdmin ? "/admin" : "/"} display={{ base: 'none', md: 'inline-flex' }} alignItems="center">
+                <Image src="/sayrologo.png" width={110} height={30} alt="Sayro Bienes Raíces" priority />
+                <VisuallyHidden>Sayro Bienes Raíces</VisuallyHidden>
+              </ChakraLink>
+              {/* Botón menú mobile (derecha) */}
+              <IconButton
+                aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+                icon={isOpen ? <FiX /> : <FiMenu />}
+                display={{ base: 'inline-flex', md: 'none' }}
+                onClick={onOpen}
+                fontSize="lg"
+                variant="ghost"
+                bg="transparent"
+                color={linkColor}
+                _hover={{ bg: 'blackAlpha.100' }}
+                _active={{ bg: 'blackAlpha.200' }}
+                rounded="full"
+              />
+            </HStack>
           </Flex>
         </Container>
-
-        <Drawer isOpen={isOpen} placement="right" onClose={onClose}>
-          <DrawerOverlay />
-          <DrawerContent bg={drawerBg}>
-            <DrawerHeader borderBottomWidth="1px">Menú</DrawerHeader>
-            <DrawerBody>
-              <VStack align="stretch" spacing={2}>
-                {links.map((l) => (
-                  <ChakraLink as={NextLink} key={l.href} href={l.href} onClick={onClose} py={2}>
-                    {l.name}
-                  </ChakraLink>
-                ))}
-              </VStack>
-              <Divider my={4} />
-              <ChakraLink as={NextLink} href={isAdmin ? "/" : "/admin/login"}>
-                {isAdmin ? "Volver al sitio" : "Admin"}
-              </ChakraLink>
-            </DrawerBody>
-          </DrawerContent>
-        </Drawer>
       </Box>
-      <Box id="contenido" />
+
+      {/* Drawer de navegación móvil */}
+      <Drawer isOpen={isOpen} onClose={onClose} placement="top" size="full">
+        <DrawerOverlay />
+        <DrawerContent bg={drawerBg}>
+          <DrawerHeader
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            borderBottomWidth="1px"
+            borderColor={border}
+            px={{ base: 4, md: 6 }}
+          >
+            <ChakraLink as={NextLink} href="/" onClick={onClose} display="inline-flex">
+              <Image src="/sayrologo.png" width={110} height={30} alt="Sayro Bienes Raíces" />
+              <VisuallyHidden>Sayro Bienes Raíces</VisuallyHidden>
+            </ChakraLink>
+            <IconButton aria-label="Cerrar menú" icon={<FiX />} variant="ghost" onClick={onClose} />
+          </DrawerHeader>
+
+          <DrawerBody px={{ base: 4, md: 6 }} py={6}>
+            <VStack as="nav" spacing={2} align="stretch" role="menu">
+              {links.map((link, i) => (
+                <MobileNavItem
+                  key={link.href}
+                  href={link.href}
+                  isActive={isActive(link.href)}
+                  activeBar={activeBar}
+                  color={linkColor}
+                  hoverColor={hoverColor}
+                  onClick={(e: any) => { handleNavClick(e, link.href); onClose(); }}
+                >
+                  {link.name}
+                </MobileNavItem>
+              ))}
+            </VStack>
+
+            <Divider my={6} borderColor={border} />
+            {/* Puedes añadir aquí botones/CTA secundarios si lo necesitas */}
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </>
+  );
+}
+
+function NavItem({
+  href,
+  children,
+  isActive,
+  color,
+  hoverColor,
+  activeBar,
+  onClick,
+}: {
+  href: string;
+  children: React.ReactNode;
+  isActive?: boolean;
+  color: string;
+  hoverColor: string;
+  activeBar: string;
+  onClick?: (e: any) => void;
+}) {
+  return (
+    <ChakraLink
+      as={NextLink}
+      href={href}
+      onClick={onClick}
+      position="relative"
+      fontWeight="bold"
+      fontSize="md"
+      letterSpacing="wide"
+      color={color}
+      _hover={{ color: hoverColor, textDecoration: "none" }}
+      _focusVisible={{ boxShadow: "0 0 0 2px rgba(0,0,0,0.2)", outline: "none" }}
+      aria-current={isActive ? "page" : undefined}
+    >
+      {children}
+      {/* subrayado activo desktop */}
+      <Box
+        aria-hidden
+        position="absolute"
+        left={0}
+        right={0}
+        bottom={-2}
+        h="2px"
+        bg={activeBar}
+        transformOrigin="left"
+        transform={isActive ? "scaleX(1)" : "scaleX(0)"}
+        transition="transform .2s ease"
+      />
+    </ChakraLink>
+  );
+}
+
+function MobileNavItem({
+  href,
+  children,
+  isActive,
+  color,
+  hoverColor,
+  activeBar,
+  onClick,
+}: {
+  href: string;
+  children: React.ReactNode;
+  isActive?: boolean;
+  color: string;
+  hoverColor: string;
+  activeBar: string;
+  onClick: () => void;
+}) {
+  return (
+    <ChakraLink
+      as={NextLink}
+      href={href}
+      onClick={onClick}
+      py={3.5}
+      px={1}
+      fontSize="lg"
+      fontWeight="semibold"
+      color={color}
+      _hover={{ color: hoverColor, textDecoration: "none" }}
+      _focusVisible={{ boxShadow: "0 0 0 2px rgba(0,0,0,0.2)", outline: "none" }}
+      position="relative"
+      aria-current={isActive ? "page" : undefined}
+      role="menuitem"
+    >
+      {/* barra activa al lado izquierdo en mobile */}
+      <Box
+        aria-hidden
+        position="absolute"
+        left={0}
+        top={0}
+        bottom={0}
+        w="3px"
+        bg={activeBar}
+        transform={isActive ? "scaleY(1)" : "scaleY(0)"}
+        transformOrigin="top"
+        transition="transform .2s ease"
+      />
+      <Box pl={3}>{children}</Box>
+    </ChakraLink>
   );
 }

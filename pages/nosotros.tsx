@@ -1,3 +1,8 @@
-export { };
-export async function getServerSideProps() { return { redirect: { destination: '/#nosotros', permanent: false } }; }
+import type { GetServerSideProps } from 'next';
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  return { redirect: { destination: '/#nosotros', permanent: false } };
+};
+
 export default function NosotrosRedirect() { return null; }
+

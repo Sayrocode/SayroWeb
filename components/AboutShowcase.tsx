@@ -21,6 +21,7 @@ type Props = {
   imageAlt?: string;
   logoSrc?: string;
   logoAlt?: string;
+  anchorId?: string; // id del section para navegación con hash
   /** Intensidad base desktop (px máx. de desplazamiento). Default 80 */
   desktopMaxShift?: number;
   /** Intensidad base mobile (px máx. de desplazamiento). Default 46 */
@@ -38,6 +39,7 @@ export default function AboutSplitHeroParallax({
   imageAlt = "Edificio moderno",
   logoSrc = "/sayrowhite.png",
   logoAlt = "Sayro Bienes Raíces S.A. de C.V.",
+  anchorId,
   desktopMaxShift = 80,
   mobileMaxShift = 46,
 }: Props) {
@@ -115,7 +117,15 @@ export default function AboutSplitHeroParallax({
   const bleed = Math.max(30, Math.round(maxShift * 1.2)); // px extra arriba/abajo
 
   return (
-    <Box as="section" w="100%" ref={sectionRef} bg="white" _dark={{ bg: "gray.900" }}>
+    <Box
+      as="section"
+      id={anchorId}
+      w="100%"
+      ref={sectionRef}
+      bg="white"
+      _dark={{ bg: "gray.900" }}
+      scrollMarginTop={{ base: "56px", md: "64px" }}
+    >
       <Grid templateColumns={{ base: "1fr", md: "1.5fr 1fr" }} gap={0} alignItems="stretch">
         {/* IZQUIERDA */}
         <GridItem

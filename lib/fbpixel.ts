@@ -1,4 +1,4 @@
-// Lightweight Meta Pixel helper (copied from src/lib/fbpixel.ts)
+// Lightweight Meta Pixel helper
 export const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID || '';
 
 export function fbq(...args: any[]) {
@@ -21,3 +21,4 @@ export function trackLead(data?: Record<string, any>) {
   if (!FB_PIXEL_ID) return;
   fbq('track', 'Lead', data || {});
 }
+

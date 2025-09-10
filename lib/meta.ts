@@ -101,36 +101,56 @@ export async function createCampaign(params: {
   const campaign = await postForm(`/act_${adAccountId}/campaigns`, {
     name,
     objective,
-    status,
+    status, // start paused by default
     special_ad_categories: [],
   }, token);
 
   // 2) Ad Set
+  // Derivar optimization_goal a partir del objective (v19)
+  const optimizationGoal = (() => {
+    switch (objective) {
+      case 'OUTCOME_TRAFFIC':
+        return 'LINK_CLICKS';
+      case 'LINK_CLICKS':
+        return 'LINK_CLICKS';
+      case 'OUTCOME_REACH':
+        return 'REACH';
+      default:
+        return 'LINK_CLICKS';
+    }
+  })();
+
   const adset = await postForm(`/act_${adAccountId}/adsets`, {
-    name: `${name} - Set`,
+    name: `${name} - AdSet`,
     campaign_id: campaign.id,
-    daily_budget: dailyBudgetMinor, // in minor units
     billing_event: 'IMPRESSIONS',
-    optimization_goal: 'REACH',
+    optimization_goal: optimizationGoal,
+    // Para evitar errores de puja requeridos, usar estrategia de menor costo sin tope
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+    daily_budget: String(dailyBudgetMinor),
     start_time: startTime,
     end_time: endTime,
-    targeting: { geo_locations: { countries: ['MX'] } },
+    targeting: {
+      geo_locations: { countries: ['MX'] },
+      publisher_platforms: ['facebook', 'instagram'],
+      facebook_positions: ['feed'],
+      instagram_positions: ['stream'],
+    },
     status,
   }, token);
 
   // 3) Creative
   const creative = await postForm(`/act_${adAccountId}/adcreatives`, {
-    name: `${name} - Creative`,
+    name: `${name} Creative`,
     object_story_spec: storySpec,
   }, token);
 
   // 4) Ad
   const ad = await postForm(`/act_${adAccountId}/ads`, {
-    name: `${name} - Ad`,
+    name: `${name} Ad`,
     adset_id: adset.id,
     creative: { creative_id: creative.id },
     status,
-    page_id: pageId,
   }, token);
 
   return { campaign, adset, creative, ad };
