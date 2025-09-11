@@ -33,11 +33,23 @@ export default function AdminHome({ username }: Props) {
     const h = setTimeout(() => setQDebounced(qRaw), 350);
     return () => clearTimeout(h);
   }, [qRaw]);
+  type SuggestItem = { type: 'property'|'title'|'type'|'location'|'operation'|'status'; label: string; value?: string };
+  const [sugOpen, setSugOpen] = React.useState(false);
+  const [sugLoading, setSugLoading] = React.useState(false);
+  const [sug, setSug] = React.useState<SuggestItem[]>([]);
+  const abortRef = React.useRef<AbortController | null>(null);
+  const sugCacheRef = React.useRef<Map<string, SuggestItem[]>>(new Map());
+
+  const [operation, setOperation] = React.useState<string>(''); // 'sale' | 'rental'
+  const [status, setStatus] = React.useState<string>(''); // 'available' or free text
+
   const PAGE_SIZE = 30;
   const getKey = (index: number) => `/api/admin/properties?take=${PAGE_SIZE}&page=${index + 1}`
     + `${qDebounced ? `&q=${encodeURIComponent(qDebounced)}&fast=1` : ''}`
     + `${type ? `&type=${encodeURIComponent(type)}` : ''}`
-    + `${city ? `&city=${encodeURIComponent(city)}` : ''}`;
+    + `${city ? `&city=${encodeURIComponent(city)}` : ''}`
+    + `${operation ? `&operation=${encodeURIComponent(operation)}` : ''}`
+    + `${status ? `&status=${encodeURIComponent(status)}` : ''}`;
   const { data, mutate, size, setSize, isLoading } = useSWRInfinite(
     getKey,
     fetcher,
@@ -55,6 +67,8 @@ export default function AdminHome({ username }: Props) {
   const prefetchGuard = React.useRef<number>(0);
   // Reset pagination when search or filters change
   React.useEffect(() => { setSize(1); }, [qDebounced, type, city, setSize]);
+  // Reset when op/status change
+  React.useEffect(() => { setSize(1); }, [operation, status, setSize]);
   // Avoid re-creating observer and stale closures: use refs
   const loadingRef = React.useRef(isLoadingMore);
   const endRef = React.useRef(isReachingEnd);
@@ -75,7 +89,7 @@ export default function AdminHome({ username }: Props) {
   React.useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
-    if (qDebounced) return; // disable infinite scroll during search
+    if (qDebounced || type || city || operation || status) return; // disable infinite scroll during search/filter
     const ob = new IntersectionObserver((entries) => {
       const e = entries[0];
       if (e.isIntersecting && !loadingRef.current && !endRef.current && scrollingDownRef.current) {
@@ -144,6 +158,34 @@ export default function AdminHome({ username }: Props) {
     const arr = (items || []).map((p: any) => (p.locationText || '').split(',').pop()?.trim()).filter(Boolean) as string[];
     return Array.from(new Set(arr));
   }, [items]);
+
+  // Suggestions (admin)
+  React.useEffect(() => {
+    const q = qRaw.trim();
+    if (q.length < 3) { setSug([]); setSugOpen(false); return; }
+    const cached = sugCacheRef.current.get(q.toLowerCase());
+    if (cached) { setSug(cached); setSugOpen(true); return; }
+    if (abortRef.current) abortRef.current.abort();
+    const ac = new AbortController(); abortRef.current = ac;
+    setSugLoading(true); setSugOpen(true);
+    fetch(`/api/admin/properties/suggest?q=${encodeURIComponent(q)}`, { signal: ac.signal })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
+      .then((j) => { const items = Array.isArray(j?.items) ? j.items as SuggestItem[] : []; setSug(items); try { sugCacheRef.current.set(q.toLowerCase(), items); } catch {} })
+      .catch(() => {})
+      .finally(() => setSugLoading(false));
+    return () => ac.abort();
+  }, [qRaw]);
+
+  function applySuggestion(it: SuggestItem) {
+    if (it.type === 'property' || it.type === 'title') {
+      router.push(`/admin/properties/${encodeURIComponent(it.value || '')}`);
+      return;
+    }
+    if (it.type === 'type') { setType(it.value || it.label); setSugOpen(false); return; }
+    if (it.type === 'location') { setCity(it.value || it.label); setSugOpen(false); return; }
+    if (it.type === 'operation') { setOperation((it.value as any) || (it.label?.toLowerCase().includes('venta') ? 'sale' : 'rental')); setSugOpen(false); return; }
+    if (it.type === 'status') { setStatus('available'); setSugOpen(false); return; }
+  }
   // Partes de ubicación para coincidencias tipo "500 m2 queretaro" o colonia/municipio/estado
   const placeParts = React.useMemo(() => {
     const set = new Set<string>();
@@ -577,11 +619,28 @@ export default function AdminHome({ username }: Props) {
             <Badge colorScheme="gray" variant="subtle">{total || 0} total</Badge>
           </HStack>
           <Wrap spacing={3} justify="center">
-            <WrapItem flex='1 1 260px'>
+            <WrapItem flex='1 1 260px' position='relative'>
               <InputGroup>
                 <InputLeftElement pointerEvents="none"><SearchIcon color="gray.400" /></InputLeftElement>
-                <Input placeholder="Buscar" value={qRaw} onChange={(e) => setQRaw(e.target.value)} bg="white" />
+                <Input placeholder="Buscar (título, id, tipo, ciudad, venta/renta, disponible)" value={qRaw} onChange={(e) => setQRaw(e.target.value)} bg="white" onFocus={() => { if (sug.length) setSugOpen(true); }} onBlur={() => setTimeout(() => setSugOpen(false), 120)} />
               </InputGroup>
+              {sugOpen && (
+                <Box position='absolute' top='42px' left={0} right={0} zIndex={20} bg='white' borderWidth='1px' rounded='md' shadow='lg' maxH='60vh' overflowY='auto'>
+                  <Box px={3} py={2} borderBottomWidth='1px' color='gray.600' fontSize='sm'>
+                    {sugLoading ? 'Buscando…' : 'Sugerencias'}
+                  </Box>
+                  {sug.length === 0 && !sugLoading ? (
+                    <Box px={3} py={3} color='gray.500' fontSize='sm'>Sin coincidencias</Box>
+                  ) : (
+                    sug.slice(0, 24).map((it, i) => (
+                      <Box key={i} px={3} py={2} _hover={{ bg: 'gray.50' }} cursor='pointer' onMouseDown={(e) => e.preventDefault()} onClick={() => applySuggestion(it)}>
+                        <Text fontWeight='medium'>{it.label}</Text>
+                        <Text fontSize='xs' color='gray.500'>{it.type}</Text>
+                      </Box>
+                    ))
+                  )}
+                </Box>
+              )}
             </WrapItem>
             {/* Búsqueda en vivo debounced; sin botón Buscar */}
             <WrapItem>

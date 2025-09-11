@@ -8,6 +8,7 @@ export type SessionUser = {
 
 export interface AppSession {
   user?: SessionUser;
+  csrfToken?: string;
 }
 
 const password = process.env.SESSION_PASSWORD;
@@ -23,7 +24,7 @@ export const sessionOptions: SessionOptions = {
   ttl: 60 * 60 * 24 * 7, // 7 days
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
     httpOnly: true,
   },
 };

@@ -16,6 +16,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const fast = String(req.query.fast || '').trim();
     const type = String(req.query.type || '').trim();
     const city = String(req.query.city || '').trim();
+    const operation = String(req.query.operation || '').trim().toLowerCase(); // 'sale' | 'rental'
+    const status = String(req.query.status || '').trim();
 
     const where: any = {};
     if (q) {
@@ -28,6 +30,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (type) where.propertyType = type;
     if (city) where.locationText = { contains: city, mode: 'insensitive' };
+    // status filter (supports synonyms for "available")
+    if (status) {
+      const allowedBase = [
+        'available','disponible','active','activa','published','publicada','en venta','en renta',
+      ];
+      const isAvail = allowedBase.some((s) => s.toLowerCase() === status.toLowerCase());
+      if (isAvail) where.status = { in: Array.from(new Set<string>([
+        ...allowedBase,
+        ...allowedBase.map((s) => s.charAt(0).toUpperCase() + s.slice(1)),
+        ...allowedBase.map((s) => s.toUpperCase()),
+      ])) };
+      else where.status = { contains: status, mode: 'insensitive' };
+    }
+    // operation filter using JSON string search as approximation
+    if (operation === 'sale' || operation === 'rental') {
+      where.OR = (where.OR || []).concat([
+        { ebDetailJson: { contains: `"type":"${operation === 'sale' ? 'sale' : 'rental'}"` } },
+        { operationsJson: { contains: `"type":"${operation === 'sale' ? 'sale' : 'rental'}"` } },
+      ]);
+    }
     const listPromise = prisma.property.findMany({
       where,
       orderBy: { updatedAt: 'desc' },
@@ -35,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       take,
       include: { media: { select: { key: true, filename: true }, take: 1, orderBy: { createdAt: 'desc' } } },
     });
-    const countPromise = (q || fast || type || city) ? Promise.resolve(null as any) : prisma.property.count({ where });
+    const countPromise = (q || fast || type || city || operation || status) ? Promise.resolve(null as any) : prisma.property.count({ where });
     const [items, total] = await Promise.all([listPromise, countPromise]);
 
     const data = items.map((p) => {

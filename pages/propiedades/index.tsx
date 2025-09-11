@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Layout from "../../components/Layout";
 import {
@@ -24,16 +24,20 @@ import { SearchIcon } from "@chakra-ui/icons";
 import Link from "next/link";
 import PropertyCard from "../../components/PropertyCard";
 
-type FiltersState = { q: string; city: string; price: string; size: string; type?: string };
+type FiltersState = { q: string; city: string; price: string; size: string; type?: string; operation?: '' | 'sale' | 'rental' };
 
 export default function Propiedades() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allProperties, setAllProperties] = useState<any[]>([]);
-  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "", type: "" });
+  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "", type: "", operation: '' });
   const [qRaw, setQRaw] = useState("");
   const [qDebounced, setQDebounced] = useState("");
-  useEffect(() => { const h = setTimeout(() => setQDebounced(qRaw), 350); return () => clearTimeout(h); }, [qRaw]);
+  // Debounce largo para filtrar resultados (evita trabajo pesado mientras tipeas)
+  useEffect(() => { const h = setTimeout(() => setQDebounced(qRaw), 700); return () => clearTimeout(h); }, [qRaw]);
+  // Debounce medio para sugerencias
+  const [qSuggest, setQSuggest] = useState("");
+  useEffect(() => { const h = setTimeout(() => setQSuggest(qRaw), 350); return () => clearTimeout(h); }, [qRaw]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -106,11 +110,13 @@ export default function Propiedades() {
   useEffect(() => {
     if (!hasMore) return;
     if (loading || loadingMore) return;
+    // No lookahead durante búsqueda/filtros activos
+    if ((qDebounced || '').trim() || filters.city || filters.price || filters.size || filters.type || filters.operation) return;
     if (lookaheadRef.current === page) return; // ya precargado para este page base
     lookaheadRef.current = page; // marca el base actual
     // precargar la siguiente página en background sin mostrar skeleton
     fetchPageSilent(page + 1).catch(() => {});
-  }, [page, hasMore, loading, loadingMore]);
+  }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation]);
 
   async function fetchPage(nextPage: number, limit = 18) {
     const res = await fetch(`/api/properties?limit=${limit}&page=${nextPage}`);
@@ -132,7 +138,15 @@ export default function Propiedades() {
       const id = String(p?.public_id || "");
       if (!id) continue;
       if (!isPublicable(p?.status)) continue;
-      if (!map.has(id)) map.set(id, p);
+      if (!map.has(id)) {
+        let opKind: '' | 'sale' | 'rental' = '';
+        try {
+          const t = String(p?.operations?.[0]?.type || '').toLowerCase();
+          if (t.includes('sale')) opKind = 'sale';
+          else if (t.includes('rental')) opKind = 'rental';
+        } catch {}
+        map.set(id, { ...p, opKind });
+      }
     }
     setAllProperties(Array.from(map.values()));
     const totalPages = Math.max(parseInt(String(data?.pagination?.total_pages ?? '1')) || 1, 1);
@@ -220,6 +234,64 @@ export default function Propiedades() {
     }
     return Array.from(set).sort();
   }, [allProperties]);
+
+  // -------- SUGERENCIAS RÁPIDAS --------
+  type SuggestItem = { label: string; value?: string; type: 'title' | 'type' | 'location' | 'operation' | 'property' };
+  const [sugOpen, setSugOpen] = useState(false);
+  const [sugLoading, setSugLoading] = useState(false);
+  const [sug, setSug] = useState<SuggestItem[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
+  const sugCacheRef = useRef<Map<string, SuggestItem[]>>(new Map());
+
+  useEffect(() => {
+    const q = qSuggest.trim();
+    if (q.length < 3) { setSug([]); setSugOpen(false); return; }
+    const cached = sugCacheRef.current.get(q.toLowerCase());
+    if (cached) { setSug(cached); setSugOpen(true); return; }
+    if (abortRef.current) abortRef.current.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setSugLoading(true);
+    setSugOpen(true);
+    fetch(`/api/properties/suggest?q=${encodeURIComponent(q)}`, { signal: ac.signal })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
+      .then((j) => {
+        const items = Array.isArray(j?.items) ? (j.items as SuggestItem[]) : [];
+        setSug(items); setSugOpen(true);
+        try { sugCacheRef.current.set(q.toLowerCase(), items); } catch {}
+      })
+      .catch(() => {})
+      .finally(() => setSugLoading(false));
+    return () => { ac.abort(); };
+  }, [qSuggest]);
+
+  function applySuggestion(it: SuggestItem) {
+    if (it.type === 'property' || it.type === 'title') {
+      router.push(`/propiedades/${encodeURIComponent(it.value || '')}`);
+      return;
+    }
+    if (it.type === 'type') {
+      setFilters((f) => ({ ...f, type: it.value || it.label }));
+      setSugOpen(false);
+      return;
+    }
+    if (it.type === 'location') {
+      setFilters((f) => ({ ...f, city: it.value || it.label }));
+      setSugOpen(false);
+      return;
+    }
+    if (it.type === 'operation') {
+      const v = (it.value === 'sale' || it.value === 'rental') ? it.value : (String(it.label || '').toLowerCase().includes('venta') ? 'sale' : 'rental');
+      setFilters((f) => ({ ...f, operation: v as any }));
+      setSugOpen(false);
+      return;
+    }
+  }
+
+  // Propaga el texto debounced al filtro de búsqueda avanzado (evita recalcular en cada tecla)
+  useEffect(() => {
+    setFilters((f) => (f.q === qDebounced ? f : { ...f, q: qDebounced }));
+  }, [qDebounced]);
 
   // Utilidades de normalización y extracción
   function norm(s: string): string {
@@ -411,6 +483,7 @@ export default function Propiedades() {
     const q = (qDebounced || "").trim();
     const parsed = parseQuery(q);
     const city = norm(filters.city || "");
+    const opFilter = (filters.operation || '') as '' | 'sale' | 'rental';
     const [min, max] = (() => {
       switch (filters.price) {
         case "0-1000000":
@@ -440,6 +513,11 @@ export default function Propiedades() {
     })();
 
     const results = allProperties.filter((p) => {
+      // operación (venta/renta) si está filtrada
+      if (opFilter) {
+        const kind = (p as any).opKind as ('' | 'sale' | 'rental') || (String(p?.operations?.[0]?.type || '').toLowerCase().includes('rental') ? 'rental' : (String(p?.operations?.[0]?.type || '').toLowerCase().includes('sale') ? 'sale' : ''));
+        if (kind !== opFilter) return false;
+      }
       // El API ya filtra por estatus publicable; no duplicar el filtro aquí.
       // texto y campos relevantes normalizados
       const title = norm(String(p?.title || ""));
@@ -557,7 +635,7 @@ export default function Propiedades() {
     }
 
     return results;
-  }, [allProperties, filters, qDebounced]);
+  }, [allProperties, filters.type, filters.city, filters.price, filters.size, filters.operation, qDebounced]);
 
   // Modo búsqueda completa: cuando el usuario aplica cualquier filtro/consulta,
   // pre-cargamos páginas sucesivas hasta cubrir todo el catálogo available,
@@ -565,34 +643,15 @@ export default function Propiedades() {
   const [isPrefetching, setIsPrefetching] = useState(false);
   const [prefetchAll, setPrefetchAll] = useState(false);
 
+  // Deshabilitar prefetch masivo durante búsqueda/filtros para evitar bloqueos
   useEffect(() => {
-    const isFiltering = Boolean(
-      (qDebounced || '').trim() || filters.city || filters.price || filters.size || filters.type
-    );
-    setPrefetchAll(isFiltering);
+    setPrefetchAll(false);
   }, [qDebounced, filters.city, filters.price, filters.size, filters.type]);
 
-  useEffect(() => {
-    if (!prefetchAll) return;
-    if (loading) return;                // Esperar a la primera página
-    if (!hasMore) return;               // Ya cargamos todo
-    if (loadingMore || isPrefetching) return; // Evitar solaparse con infinito
-
-    let cancelled = false;
-    (async () => {
-      setIsPrefetching(true);
-      try {
-        await fetchPage(page + 1);
-      } finally {
-        if (!cancelled) setIsPrefetching(false);
-      }
-    })();
-    return () => { cancelled = true; };
-    // Mientras queden páginas y siga activo prefetchAll, este efecto se re-dispara (por cambios en page/hasMore)
-  }, [prefetchAll, page, hasMore, loading, loadingMore, isPrefetching]);
+  useEffect(() => {}, [prefetchAll, page, hasMore, loading, loadingMore, isPrefetching]);
 
   const clearFilters = () => {
-    setFilters({ q: "", city: "", price: "", size: "", type: "" });
+    setFilters({ q: "", city: "", price: "", size: "", type: "", operation: '' });
     setQRaw(""); setQDebounced("");
   };
 
@@ -607,13 +666,37 @@ export default function Propiedades() {
           <Heading mb={4} color="#0E3B30" textAlign="center">Catálogo de Propiedades</Heading>
 
           <Wrap spacing={3} align="center" mb={4}>
-            <WrapItem flex="1 1 260px">
+            <WrapItem flex="1 1 260px" position='relative'>
               <InputGroup>
                 <InputLeftElement pointerEvents="none">
                   <SearchIcon color="gray.400" />
                 </InputLeftElement>
-                <Input bg="white" placeholder="Buscar" value={qRaw} onChange={(e) => { const v = e.target.value; setQRaw(v); setFilters((f) => ({ ...f, q: v })); }} />
+                <Input
+                  bg="white"
+                  placeholder="Buscar por título, ciudad o tipo"
+                  value={qRaw}
+                  onChange={(e) => { const v = e.target.value; setQRaw(v); }}
+                  onFocus={() => { if (sug.length) setSugOpen(true); }}
+                  onBlur={() => setTimeout(() => setSugOpen(false), 120)}
+                />
               </InputGroup>
+              {sugOpen && (
+                <Box position='absolute' top='42px' left={0} right={0} zIndex={20} bg='white' borderWidth='1px' rounded='md' shadow='lg' maxH='60vh' overflowY='auto'>
+                  <Box px={3} py={2} borderBottomWidth='1px' color='gray.600' fontSize='sm'>
+                    {sugLoading ? 'Buscando…' : 'Sugerencias'}
+                  </Box>
+                  {sug.length === 0 && !sugLoading ? (
+                    <Box px={3} py={3} color='gray.500' fontSize='sm'>Sin coincidencias</Box>
+                  ) : (
+                    sug.slice(0, 24).map((it, i) => (
+                      <Box key={i} px={3} py={2} _hover={{ bg: 'gray.50' }} cursor='pointer' onMouseDown={(e) => e.preventDefault()} onClick={() => applySuggestion(it)}>
+                        <Text fontWeight='medium'>{it.label}</Text>
+                        <Text fontSize='xs' color='gray.500'>{it.type}</Text>
+                      </Box>
+                    ))
+                  )}
+                </Box>
+              )}
             </WrapItem>
             <WrapItem>
               <Select bg="white" placeholder="Tipo" value={filters.type} onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))} minW="140px">
@@ -623,6 +706,12 @@ export default function Propiedades() {
             <WrapItem>
               <Select bg="white" placeholder="Ciudad" value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} minW="140px">
                 {cityOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
+              </Select>
+            </WrapItem>
+            <WrapItem>
+              <Select bg="white" placeholder="Operación" value={filters.operation || ''} onChange={(e) => setFilters((f) => ({ ...f, operation: (e.target.value as any) }))} minW="140px">
+                <option value='sale'>Venta</option>
+                <option value='rental'>Renta</option>
               </Select>
             </WrapItem>
             <WrapItem>
