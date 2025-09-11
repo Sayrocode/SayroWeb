@@ -38,6 +38,13 @@ export default function Propiedades() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
+  // Refs para evitar cierres obsoletos dentro del IntersectionObserver
+  const pageRef = useRef(page);
+  const hasMoreRef = useRef(hasMore);
+  const loadingMoreRef = useRef(loadingMore);
+  useEffect(() => { pageRef.current = page; }, [page]);
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+  useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
 
   async function fetchPage(nextPage: number, limit = 24) {
     const res = await fetch(`/api/properties?limit=${limit}&page=${nextPage}`, { cache: "no-store" });
@@ -75,17 +82,25 @@ export default function Propiedades() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const el = loaderRef.current; if (!el) return;
     const io = new IntersectionObserver(async (entries) => {
       const e = entries[0];
-      if (e?.isIntersecting && hasMore && !loadingMore) {
-        setLoadingMore(true);
-        try { await fetchPage(page + 1); } finally { setLoadingMore(false); }
+      if (!e?.isIntersecting) return;
+      if (!hasMoreRef.current) return;
+      if (loadingMoreRef.current) return;
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+      try {
+        await fetchPage(pageRef.current + 1);
+      } finally {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
       }
-    }, { rootMargin: '300px 0px' });
+    }, { root: null, rootMargin: '0px 0px 400px 0px', threshold: 0 });
     io.observe(el);
     return () => io.disconnect();
-  }, [loaderRef.current, page, hasMore, loadingMore]);
+  }, []);
 
   const cityOptions = useMemo(() => {
     const set = new Set<string>();
@@ -577,7 +592,16 @@ export default function Propiedades() {
                 <PropertyCard key={p.public_id} property={p} />
               ))}
             </SimpleGrid>
-            <Box ref={loaderRef} h="1px" />
+            {/* Sentinel para infinito: altura mayor para intersección más confiable */}
+            <Box ref={loaderRef} h="32px" />
+            {/* Fallback manual si el observer falla por cualquier razón */}
+            {hasMore && !loadingMore && (
+              <Center mt={4}>
+                <Button onClick={() => fetchPage(page + 1)} variant="outline" colorScheme="green">
+                  Cargar más
+                </Button>
+              </Center>
+            )}
             {loadingMore && (
               <Box mt={6}>
                 <SimpleGrid columns={[1, 2, 3]} spacing={6}>
