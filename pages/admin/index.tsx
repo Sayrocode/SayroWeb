@@ -22,9 +22,27 @@ export default function AdminHome({ username }: Props) {
     router.replace('/admin/login');
   };
   const fetcher = (url: string) => fetch(url).then((r) => r.json());
-  const PAGE_SIZE = 36;
-  const getKey = (index: number) => `/api/admin/properties?take=${PAGE_SIZE}&page=${index + 1}`;
-  const { data, mutate, size, setSize, isLoading } = useSWRInfinite(getKey, fetcher);
+  // Search debounce
+  const [qRaw, setQRaw] = React.useState('');
+  const [qDebounced, setQDebounced] = React.useState('');
+  // Filters
+  const [type, setType] = React.useState('');
+  const [city, setCity] = React.useState('');
+  const [range, setRange] = React.useState('');
+  React.useEffect(() => {
+    const h = setTimeout(() => setQDebounced(qRaw), 350);
+    return () => clearTimeout(h);
+  }, [qRaw]);
+  const PAGE_SIZE = 30;
+  const getKey = (index: number) => `/api/admin/properties?take=${PAGE_SIZE}&page=${index + 1}`
+    + `${qDebounced ? `&q=${encodeURIComponent(qDebounced)}&fast=1` : ''}`
+    + `${type ? `&type=${encodeURIComponent(type)}` : ''}`
+    + `${city ? `&city=${encodeURIComponent(city)}` : ''}`;
+  const { data, mutate, size, setSize, isLoading } = useSWRInfinite(
+    getKey,
+    fetcher,
+    { revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 15000, persistSize: true, revalidateFirstPage: false }
+  );
   const pages = data || [];
   const total: number = pages.length ? (pages[0]?.total ?? 0) : 0;
   const aggregated = pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : []);
@@ -32,27 +50,73 @@ export default function AdminHome({ username }: Props) {
   const isLoadingMore = isLoading || (size > 0 && !!data && typeof data[size - 1] === 'undefined');
   const isReachingEnd = (pages.length > 0 && (pages[pages.length - 1]?.items?.length || 0) < PAGE_SIZE) || (total > 0 && aggregated.length >= total);
   const loaderRef = React.useRef<HTMLDivElement | null>(null);
+  const [pendingMore, setPendingMore] = React.useState(false);
+  const [lookahead, setLookahead] = React.useState(false);
+  const prefetchGuard = React.useRef<number>(0);
+  // Reset pagination when search or filters change
+  React.useEffect(() => { setSize(1); }, [qDebounced, type, city, setSize]);
+  // Avoid re-creating observer and stale closures: use refs
+  const loadingRef = React.useRef(isLoadingMore);
+  const endRef = React.useRef(isReachingEnd);
+  React.useEffect(() => { loadingRef.current = isLoadingMore; }, [isLoadingMore]);
+  React.useEffect(() => { endRef.current = isReachingEnd; }, [isReachingEnd]);
+  // Track scroll direction (avoid triggering loads while scrolling up)
+  const lastYRef = React.useRef(0);
+  const scrollingDownRef = React.useRef(true);
+  React.useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      scrollingDownRef.current = y >= lastYRef.current;
+      lastYRef.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   React.useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
+    if (qDebounced) return; // disable infinite scroll during search
     const ob = new IntersectionObserver((entries) => {
       const e = entries[0];
-      if (e.isIntersecting && !isLoadingMore && !isReachingEnd) {
-        setSize((s) => s + 1);
+      if (e.isIntersecting && !loadingRef.current && !endRef.current && scrollingDownRef.current) {
+        setPendingMore(true);
+        React.startTransition(() => { void setSize((s) => s + 1); });
       }
-    }, { rootMargin: '300px 0px' });
+    }, { rootMargin: '800px 0px' });
     ob.observe(el);
     return () => ob.disconnect();
-  }, [loaderRef.current, isLoadingMore, isReachingEnd, setSize]);
-  const [qRaw, setQRaw] = React.useState('');
-  const [qDebounced, setQDebounced] = React.useState('');
+  }, [setSize, qDebounced]);
+  React.useEffect(() => { if (!isLoadingMore) setPendingMore(false); }, [isLoadingMore]);
+
+  // Scroll position persistence for fast back/forward
   React.useEffect(() => {
-    const h = setTimeout(() => setQDebounced(qRaw), 350);
-    return () => clearTimeout(h);
-  }, [qRaw]);
-  const [type, setType] = React.useState('');
-  const [city, setCity] = React.useState('');
-  const [range, setRange] = React.useState('');
+    const y = Number(sessionStorage.getItem('admin.index.scroll') || '0');
+    if (y > 0) {
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+    return () => {
+      try { sessionStorage.setItem('admin.index.scroll', String(window.scrollY || 0)); } catch {}
+    };
+  }, []);
+
+  // Lookahead prefetch: tras cargar una página, pide una más en background
+  React.useEffect(() => {
+    if (qDebounced) return;            // no adelantar cuando hay búsqueda
+    if (isLoadingMore) return;
+    if (isReachingEnd) return;
+    // Evitar pedir múltiples veces por el mismo tamaño
+    if (prefetchGuard.current === size) return;
+    prefetchGuard.current = size;
+    const idle = (cb: () => void) => (typeof (window as any).requestIdleCallback === 'function')
+      ? (window as any).requestIdleCallback(cb, { timeout: 800 })
+      : setTimeout(cb, 150) as any;
+    const id = idle(() => {
+      setLookahead(true);
+      React.startTransition(() => { void setSize(size + 1); });
+    });
+    return () => { if (typeof (window as any).cancelIdleCallback === 'function') (window as any).cancelIdleCallback(id); else clearTimeout(id as any); };
+  }, [size, qDebounced, isLoadingMore, isReachingEnd, setSize]);
+  React.useEffect(() => { if (!isLoadingMore) setLookahead(false); }, [isLoadingMore]);
   const [campaignMode, setCampaignMode] = React.useState(false);
   const [selected, setSelected] = React.useState<number[]>([]);
   const [isOpen, setIsOpen] = React.useState(false);
@@ -97,13 +161,8 @@ export default function AdminHome({ username }: Props) {
     if (range === '3000+') return amount >= 3_000_000;
     return true;
   };
-  const filtered = items.filter((p: any) => {
-    const okT = !type || p.propertyType === type;
-    const lastCity = (p.locationText || '').split(',').pop()?.trim();
-    const okC = !city || lastCity === city;
-    const okR = inRange((p as any).priceAmount);
-    return okT && okC && okR;
-  });
+  // Server already filters by type and city; keep only range client-side
+  const filtered = items.filter((p: any) => inRange((p as any).priceAmount));
 
   // ===== Super-búsqueda estilo catálogo público =====
   function norm(s: string): string {
@@ -582,9 +641,18 @@ export default function AdminHome({ username }: Props) {
                     as={Link}
                     href={`/admin/properties/${p.id}`}
                     display="block"
+                    overflow="hidden"
                     onClick={(e: any) => { if (campaignMode) { e.preventDefault(); e.stopPropagation(); toggleSelect(p.id); } }}
                   >
-                    <Image src={p.coverUrl || '/image3.jpg'} alt={p.title} w="100%" h="100%" objectFit="cover" cursor="pointer" />
+                    <Image
+                      src={p.coverUrl || '/image3.jpg'}
+                      alt={p.title}
+                      w="100%"
+                      h="100%"
+                      objectFit="cover"
+                      cursor="pointer"
+                      style={{ transform: `scale(${Number.isFinite(p?.coverZoom) && p.coverZoom ? p.coverZoom : 1})`, transformOrigin: 'center', transition: 'transform 0.2s ease' }}
+                    />
                   </Box>
                 </AspectRatio>
                 {campaignMode && (
@@ -656,7 +724,7 @@ export default function AdminHome({ username }: Props) {
         <Box ref={loaderRef} h="1px" />
 
         {/* Indicador de carga incremental */}
-        {isLoadingMore && (
+        {(pendingMore || (isLoadingMore && !lookahead)) && (
           <Box mt={6}>
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
               {Array.from({ length: 3 }).map((_, i) => (

@@ -65,14 +65,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (p.ebDetailJson) {
         const j = JSON.parse(p.ebDetailJson);
         if (Array.isArray(j?.property_images)) {
-          images = j.property_images.map((i: any) => i?.url).filter(Boolean);
+          // Prefer full-size URLs when available
+          images = j.property_images
+            .map((i: any) => i?.url_full || i?.url)
+            .filter(Boolean);
         }
       }
     } catch {}
     if (!images.length && p.propertyImagesJson) {
       try {
         const j = JSON.parse(p.propertyImagesJson);
-        if (Array.isArray(j)) images = j.map((i: any) => i?.url).filter(Boolean);
+        if (Array.isArray(j)) images = j
+          .map((i: any) => i?.url_full || i?.url)
+          .filter(Boolean);
       } catch {}
     }
     if (!images.length) { log(`- [${idx + 1}/${props.length}] ${p.publicId}: sin imágenes EB`); continue; }

@@ -1,12 +1,38 @@
 import type { GetServerSideProps } from 'next';
+import React from 'react';
 import { getIronSession } from 'iron-session';
 import { AppSession, sessionOptions } from '../../lib/session';
 import Layout from '../../components/Layout';
-import useSWR from 'swr';
-import { Box, Container, Heading, Tab, TabList, TabPanel, TabPanels, Tabs, Table, Thead, Tr, Th, Tbody, Td, Badge, Text, HStack, IconButton, Tooltip, Stack, Button, Link as CLink, Spacer } from '@chakra-ui/react';
+import useSWRInfinite from 'swr/infinite';
+import dynamic from 'next/dynamic';
+import {
+  Box,
+  Container,
+  Heading,
+  SimpleGrid,
+  Text,
+  HStack,
+  Stack,
+  Button,
+  Link as CLink,
+  Spacer,
+  Badge,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  useToast,
+  IconButton,
+} from '@chakra-ui/react';
+import { SearchIcon } from '@chakra-ui/icons';
 import { FaWhatsapp } from 'react-icons/fa';
-import { FiMail, FiPhone } from 'react-icons/fi';
+import { FiMail, FiPhone, FiChevronDown, FiCopy } from 'react-icons/fi';
 import Link from 'next/link';
+import { PHONE_CALL_SCHEME } from '../../lib/site';
+import { SWRConfig } from 'swr';
 
 type Lead = {
   id: number;
@@ -25,218 +51,314 @@ type Lead = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+function useDebouncedValue<T>(value: T, delay = 300) {
+  const [debounced, setDebounced] = React.useState(value);
+  React.useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
 function digitsOnly(s?: string | null) {
   if (!s) return '';
   const d = String(s).replace(/\D+/g, '');
   return d.startsWith('52') ? d : `52${d}`; // asume MX si no tiene código
 }
 
-function LeadsTable({ items }: { items: Lead[] }) {
-  if (!items.length) return <Text color='gray.600'>Sin registros.</Text>;
+function CallMenu({ phone }: { phone?: string | null }) {
+  const toast = useToast();
+  if (!phone) return null;
+  const digits = digitsOnly(phone);
+  const primaryHref = `${PHONE_CALL_SCHEME}:${digits}`;
   return (
-    <Table size='sm' variant='simple'>
-      <Thead>
-        <Tr>
-          <Th>Fecha</Th>
-          <Th>Nombre</Th>
-          <Th>Contacto</Th>
-          <Th>Propiedad</Th>
-          <Th>UTM</Th>
-        </Tr>
-      </Thead>
-      <Tbody>
-        {items.map((l) => (
-          <Tr key={l.id}>
-            <Td whiteSpace='nowrap'>{new Date(l.createdAt).toLocaleString()}</Td>
-            <Td>{l.name || '-'}<Box color='gray.600' fontSize='xs'>{l.message?.slice(0,120)}</Box></Td>
-            <Td>
-              <Stack spacing={1} align='start'>
-                <HStack spacing={2}>
-                  <FiPhone />
-                  <CLink href={`tel:${digitsOnly(l.phone || '')}`} color='green.700'>{l.phone || '-'}</CLink>
-                  {l.phone && (<Box as={FaWhatsapp} color='whatsapp.500' fontSize='lg' aria-label='WhatsApp' />)}
-                  {l.phone && (
-                    <Button
-                      as='a'
-                      href={`https://wa.me/${digitsOnly(l.phone)}?text=${encodeURIComponent(`Hola ${l.name || ''}. Vi tu interés en ${l.property?.title || l.propertyPublicId || 'nuestra propiedad'}.`)}`}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      size='xs'
-                      colorScheme='whatsapp'
-                      leftIcon={<FaWhatsapp />}
-                      rounded='full'
-                    >
-                      WhatsApp
-                    </Button>
-                  )}
-                </HStack>
-                <HStack spacing={2}>
-                  <FiMail />
-                  <CLink href={l.email ? `mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}` : '#'} color='blue.600'>
-                    {l.email || '-'}
-                  </CLink>
-                  {l.email && (
-                    <Button
-                      as='a'
-                      href={`mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}`}
-                      size='xs'
-                      colorScheme='blue'
-                      variant='outline'
-                      leftIcon={<FiMail />}
-                      rounded='full'
-                    >
-                      Email
-                    </Button>
-                  )}
-                </HStack>
-                <Badge variant='subtle' colorScheme={l.source === 'meta' ? 'purple' : 'gray'}>{l.source}</Badge>
-              </Stack>
-            </Td>
-            <Td>
-              {l.property?.publicId || l.propertyPublicId ? (
-                <Link href={`/propiedades/${l.property?.publicId || l.propertyPublicId}`} target='_blank'>
-                  {l.property?.title || l.propertyPublicId}
-                </Link>
-              ) : (
-                '-'
-              )}
-            </Td>
-            <Td>
-              <Box fontSize='xs' color='gray.600'>
-                {l.utm_source && <Badge mr={1}>{l.utm_source}</Badge>}
-                {l.utm_campaign && <Badge mr={1} variant='outline'>{l.utm_campaign}</Badge>}
-              </Box>
-            </Td>
-          </Tr>
-        ))}
-      </Tbody>
-    </Table>
+    <Menu>
+      <MenuButton as={Button} size='xs' colorScheme='green' rightIcon={<FiChevronDown />} leftIcon={<FiPhone />} rounded='full'>
+        Llamar
+      </MenuButton>
+      <MenuList>
+        <MenuItem as='a' href={primaryHref}>Predeterminado ({PHONE_CALL_SCHEME})</MenuItem>
+        <MenuItem as='a' href={`tel:${digits}`}>Teléfono (tel:)</MenuItem>
+        <MenuItem as='a' href={`sip:${digits}`}>VoIP (sip:)</MenuItem>
+        <MenuItem as='a' href={`callto:${digits}`}>Callto</MenuItem>
+        <MenuItem onClick={async () => {
+          try { await navigator.clipboard.writeText(phone); toast({ title: 'Copiado', status: 'success', duration: 1500 }); }
+          catch { toast({ title: 'No se pudo copiar', status: 'error', duration: 1500 }); }
+        }} icon={<FiCopy />}>Copiar número</MenuItem>
+      </MenuList>
+    </Menu>
   );
 }
 
+function LeadCard({ l }: { l: Lead }) {
+  const msg = `Hola ${l.name || ''}. Vi tu interés en ${l.property?.title || l.propertyPublicId || 'nuestra propiedad'}.`;
+  return (
+    <Box borderWidth='1px' rounded='lg' bg='white' p={4}>
+      <HStack mb={1} spacing={2} color='gray.600' fontSize='sm'>
+        <Badge variant='subtle' colorScheme={l.source === 'meta' ? 'purple' : 'gray'} textTransform='none'>{l.source}</Badge>
+        <Spacer />
+        <Text>{new Date(l.createdAt).toLocaleString()}</Text>
+      </HStack>
+      <Heading as='h3' size='md' mb={1}>{l.name || 'Sin nombre'}</Heading>
+      {l.message && (
+        <Text mb={3} color='gray.700'>{l.message.slice(0, 160)}</Text>
+      )}
+      <Stack spacing={2} color='gray.700'>
+        <HStack spacing={2}>
+          <FiPhone />
+          {l.phone ? (
+            <CLink href={`tel:${digitsOnly(l.phone)}`} color='green.700'>{l.phone}</CLink>
+          ) : (
+            <Text color='gray.500'>-</Text>
+          )}
+          <Spacer />
+          <CallMenu phone={l.phone} />
+          {l.phone && (
+            <Button
+              as='a'
+              href={`https://wa.me/${digitsOnly(l.phone)}?text=${encodeURIComponent(msg)}`}
+              target='_blank'
+              rel='noopener noreferrer'
+              size='xs'
+              bg='green.600'
+              color='white'
+              _hover={{ bg: 'green.700' }}
+              leftIcon={<FaWhatsapp />}
+              rounded='full'
+            >
+              WhatsApp
+            </Button>
+          )}
+        </HStack>
+        <HStack spacing={2}>
+          <FiMail />
+          {l.email ? (
+            <CLink href={`mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}`} color='blue.600'>
+              {l.email}
+            </CLink>
+          ) : (
+            <Text color='gray.500'>-</Text>
+          )}
+          <Spacer />
+          {l.email && (
+            <Button
+              as='a'
+              href={`mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}`}
+              size='xs'
+              colorScheme='blue'
+              variant='outline'
+              leftIcon={<FiMail />}
+              rounded='full'
+            >
+              Email
+            </Button>
+          )}
+        </HStack>
+        <HStack spacing={2}>
+          <Text fontSize='sm' color='gray.600'>Propiedad:</Text>
+          {l.property?.publicId || l.propertyPublicId ? (
+            <Link href={`/propiedades/${l.property?.publicId || l.propertyPublicId}`} target='_blank'>
+              {l.property?.title || l.propertyPublicId}
+            </Link>
+          ) : (<Text color='gray.500'>-</Text>)}
+        </HStack>
+        {(l.utm_source || l.utm_campaign) && (
+          <Box fontSize='xs' color='gray.600'>
+            {l.utm_source && <Badge mr={1}>{l.utm_source}</Badge>}
+            {l.utm_campaign && <Badge mr={1} variant='outline'>{l.utm_campaign}</Badge>}
+          </Box>
+        )}
+      </Stack>
+    </Box>
+  );
+}
+
+const EgoSection = dynamic(() => import('../../components/admin/EgoSection'), { ssr: false, loading: () => <Text>Cargando EGO…</Text> });
+const EasyBrokerSection = dynamic(() => import('../../components/admin/EasyBrokerSection'), { ssr: false, loading: () => <Text>Cargando EasyBroker…</Text> });
+
 export default function LeadsPage() {
-  const { data } = useSWR('/api/admin/leads', fetcher);
-  const items: Lead[] = data?.items || [];
-  const metaLeads = items.filter((l) => l.source === 'meta');
-  const websiteLeads = items.filter((l) => l.source !== 'meta');
-
-  const { data: eb } = useSWR('/api/admin/easybroker/contacts', fetcher);
-  const ebItems: any[] = eb?.items || [];
-
-  // EgoRealEstate contacts (as leads-like list)
-  type EgoC = { id: number; name?: string | null; phone?: string | null; email?: string | null; createdText?: string | null; responsible?: string | null; personId?: string | null };
-  const { data: ego } = useSWR('/api/admin/egocontacts?take=100', fetcher);
-  const egoItems: EgoC[] = ego?.items || [];
-  const importEgo = async () => {
-    if (!confirm('¿Importar contactos desde EgoRealEstate?')) return;
-    const r = await fetch('/api/admin/ego/contacts', { method: 'POST' });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      alert(j?.error || 'No se pudo importar');
+  const [qInput, setQInput] = React.useState('');
+  const q = useDebouncedValue(qInput, 350);
+  const [source, setSource] = React.useState<string>(''); // '' | 'meta' | 'website' | 'easybroker' | 'ego'
+  const [egoTotal, setEgoTotal] = React.useState<number>(0);
+  const [ebTotal, setEbTotal] = React.useState<number>(0);
+  // Diferir la carga de secciones secundarias para evitar bloqueo inicial
+  const [deferSecondary, setDeferSecondary] = React.useState(true);
+  React.useEffect(() => {
+    // Usa idle callback si existe, con fallback a timeout corto
+    const idle = (cb: () => void) => (typeof (window as any).requestIdleCallback === 'function')
+      ? (window as any).requestIdleCallback(cb, { timeout: 1200 })
+      : setTimeout(cb, 700) as any;
+    const cancel = (id: any) => (typeof (window as any).cancelIdleCallback === 'function')
+      ? (window as any).cancelIdleCallback(id)
+      : clearTimeout(id);
+    const id = idle(() => setDeferSecondary(false));
+    return () => cancel(id);
+  }, []);
+  const PAGE_SIZE = 30;
+  const getKey = (index: number) => `/api/admin/leads?take=${PAGE_SIZE}&page=${index + 1}${q ? `&q=${encodeURIComponent(q)}&fast=1` : ''}${source ? `&source=${encodeURIComponent(source)}` : ''}`;
+  const { data, size, setSize, isLoading } = useSWRInfinite(
+    getKey,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 15000,
+      persistSize: true,
+      revalidateFirstPage: false,
     }
-  };
+  );
+  const pages = data || [];
+  const total: number = pages.length ? (pages[0]?.total ?? 0) : 0;
+  const aggregated: Lead[] = pages.flatMap((p: any) => Array.isArray(p?.items) ? p.items : []);
+  const isInitial = !data || data.length === 0;
+  const isLoadingMore = isLoading || (size > 0 && !!data && typeof data[size - 1] === 'undefined');
+  const lastCount = pages.length ? (pages[pages.length - 1]?.items?.length || 0) : 0;
+  const isReachingEnd = (lastCount < PAGE_SIZE) || (total > 0 && aggregated.length >= total);
+  const loaderRef = React.useRef<HTMLDivElement | null>(null);
+  const [lookahead, setLookahead] = React.useState(false);
+  const prefetchGuard = React.useRef<number>(0);
+  const [pendingMore, setPendingMore] = React.useState(false);
+  React.useEffect(() => { setSize(1); }, [q, source, setSize]);
+  // Evitar re-crear el observer en cada render; usar refs para flags dinámicos
+  const loadingRef = React.useRef(isLoadingMore);
+  const endRef = React.useRef(isReachingEnd);
+  React.useEffect(() => { loadingRef.current = isLoadingMore; }, [isLoadingMore]);
+  React.useEffect(() => { endRef.current = isReachingEnd; }, [isReachingEnd]);
+  // Track scroll direction to avoid heavy work while scrolling up
+  const lastYRef = React.useRef(0);
+  const scrollingDownRef = React.useRef(true);
+  React.useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      scrollingDownRef.current = y >= lastYRef.current;
+      lastYRef.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  React.useEffect(() => {
+    const el = loaderRef.current;
+    if (!el) return;
+    if (q) return; // disable infinite scroll while searching
+    const ob = new IntersectionObserver((entries) => {
+      const e = entries[0];
+      if (e.isIntersecting && !loadingRef.current && !endRef.current && scrollingDownRef.current) {
+        setPendingMore(true);
+        React.startTransition(() => { void setSize((s) => s + 1); });
+      }
+    }, { root: null, rootMargin: '1200px 0px', threshold: 0 });
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [setSize, q]);
+  React.useEffect(() => { if (!isLoadingMore) setPendingMore(false); }, [isLoadingMore]);
+
+  // Scroll position persistence for fast back/forward
+  React.useEffect(() => {
+    const y = Number(sessionStorage.getItem('admin.leads.scroll') || '0');
+    if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+    return () => {
+      try { sessionStorage.setItem('admin.leads.scroll', String(window.scrollY || 0)); } catch {}
+    };
+  }, []);
+
+  // Lookahead prefetch: cuando termina de cargar una página visible, traer una más en background
+  React.useEffect(() => {
+    // Visibility rules: filter acts as main section selector
+    const visibleLeads = source === '' || source === 'meta' || source === 'website';
+    if (!visibleLeads) return;
+    if (q) return;                 // evitar durante búsqueda
+    if (isLoadingMore) return;
+    if (isReachingEnd) return;
+    if (prefetchGuard.current === size) return;
+    prefetchGuard.current = size;
+    const idle = (cb: () => void) => (typeof (window as any).requestIdleCallback === 'function')
+      ? (window as any).requestIdleCallback(cb, { timeout: 800 })
+      : setTimeout(cb, 150) as any;
+    const id = idle(() => {
+      setLookahead(true);
+      React.startTransition(() => { void setSize(size + 1); });
+    });
+    return () => { if (typeof (window as any).cancelIdleCallback === 'function') (window as any).cancelIdleCallback(id); else clearTimeout(id as any); };
+  }, [size, source, q, isLoadingMore, isReachingEnd, setSize]);
+  React.useEffect(() => { if (!isLoadingMore) setLookahead(false); }, [isLoadingMore]);
+
+  // Visibility rules: filter acts as main section selector
+  const showLeads = source === '' || source === 'meta' || source === 'website';
+  const showEgo = source === '' || source === 'ego';
+  const showEasybrokerContacts = source === '' || source === 'easybroker';
+
+  const badgeCount = showLeads ? (q ? aggregated.length : (total || 0)) : showEgo ? (egoTotal || 0) : (ebTotal || 0);
 
   return (
+    <SWRConfig value={{ revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 15000 }}>
     <Layout title='Leads'>
       <Container maxW='7xl' py={{ base: 6, md: 10 }}>
-        <Heading mb={4}>Leads</Heading>
-        <Tabs colorScheme='green'>
-          <TabList>
-            <Tab>Meta</Tab>
-            <Tab>Website</Tab>
-            <Tab>EgoRealEstate</Tab>
-            <Tab>EasyBroker</Tab>
-          </TabList>
-          <TabPanels>
-            <TabPanel>
-              <LeadsTable items={metaLeads} />
-            </TabPanel>
-            <TabPanel>
-              <LeadsTable items={websiteLeads} />
-            </TabPanel>
-            <TabPanel>
-              <HStack mb={3}>
-                <Heading size='md'>Contactos EGO</Heading>
-                <Badge variant='subtle'>{ego?.total ?? 0} total</Badge>
-                <Spacer />
-                <Button colorScheme='purple' size='sm' onClick={importEgo}>Importar</Button>
-              </HStack>
-              {egoItems.length === 0 ? (
-                <Text color='gray.600'>No hay contactos aún. Usa “Importar”.</Text>
-              ) : (
-                <Table size='sm' variant='simple'>
-                  <Thead>
-                    <Tr>
-                      <Th>Nombre</Th>
-                      <Th>Contacto</Th>
-                      <Th>Creada</Th>
-                      <Th>Responsable</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {egoItems.map((c) => (
-                      <Tr key={c.id}>
-                        <Td>{c.name || '-'}</Td>
-                        <Td>
-                          <Stack spacing={1} align='start'>
-                            <HStack spacing={2}>
-                              <CLink href={c.phone ? `tel:${c.phone}` : '#'} color='green.700'>{c.phone || '-'}</CLink>
-                            </HStack>
-                            <HStack spacing={2}>
-                              <CLink href={c.email ? `mailto:${c.email}` : '#'} color='blue.600'>{c.email || '-'}</CLink>
-                            </HStack>
-                          </Stack>
-                        </Td>
-                        <Td>{c.createdText || '-'}</Td>
-                        <Td>{c.responsible || '-'}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              )}
-            </TabPanel>
-            <TabPanel>
-              {!ebItems.length ? (
-                <Text color='gray.600'>Conecta EASYBROKER_API_KEY para cargar contactos.</Text>
-              ) : (
-                <Table size='sm'>
-                  <Thead><Tr><Th>Nombre</Th><Th>Contacto</Th><Th>Notas</Th></Tr></Thead>
-                  <Tbody>
-                    {ebItems.slice(0,200).map((c: any, i: number) => (
-                      <Tr key={i}>
-                        <Td>{c.name || c.full_name || '-'}</Td>
-                        <Td>
-                          <Stack spacing={1} align='start'>
-                            <HStack spacing={2}>
-                              <FiPhone />
-                              <CLink href={`tel:${digitsOnly(c.phone || '')}`} color='green.700'>{c.phone || '-'}</CLink>
-                              {c.phone && (<Box as={FaWhatsapp} color='whatsapp.500' fontSize='lg' aria-label='WhatsApp' />)}
-                              {c.phone && (
-                                <Button as='a' href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`} target='_blank' rel='noopener noreferrer' size='xs' colorScheme='whatsapp' leftIcon={<FaWhatsapp />} rounded='full'>WhatsApp</Button>
-                              )}
-                            </HStack>
-                            <HStack spacing={2}>
-                              <FiMail />
-                              <CLink href={c.email ? `mailto:${c.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}` : '#'} color='blue.600'>
-                                {c.email || '-'}
-                              </CLink>
-                              {c.email && (
-                                <Button as='a' href={`mailto:${c.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}`} size='xs' colorScheme='blue' variant='outline' leftIcon={<FiMail />} rounded='full'>Email</Button>
-                              )}
-                            </HStack>
-                          </Stack>
-                        </Td>
-                        <Td>{c.notes || '-'}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              )}
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
+        <HStack mb={4} spacing={3} align='center'>
+          <Heading size='lg'>Leads</Heading>
+          <Badge colorScheme='gray' variant='subtle'>{badgeCount} total</Badge>
+          <Spacer />
+          <HStack>
+            <Button size='sm' variant={source === '' ? 'solid' : 'outline'} onClick={() => setSource('')}>Todos</Button>
+            <Button size='sm' variant={source === 'meta' ? 'solid' : 'outline'} onClick={() => setSource('meta')}>Meta</Button>
+            <Button size='sm' variant={source === 'website' ? 'solid' : 'outline'} onClick={() => setSource('website')}>Website</Button>
+            <Button size='sm' variant={source === 'easybroker' ? 'solid' : 'outline'} onClick={() => setSource('easybroker')}>EasyBroker</Button>
+            <Button size='sm' variant={source === 'ego' ? 'solid' : 'outline'} onClick={() => setSource('ego')}>EGO</Button>
+          </HStack>
+          <InputGroup w={{ base: 'full', md: '320px' }}>
+            <InputLeftElement pointerEvents='none'><SearchIcon color='gray.400' /></InputLeftElement>
+            <Input placeholder='Buscar nombre, email, teléfono, mensaje' value={qInput} onChange={(e) => setQInput(e.target.value)} bg='white' />
+          </InputGroup>
+          <Button as={Link} href='/admin' variant='outline'>Volver</Button>
+        </HStack>
+
+        {showLeads && (
+          <>
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
+              {(isInitial && aggregated.length === 0) ? Array.from({ length: 6 }).map((_, i) => (
+                <Box key={i} borderWidth='1px' rounded='lg' bg='white' p={4}>
+                  <Box height='20px' bg='gray.100' mb={2} rounded='md' />
+                  <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                  <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                  <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                </Box>
+              )) : aggregated.map((l) => (
+                <LeadCard key={l.id} l={l} />
+              ))}
+            </SimpleGrid>
+            <Box ref={loaderRef} h='1px' />
+            {(pendingMore || (isLoadingMore && !lookahead)) && (
+              <Box mt={4}>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Box key={i} borderWidth='1px' rounded='lg' bg='white' p={4}>
+                      <Box height='20px' bg='gray.100' mb={2} rounded='md' />
+                      <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                      <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                      <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                    </Box>
+                  ))}
+                </SimpleGrid>
+              </Box>
+            )}
+            {!isLoadingMore && !isReachingEnd && (
+              <Box textAlign='center' mt={6}>
+                <Button onClick={() => setSize(size + 1)} variant='outline'>Cargar más</Button>
+              </Box>
+            )}
+          </>
+        )}
+
+        {showEgo && !deferSecondary && (
+          <EgoSection q={q} visible onTotal={(n) => setEgoTotal(n)} />
+        )}
+
+        {showEasybrokerContacts && !deferSecondary && (
+          <EasyBrokerSection visible onTotal={(n) => setEbTotal(n)} />
+        )}
       </Container>
     </Layout>
+    </SWRConfig>
   );
 }
 

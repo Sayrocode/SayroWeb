@@ -91,6 +91,8 @@ export default function PropertyCard({ property }: Props) {
           alt={property.title || `Propiedad ${property.public_id}`}
           objectFit="cover"
           fallbackSrc="/image3.jpg"
+          loading="lazy"
+          decoding="async"
         />
       </AspectRatio>
 

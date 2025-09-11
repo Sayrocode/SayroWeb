@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!id) return res.status(400).json({ error: 'ID inválido' });
 
   if (req.method === 'GET') {
-    const prop = await prisma.property.findUnique({ where: { id }, include: { media: { orderBy: { createdAt: 'asc' } } } });
+    const prop = await prisma.property.findUnique({ where: { id }, include: { media: { orderBy: { createdAt: 'desc' } } } });
     if (!prop) return res.status(404).json({ error: 'No encontrado' });
 
     let ebImages: any[] = [];
@@ -59,6 +59,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'title','titleImageFull','titleImageThumb','propertyType','status','bedrooms','bathrooms','parkingSpaces','lotSize','constructionSize','brokerName','locationText'
     ];
     for (const f of fields) if (f in body) data[f] = body[f];
+    // Allow updating operations (price/offers)
+    if (Array.isArray(body.operations)) {
+      try {
+        data.operationsJson = JSON.stringify(body.operations);
+      } catch {
+        // ignore serialization error
+      }
+      // Also mirror into ebDetailJson.operations when possible, keeping other keys
+      const current = await prisma.property.findUnique({ where: { id }, select: { ebDetailJson: true } });
+      try {
+        const j = current?.ebDetailJson ? JSON.parse(current.ebDetailJson) : {};
+        j.operations = body.operations;
+        data.ebDetailJson = JSON.stringify(j);
+      } catch {
+        // fallback: write minimal ebDetailJson
+        try { data.ebDetailJson = JSON.stringify({ operations: body.operations }); } catch {}
+      }
+    }
     // Optional: update embedded description inside ebDetailJson
     if (typeof body.description === 'string') {
       const current = await prisma.property.findUnique({ where: { id }, select: { ebDetailJson: true } });

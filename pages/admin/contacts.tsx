@@ -5,8 +5,11 @@ import { AppSession, sessionOptions } from '../../lib/session';
 import Layout from '../../components/Layout';
 import Link from 'next/link';
 import useSWRInfinite from 'swr/infinite';
-import { Box, Button, Container, Heading, Text, SimpleGrid, HStack, Input, InputGroup, InputLeftElement, Badge, Stack, Spacer, Skeleton, Editable, EditablePreview, EditableInput } from '@chakra-ui/react';
+import { Box, Button, Container, Heading, Text, SimpleGrid, HStack, Input, InputGroup, InputLeftElement, Badge, Stack, Spacer, Skeleton, Editable, EditablePreview, EditableInput, Menu, MenuButton, MenuList, MenuItem, useToast, IconButton } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
+import { FiMail, FiPhone, FiChevronDown, FiCopy } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
+import { PHONE_CALL_SCHEME } from '../../lib/site';
 
 type EgoContact = {
   id: number;
@@ -68,6 +71,35 @@ export default function AdminEgoContacts() {
     if (r.ok) await mutate();
   };
 
+  const toast = useToast();
+  const digitsOnly = (s?: string | null) => {
+    if (!s) return '';
+    const d = String(s).replace(/\D+/g, '');
+    return d.startsWith('52') ? d : `52${d}`;
+  };
+  const CallMenu = ({ phone }: { phone?: string | null }) => {
+    if (!phone) return null;
+    const digits = digitsOnly(phone);
+    const primaryHref = `${PHONE_CALL_SCHEME}:${digits}`;
+    return (
+      <Menu>
+        <MenuButton as={Button} size='xs' colorScheme='green' rightIcon={<FiChevronDown />} leftIcon={<FiPhone />} rounded='full'>
+          Llamar
+        </MenuButton>
+        <MenuList>
+          <MenuItem as='a' href={primaryHref}>Predeterminado ({PHONE_CALL_SCHEME})</MenuItem>
+          <MenuItem as='a' href={`tel:${digits}`}>Teléfono (tel:)</MenuItem>
+          <MenuItem as='a' href={`sip:${digits}`}>VoIP (sip:)</MenuItem>
+          <MenuItem as='a' href={`callto:${digits}`}>Callto</MenuItem>
+          <MenuItem onClick={async () => {
+            try { await navigator.clipboard.writeText(phone); toast({ title: 'Copiado', status: 'success', duration: 1500 }); }
+            catch { toast({ title: 'No se pudo copiar', status: 'error', duration: 1500 }); }
+          }} icon={<FiCopy />}>Copiar número</MenuItem>
+        </MenuList>
+      </Menu>
+    );
+  };
+
   return (
     <Layout title="Contactos EGO">
       <Container maxW="7xl" py={8}>
@@ -126,6 +158,36 @@ export default function AdminEgoContacts() {
                       <Text><b>Persona ID:</b> {c.personId}</Text>
                     )}
                   </Stack>
+                  <HStack mt={3} spacing={2}>
+                    <CallMenu phone={c.phone} />
+                    {c.phone && (
+                      <Button
+                        as='a'
+                        href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        size='xs'
+                        colorScheme='whatsapp'
+                        leftIcon={<FaWhatsapp />}
+                        rounded='full'
+                      >
+                        WhatsApp
+                      </Button>
+                    )}
+                    {c.email && (
+                      <Button
+                        as='a'
+                        href={`mailto:${c.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}`}
+                        size='xs'
+                        colorScheme='blue'
+                        variant='outline'
+                        leftIcon={<FiMail />}
+                        rounded='full'
+                      >
+                        Email
+                      </Button>
+                    )}
+                  </HStack>
                   <HStack mt={3} spacing={2}>
                     <Button size='sm' colorScheme='blue' onClick={() => startEdit(c)}>Editar</Button>
                     <Button size='sm' variant='outline' colorScheme='red' onClick={() => remove(c.id)}>Eliminar</Button>

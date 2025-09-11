@@ -1,12 +1,44 @@
-import { ChakraProvider } from "@chakra-ui/react";
+import { ChakraProvider, Box, VStack, Spinner, Text } from "@chakra-ui/react";
 import Head from "next/head";
 import type { AppProps } from "next/app";
 import theme from "../theme";
 import "../styles/fonts.css";
 import Script from "next/script";
 import { FB_PIXEL_ID } from "../lib/fbpixel";
+import type { NextWebVitalsMetric } from 'next/app';
+import { useRouter } from 'next/router';
+import { useEffect, useRef, useState } from 'react';
 
 function MyApp({ Component, pageProps }: AppProps) {
+  // Global route-change loader overlay
+  const router = useRouter();
+  const [routeLoading, setRouteLoading] = useState(false);
+  const customTimerRef = useRef<any>(null);
+  useEffect(() => {
+    const start = (url: string) => {
+      if (url !== router.asPath) setRouteLoading(true);
+    };
+    const done = () => setRouteLoading(false);
+    const custom = () => {
+      // Start loader even before Next.js route event, with a fallback auto-hide
+      setRouteLoading(true);
+      if (customTimerRef.current) clearTimeout(customTimerRef.current);
+      customTimerRef.current = setTimeout(() => setRouteLoading(false), 1200);
+    };
+    router.events.on('routeChangeStart', start);
+    router.events.on('routeChangeComplete', done);
+    router.events.on('routeChangeError', done);
+    window.addEventListener('app:nav-start', custom as any);
+    return () => {
+      router.events.off('routeChangeStart', start);
+      router.events.off('routeChangeComplete', done);
+      router.events.off('routeChangeError', done);
+      window.removeEventListener('app:nav-start', custom as any);
+    };
+  }, [router]);
+  useEffect(() => {
+    try { document.body.style.overflow = routeLoading ? 'hidden' : ''; } catch {}
+  }, [routeLoading]);
   return (
     <ChakraProvider theme={theme}>
       <Head>
@@ -42,8 +74,34 @@ function MyApp({ Component, pageProps }: AppProps) {
         </>
       )}
       <Component {...pageProps} />
+      {routeLoading && (
+        <Box position="fixed" inset={0} bg="whiteAlpha.900" zIndex={3000} display="flex" alignItems="center" justifyContent="center">
+          <VStack spacing={3}>
+            <Spinner thickness="4px" speed="0.7s" emptyColor="gray.200" color="green.600" size="xl" />
+            <Text color="gray.700" fontWeight="medium">Cargando…</Text>
+          </VStack>
+        </Box>
+      )}
     </ChakraProvider>
   );
 }
 
 export default MyApp;
+
+// Web Vitals reporting for performance monitoring
+export function reportWebVitals(metric: NextWebVitalsMetric) {
+  try {
+    const body = JSON.stringify(metric);
+    // Prefer sendBeacon so it doesn't block the UI thread
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/web-vitals', body);
+    } else {
+      fetch('/api/web-vitals', { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'application/json' } });
+    }
+    // Also log to console in development for quick inspection
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log('[WebVitals]', metric);
+    }
+  } catch {}
+}

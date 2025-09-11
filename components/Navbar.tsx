@@ -18,6 +18,7 @@ import {
   Divider,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
+import { navStart } from "../lib/nav";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -74,11 +75,17 @@ export default function Navbar() {
     href === "/" ? router.pathname === "/" : router.pathname.startsWith(href);
 
   function handleNavClick(e: React.MouseEvent, href: string) {
-    if (!href.startsWith('/#')) return; // normal links
+    if (!href.startsWith('/#')) {
+      // navegación normal; si cambiará de ruta, dispara loader custom
+      const same = (href === router.asPath) || (href === router.pathname);
+      if (!same) navStart();
+      return;
+    }
     const id = href.slice(2);
     if (router.pathname !== '/') {
       // Deja que el router navegue con hash para que el ancla funcione tras montar
       e.preventDefault();
+      navStart();
       router.push(`/#${id}`);
       return;
     }
@@ -144,6 +151,7 @@ export default function Navbar() {
                 href={isAdmin ? "/admin" : "/"}
                 display={{ base: 'inline-flex', md: 'none' }}
                 alignItems="center"
+                onClick={() => navStart()}
               >
                 <Image src="/sayrologo.png" width={110} height={30} alt="Sayro Bienes Raíces" priority />
                 <VisuallyHidden>Sayro Bienes Raíces</VisuallyHidden>
@@ -169,7 +177,7 @@ export default function Navbar() {
             {/* Derecha: logo desktop + botón menú mobile */}
             <HStack align="center" spacing={2}>
               {/* Logo solo en desktop (derecha) */}
-              <ChakraLink as={NextLink} href={isAdmin ? "/admin" : "/"} display={{ base: 'none', md: 'inline-flex' }} alignItems="center">
+              <ChakraLink as={NextLink} href={isAdmin ? "/admin" : "/"} display={{ base: 'none', md: 'inline-flex' }} alignItems="center" onClick={() => navStart()}>
                 <Image src="/sayrologo.png" width={110} height={30} alt="Sayro Bienes Raíces" priority />
                 <VisuallyHidden>Sayro Bienes Raíces</VisuallyHidden>
               </ChakraLink>

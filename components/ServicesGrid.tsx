@@ -53,11 +53,12 @@ const SERVICES: Service[] = [
 ];
 
 function ServiceCard({ icon, title, desc }: Service) {
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const border = useColorModeValue('blackAlpha.200', 'whiteAlpha.200');
-  const iconBg = useColorModeValue('green.50', 'green.900');
-  const iconColor = useColorModeValue('green.700', 'green.200');
-  const textColor = useColorModeValue('gray.700', 'gray.200');
+  // Fondo verde como el de las letras y texto blanco
+  const cardBg = 'green.700';
+  const border = 'whiteAlpha.300';
+  const iconBg = 'whiteAlpha.200';
+  const iconColor = 'white';
+  const textColor = 'white';
   return (
     <Box
       role="article"
@@ -69,13 +70,14 @@ function ServiceCard({ icon, title, desc }: Service) {
       shadow="md"
       _hover={{ transform: 'translateY(-4px)', shadow: 'xl' }}
       transition="all .18s ease"
+      color={textColor}
     >
       <HStack spacing={4} align="start">
         <Box w={12} h={12} rounded="full" bg={iconBg} display="grid" placeItems="center" color={iconColor} flexShrink={0}>
           <Icon as={icon} boxSize={5} />
         </Box>
         <Box>
-          <Heading as="h3" size="md" mb={2} letterSpacing="tight" textTransform="uppercase">
+          <Heading as="h3" size="md" mb={2} letterSpacing="tight" textTransform="uppercase" color="white">
             {title}
           </Heading>
           <Text color={textColor}>{desc}</Text>

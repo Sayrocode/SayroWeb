@@ -27,13 +27,13 @@ import {
 function NavLinkItem({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <HStack as="li" spacing={3} align="center">
-      <Box boxSize="2" bg="green.400" rounded="full" flexShrink={0} />
+      <Box boxSize="2.5" bg="brand.100" rounded="full" flexShrink={0} />
       <Link
         as={NextLink}
         href={href}
         fontSize="sm"
-        color="whiteAlpha.900"
-        _hover={{ color: "green.300", transform: "translateX(2px)" }}
+        color="white"
+        _hover={{ color: "brand.100", transform: "translateX(2px)" }}
         transition="all .15s ease-out"
       >
         {children}
@@ -60,14 +60,14 @@ function NavGroup({
     >
       <Text
         fontSize="xs"
-        color="gray.400"
+        color="white"
         textTransform="uppercase"
         letterSpacing="widest"
         mb={2}
       >
         {title}
       </Text>
-      <Box w="28" h="1" bg="green.400" mb={4} opacity={0.9} borderRadius="full" />
+      <Box w="28" h="1" bg="brand.100" mb={4} opacity={0.95} borderRadius="full" />
       <VStack as="ul" align="start" spacing={2.5}>
         {children}
       </VStack>
@@ -80,7 +80,7 @@ export default function Footer() {
   const dividerWidth = useBreakpointValue({ base: "140px", md: "220px" });
 
   return (
-    <Box bg="#2e3331" color="whiteAlpha.900">
+    <Box bg="brand.900" color="white">
       {/* Sección principal */}
       <Container maxW="7xl" py={{ base: 8, md: 12, lg: 14 }} px={{ base: 4, md: 6 }}>
         <Stack
@@ -140,7 +140,7 @@ export default function Footer() {
 
             <Box
               h="2px"
-              bg="green.500"
+              bg="brand.100"
               w={dividerWidth}
               mx={{ base: "auto", lg: "unset" }}
               ml={{ lg: "auto" }}
@@ -177,7 +177,7 @@ export default function Footer() {
       </Container>
 
       {/* Subfooter */}
-      <Box bg="#3a3f3d">
+      <Box bg="brand.700">
         <Container maxW="7xl" py={{ base: 4, md: 5 }} px={{ base: 4, md: 6 }}>
           <Stack
             direction={{ base: "column", md: "row" }}
@@ -185,30 +185,30 @@ export default function Footer() {
             align={{ base: "center", md: "center" }}
             justify="space-between"
             fontSize={{ base: "xs", md: "sm" }}
-            color="gray.200"
+            color="whiteAlpha.900"
             textAlign={{ base: "center", md: "left" }}
           >
             <Wrap spacing={{ base: 2, md: 3 }} justify={{ base: "center", md: "flex-start" }}>
               <WrapItem>
-                <Link as={NextLink} href="/terminos" _hover={{ color: "green.300" }}>
+                <Link as={NextLink} href="/terminos" _hover={{ color: "brand.100" }}>
                   Términos y Condiciones
                 </Link>
               </WrapItem>
               <WrapItem>•</WrapItem>
               <WrapItem>
-                <Link as={NextLink} href="/aviso-de-privacidad" _hover={{ color: "green.300" }}>
+                <Link as={NextLink} href="/aviso-de-privacidad" _hover={{ color: "brand.100" }}>
                   Política de privacidad
                 </Link>
               </WrapItem>
               <WrapItem>•</WrapItem>
               <WrapItem>
-                <Link as={NextLink} href="/cookies" _hover={{ color: "green.300" }}>
+                <Link as={NextLink} href="/cookies" _hover={{ color: "brand.100" }}>
                   Política de Cookies
                 </Link>
               </WrapItem>
               <WrapItem>•</WrapItem>
               <WrapItem>
-                <Link as={NextLink} href="/datos" _hover={{ color: "green.300" }}>
+                <Link as={NextLink} href="/datos" _hover={{ color: "brand.100" }}>
                   Gestionar datos
                 </Link>
               </WrapItem>

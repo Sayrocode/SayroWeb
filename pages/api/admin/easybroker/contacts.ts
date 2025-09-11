@@ -9,6 +9,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const apiKey = process.env.EASYBROKER_API_KEY;
   if (!apiKey) return res.status(200).json({ items: [], note: 'Falta EASYBROKER_API_KEY' });
+  // Cache response briefly on the client to avoid repeated calls when switching
+  // sections. Mark private to avoid CDN caching.
+  res.setHeader('Cache-Control', 'private, max-age=20, stale-while-revalidate=120');
 
   // Best effort: try /contacts, fallback /requests if exists.
   async function tryEndpoint(path: string) {

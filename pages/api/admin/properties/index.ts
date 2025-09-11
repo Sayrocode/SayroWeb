@@ -7,24 +7,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!user) return;
 
   if (req.method === 'GET') {
+    // Light private caching for admin navigation
+    res.setHeader('Cache-Control', 'private, max-age=10, stale-while-revalidate=60');
     const take = Math.min(parseInt(String(req.query.take ?? '24')) || 24, 100);
     const page = Math.max(parseInt(String(req.query.page ?? '1')) || 1, 1);
     const skip = (page - 1) * take;
-    const [items, total] = await Promise.all([
-      prisma.property.findMany({
-        orderBy: { updatedAt: 'desc' },
-        skip,
-        take,
-        include: { media: { select: { key: true }, take: 1, orderBy: { createdAt: 'asc' } } },
-      }),
-      prisma.property.count(),
-    ]);
+    const q = String(req.query.q || '').trim();
+    const fast = String(req.query.fast || '').trim();
+    const type = String(req.query.type || '').trim();
+    const city = String(req.query.city || '').trim();
+
+    const where: any = {};
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { publicId: { contains: q, mode: 'insensitive' } },
+        { locationText: { contains: q, mode: 'insensitive' } },
+        { propertyType: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    if (type) where.propertyType = type;
+    if (city) where.locationText = { contains: city, mode: 'insensitive' };
+    const listPromise = prisma.property.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      skip,
+      take,
+      include: { media: { select: { key: true, filename: true }, take: 1, orderBy: { createdAt: 'desc' } } },
+    });
+    const countPromise = (q || fast || type || city) ? Promise.resolve(null as any) : prisma.property.count({ where });
+    const [items, total] = await Promise.all([listPromise, countPromise]);
 
     const data = items.map((p) => {
       // Solo usar imágenes locales (Turso) o placeholder público
       let coverUrl: string | null = null;
+      let coverZoom: number | null = null;
       if (p.media && p.media.length && (p.media[0] as any).key) {
-        coverUrl = `/api/admin/images/${encodeURIComponent((p.media[0] as any).key)}`;
+        const m = p.media[0] as any;
+        coverUrl = `/api/admin/images/${encodeURIComponent(m.key)}`;
+        // Optional: infer zoom from filename pattern like "zoom-1.15.jpg"
+        if (typeof m.filename === 'string') {
+          const match = m.filename.match(/zoom[-_]?([0-9]+(?:\.[0-9]+)?)?/i);
+          if (match && match[1]) {
+            const z = parseFloat(match[1]);
+            if (Number.isFinite(z) && z >= 1.0 && z <= 2.0) coverZoom = z;
+          }
+        }
       } else {
         coverUrl = '/image3.jpg';
       }
@@ -66,6 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         publicId: p.publicId,
         title: p.title || `Propiedad ${p.publicId}`,
         coverUrl,
+        coverZoom,
         propertyType: p.propertyType,
         status: p.status,
         locationText: p.locationText,

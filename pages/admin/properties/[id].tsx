@@ -25,8 +25,9 @@ import {
   useToast,
   IconButton,
   Input,
+  Tooltip,
 } from '@chakra-ui/react';
-import { CloseIcon } from '@chakra-ui/icons';
+import { CloseIcon, AddIcon, MinusIcon } from '@chakra-ui/icons';
 import { FiMapPin, FiHome, FiDroplet } from 'react-icons/fi';
 
 type PropDetail = {
@@ -89,10 +90,12 @@ export default function AdminPropertyEdit() {
   const localUrls = useMemo(() => (data?.media || []).map((m) => ({
     key: m.key,
     url: `/api/admin/images/${encodeURIComponent(m.key)}`,
+    filename: m.filename || null,
   })), [data]);
 
   const ebUrls = useMemo(() => (Array.isArray(data?.ebImages) ? data!.ebImages : [])
-    .map((img: any) => img?.url || img?.url_full || img?.title_image_full)
+    // Prefer highest-quality URLs from EB payloads
+    .map((img: any) => img?.url_full || img?.title_image_full || img?.url)
     .filter(Boolean) as string[], [data]);
 
   const gallery = useMemo(() => {
@@ -103,9 +106,121 @@ export default function AdminPropertyEdit() {
   }, [localUrls, ebUrls]);
 
   const [coverSrc, setCoverSrc] = useState<string>('');
+  const [zoomByUrl, setZoomByUrl] = useState<Record<string, number>>({});
+  const getZoom = (u: string) => (zoomByUrl[u] ?? 1.0);
+  const setZoom = (u: string, z: number) => setZoomByUrl((m) => ({ ...m, [u]: Math.max(1.0, Math.min(1.6, Number.isFinite(z) ? z : 1.0)) }));
+  const adjustZoom = (u: string, delta: number) => setZoom(u, getZoom(u) + delta);
+  const toggleWhiteBorderZoom = (u: string) => setZoom(u, Math.abs(getZoom(u) - 1.0) < 0.02 ? 1.15 : 1.0);
+
+  // Canvas export helpers to create a cropped (zoomed) image client-side
+  async function fetchImageAsObjectUrl(src: string): Promise<string> {
+    // Always fetch to avoid CORS tainting when drawing on canvas
+    const r = await fetch(src, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(`No se pudo cargar imagen (${r.status})`);
+    const blob = await r.blob();
+    return URL.createObjectURL(blob);
+  }
+
+  async function exportCoverAsBlob(): Promise<Blob> {
+    if (!coverSrc) throw new Error('No hay imagen seleccionada');
+    const objectUrl = await fetchImageAsObjectUrl(coverSrc);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('Error al decodificar la imagen'));
+        el.src = objectUrl;
+      });
+
+      const CANVAS_W = 1600; // 16:9
+      const CANVAS_H = 900;
+      const canvas = document.createElement('canvas');
+      canvas.width = CANVAS_W;
+      canvas.height = CANVAS_H;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No se pudo crear canvas');
+
+      const zoom = getZoom(coverSrc);
+      const baseScale = Math.max(CANVAS_W / img.naturalWidth, CANVAS_H / img.naturalHeight);
+      const scale = baseScale * (isFinite(zoom) ? zoom : 1.0);
+      const drawW = img.naturalWidth * scale;
+      const drawH = img.naturalHeight * scale;
+      const dx = (CANVAS_W - drawW) / 2;
+      const dy = (CANVAS_H - drawH) / 2;
+      ctx.drawImage(img, dx, dy, drawW, drawH);
+
+      const blob: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b as Blob), 'image/jpeg', 0.92));
+      return blob;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function uploadZoomedImage(saveMode: 'new' | 'replace') {
+    if (!id) return;
+    try {
+      setSaving(true);
+      const blob = await exportCoverAsBlob();
+      const base64 = await blobToBase64(blob);
+      const z = getZoom(coverSrc).toFixed(2);
+      const filename = `zoom-${z}.jpg`;
+      // Create new image
+      const r = await fetch(`/api/admin/properties/${id}/images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, mimeType: 'image/jpeg', base64 }),
+      });
+      if (!r.ok) throw new Error('No se pudo subir la imagen');
+      const obj = await r.json();
+      const newUrl = `/api/admin/images/${encodeURIComponent(obj.key)}`;
+
+      // Update UI state with the new media
+      setData((d) => d ? { ...d, media: [...d.media, obj] } : d);
+
+      if (saveMode === 'replace') {
+        const key = localMap.get(coverSrc);
+        if (key) {
+          // Delete old image
+          await fetch(`/api/admin/images/${encodeURIComponent(key)}`, { method: 'DELETE' });
+          setData((d) => d ? { ...d, media: d.media.filter((m) => m.key !== key) } : d);
+        }
+      }
+
+      setCoverSrc(newUrl);
+      toast({ title: saveMode === 'replace' ? 'Imagen reemplazada' : 'Imagen creada', status: 'success', duration: 1500 });
+    } catch (e: any) {
+      toast({ title: e?.message || 'Error al procesar', status: 'error', duration: 2000 });
+    } finally {
+      setSaving(false);
+    }
+  }
   useEffect(() => {
     setCoverSrc(gallery.cover);
   }, [gallery.cover]);
+
+  // Initialize per-image zoom from filename pattern like "zoom-1.15.jpg" when media loads
+  useEffect(() => {
+    const next: Record<string, number> = {};
+    for (const m of localUrls) {
+      if (!m || !m.url) continue;
+      const name = m.filename || '';
+      const match = name.match(/zoom[-_]?([0-9]+(?:\.[0-9]+)?)/i);
+      if (match && match[1]) {
+        const z = parseFloat(match[1]);
+        if (Number.isFinite(z) && z >= 1.0 && z <= 2.0) next[m.url] = z;
+      }
+    }
+    if (Object.keys(next).length) setZoomByUrl((prev) => ({ ...next, ...prev }));
+  }, [localUrls.map((m) => m.url).join('|')]);
 
   const save = async () => {
     if (!id || !data) return;
@@ -121,6 +236,7 @@ export default function AdminPropertyEdit() {
       constructionSize: data.constructionSize,
       brokerName: data.brokerName,
       locationText: data.locationText,
+      operations: data.operations,
     };
     const r = await fetch(`/api/admin/properties/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setSaving(false);
@@ -141,6 +257,7 @@ export default function AdminPropertyEdit() {
       constructionSize: data.constructionSize,
       brokerName: data.brokerName,
       locationText: data.locationText,
+      operations: data.operations,
       description: desc,
     };
     const r = await fetch(`/api/admin/properties/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -217,6 +334,9 @@ export default function AdminPropertyEdit() {
   }, [localUrls]);
 
   const price = pickPrice(data?.operations);
+  // Remount the price editor when formatted price changes
+  const [priceKey, setPriceKey] = useState<string>('');
+  useEffect(() => { setPriceKey(price || ''); }, [price]);
   const cleanDesc = stripHtml(data?.description ?? '');
   const [desc, setDesc] = useState<string>(cleanDesc);
   useEffect(() => {
@@ -248,13 +368,30 @@ export default function AdminPropertyEdit() {
           <Box gridColumn={{ base: '1 / -1', lg: '1 / 4' }}>
             <Box position="relative">
               <AspectRatio ratio={16 / 9} mb={3}>
-                <ChakraImage
-                  src={coverSrc}
-                  alt={data.title || `Propiedad ${data.publicId}`}
-                  objectFit="cover"
-                  fallbackSrc="/image3.jpg"
-                  rounded="lg"
-                />
+                <Box overflow="hidden" rounded="lg" position="relative">
+                  <ChakraImage
+                    src={coverSrc}
+                    alt={data.title || `Propiedad ${data.publicId}`}
+                    objectFit="cover"
+                    fallbackSrc="/image3.jpg"
+                    w="100%"
+                    h="100%"
+                    transform={`scale(${getZoom(coverSrc)})`}
+                    transformOrigin="center"
+                    transition="transform 0.2s ease"
+                  />
+                  <HStack spacing={1} position="absolute" bottom="2" right="2">
+                    <Tooltip label="Reducir zoom" placement="top">
+                      <IconButton aria-label="Reducir zoom" icon={<MinusIcon />} size="sm" onClick={() => adjustZoom(coverSrc, -0.05)} />
+                    </Tooltip>
+                    <Tooltip label="Aumentar zoom" placement="top">
+                      <IconButton aria-label="Aumentar zoom" icon={<AddIcon />} size="sm" onClick={() => adjustZoom(coverSrc, 0.05)} />
+                    </Tooltip>
+                    <Tooltip label="Quitar marco blanco" placement="top">
+                      <Button size="sm" variant="outline" onClick={() => toggleWhiteBorderZoom(coverSrc)}>Marco</Button>
+                    </Tooltip>
+                  </HStack>
+                </Box>
               </AspectRatio>
               {localMap.has(coverSrc) && (
                 <IconButton
@@ -271,6 +408,12 @@ export default function AdminPropertyEdit() {
                   }}
                 />
               )}
+              <HStack mt={2} spacing={2} justify="flex-end">
+                <Button size="sm" variant="outline" onClick={() => uploadZoomedImage('new')} isLoading={saving}>Guardar con zoom</Button>
+                {localMap.has(coverSrc) && (
+                  <Button size="sm" colorScheme="green" onClick={() => uploadZoomedImage('replace')} isLoading={saving}>Reemplazar con zoom</Button>
+                )}
+              </HStack>
             </Box>
 
             {gallery.thumbs.length > 0 && (
@@ -278,16 +421,22 @@ export default function AdminPropertyEdit() {
                 {gallery.thumbs.map((u, i) => (
                   <Box key={i} position="relative">
                     <AspectRatio ratio={1}>
-                      <ChakraImage
-                        src={u}
-                        alt={`${data.title || 'Propiedad'} - ${i + 1}`}
-                        objectFit="cover"
-                        fallbackSrc="/image3.jpg"
-                        rounded="md"
-                        cursor="pointer"
-                        _hover={{ opacity: 0.9 }}
-                        onClick={() => setCoverSrc(u)}
-                      />
+                      <Box overflow="hidden" rounded="md">
+                        <ChakraImage
+                          src={u}
+                          alt={`${data.title || 'Propiedad'} - ${i + 1}`}
+                          objectFit="cover"
+                          fallbackSrc="/image3.jpg"
+                          w="100%"
+                          h="100%"
+                          transform={`scale(${getZoom(u)})`}
+                          transformOrigin="center"
+                          transition="transform 0.2s ease"
+                          cursor="pointer"
+                          _hover={{ opacity: 0.9 }}
+                          onClick={() => setCoverSrc(u)}
+                        />
+                      </Box>
                     </AspectRatio>
                     {localMap.has(u) && (
                       <IconButton
@@ -388,7 +537,59 @@ export default function AdminPropertyEdit() {
               </HStack>
             )}
 
-            <Text fontSize="3xl" fontWeight="extrabold" color="green.700">{price}</Text>
+            <Editable
+              key={priceKey}
+              defaultValue={price}
+              onSubmit={async (next) => {
+                if (!id) return;
+                const raw = String(next || '').trim();
+                const digits = raw
+                  .replace(/[^0-9.,]/g, '')
+                  .replace(/\.(?=.*\.)/g, '')
+                  .replace(/,(?=.*,)/g, '')
+                  .replace(/[,.]/g, '');
+                const amount = parseInt(digits || '', 10);
+                if (!Number.isFinite(amount) || amount <= 0) {
+                  toast({ title: 'Precio inválido', description: 'Ingresa un número válido', status: 'error', duration: 1500 });
+                  return;
+                }
+
+                const currentOps = Array.isArray(data?.operations) ? [...(data!.operations as any[])] : [];
+                let idx = currentOps.findIndex((o) => (o?.type || '').toLowerCase() === 'sale');
+                if (idx < 0) idx = currentOps.findIndex((o) => (o?.type || '').toLowerCase() === 'rental');
+                if (idx < 0) idx = currentOps.length ? 0 : -1;
+                const base = idx >= 0 ? (currentOps[idx] || {}) : {};
+                const nextOp = {
+                  ...base,
+                  type: base.type || 'sale',
+                  amount,
+                  currency: base.currency || 'MXN',
+                } as any;
+                const newOps = idx >= 0 ? [...currentOps.slice(0, idx), nextOp, ...currentOps.slice(idx + 1)] : [...currentOps, nextOp];
+
+                setData((d) => (d ? { ...d, operations: newOps } : d));
+
+                try {
+                  setSaving(true);
+                  const r = await fetch(`/api/admin/properties/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ operations: newOps }),
+                  });
+                  if (!r.ok) throw new Error('No se pudo actualizar el precio');
+                  toast({ title: 'Precio actualizado', status: 'success', duration: 1200 });
+                } catch (e: any) {
+                  toast({ title: e?.message || 'Error al actualizar', status: 'error', duration: 1500 });
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              <Text fontSize="3xl" fontWeight="extrabold" color="green.700">
+                <EditablePreview />
+              </Text>
+              <EditableInput fontSize="3xl" fontWeight="extrabold" color="green.700" />
+            </Editable>
 
             {/* Resumen/Descripción editable */}
             <Editable value={desc} onChange={(v) => setDesc(v)}>

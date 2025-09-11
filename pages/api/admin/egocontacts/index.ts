@@ -7,6 +7,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!user) return;
 
   if (req.method === 'GET') {
+    // Private cache: reduce repeated queries on fast navigation
+    res.setHeader('Cache-Control', 'private, max-age=10, stale-while-revalidate=60');
     const take = Math.min(parseInt(String(req.query.take ?? '50')) || 50, 200);
     const page = Math.max(parseInt(String(req.query.page ?? '1')) || 1, 1);
     const skip = (page - 1) * take;

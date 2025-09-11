@@ -37,6 +37,7 @@ export default function Propiedades() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [pendingMore, setPendingMore] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
   // Refs para evitar cierres obsoletos dentro del IntersectionObserver
   const pageRef = useRef(page);
@@ -46,8 +47,73 @@ export default function Propiedades() {
   useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
   useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
 
-  async function fetchPage(nextPage: number, limit = 24) {
-    const res = await fetch(`/api/properties?limit=${limit}&page=${nextPage}`, { cache: "no-store" });
+  // Session cache: restore list + scroll instantly on back navigation
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('public.props.list.v1');
+      if (raw) {
+        const j = JSON.parse(raw);
+        if (Array.isArray(j?.all) && typeof j?.page === 'number') {
+          setAllProperties(j.all);
+          setPage(j.page);
+          setHasMore(Boolean(j.hasMore));
+          setLoading(false);
+          const y = Number(sessionStorage.getItem('public.props.scroll') || '0');
+          if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+        }
+      }
+    } catch {}
+    return () => {
+      try {
+        sessionStorage.setItem('public.props.list.v1', JSON.stringify({ all: allProperties, page, hasMore }));
+        sessionStorage.setItem('public.props.scroll', String(window.scrollY || 0));
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Lookahead prefetch: tras agregar una página, descargar la siguiente en background
+  const lookaheadRef = useRef<number>(0);
+  const isLookaheadRef = useRef(false);
+  async function fetchPageSilent(nextPage: number, limit = 18) {
+    try {
+      isLookaheadRef.current = true;
+      const res = await fetch(`/api/properties?limit=${limit}&page=${nextPage}`);
+      const data = await res.json();
+      const list = Array.isArray(data.content) ? data.content : [];
+      const map = new Map<string, any>();
+      for (const p of allProperties) map.set(String(p?.public_id || ''), p);
+      const isPublicable = (s: any) => {
+        if (!s) return false;
+        const t = String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        return [ 'available', 'disponible', 'active', 'activa', 'published', 'publicada', 'en venta', 'en renta' ].includes(t);
+      };
+      for (const p of list) {
+        const id = String(p?.public_id || '');
+        if (!id) continue;
+        if (!isPublicable(p?.status)) continue;
+        if (!map.has(id)) map.set(id, p);
+      }
+      setAllProperties(Array.from(map.values()));
+      const totalPages = Math.max(parseInt(String(data?.pagination?.total_pages ?? '1')) || 1, 1);
+      setPage(nextPage);
+      setHasMore(nextPage < totalPages);
+    } finally {
+      isLookaheadRef.current = false;
+    }
+  }
+
+  useEffect(() => {
+    if (!hasMore) return;
+    if (loading || loadingMore) return;
+    if (lookaheadRef.current === page) return; // ya precargado para este page base
+    lookaheadRef.current = page; // marca el base actual
+    // precargar la siguiente página en background sin mostrar skeleton
+    fetchPageSilent(page + 1).catch(() => {});
+  }, [page, hasMore, loading, loadingMore]);
+
+  async function fetchPage(nextPage: number, limit = 18) {
+    const res = await fetch(`/api/properties?limit=${limit}&page=${nextPage}`);
     const data = await res.json();
     const list = Array.isArray(data.content) ? data.content : [];
     const map = new Map<string, any>();
@@ -72,6 +138,7 @@ export default function Propiedades() {
     const totalPages = Math.max(parseInt(String(data?.pagination?.total_pages ?? '1')) || 1, 1);
     setPage(nextPage);
     setHasMore(nextPage < totalPages);
+    try { sessionStorage.setItem('public.props.list.v1', JSON.stringify({ all: Array.from(map.values()), page: nextPage, hasMore: nextPage < totalPages })); } catch {}
   }
 
   useEffect(() => {
@@ -79,6 +146,19 @@ export default function Propiedades() {
       try { await fetchPage(1); } finally { setLoading(false); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Track scroll direction; don't trigger heavy work while scrolling up
+  const lastYRef = useRef(0);
+  const scrollingDownRef = useRef(true);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      scrollingDownRef.current = y >= lastYRef.current;
+      lastYRef.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -89,15 +169,18 @@ export default function Propiedades() {
       if (!e?.isIntersecting) return;
       if (!hasMoreRef.current) return;
       if (loadingMoreRef.current) return;
+      if (!scrollingDownRef.current) return;
       loadingMoreRef.current = true;
+      setPendingMore(true);
       setLoadingMore(true);
       try {
-        await fetchPage(pageRef.current + 1);
+        await Promise.resolve().then(() => fetchPage(pageRef.current + 1));
       } finally {
         loadingMoreRef.current = false;
         setLoadingMore(false);
+        setPendingMore(false);
       }
-    }, { root: null, rootMargin: '0px 0px 400px 0px', threshold: 0 });
+    }, { root: null, rootMargin: '0px 0px 800px 0px', threshold: 0 });
     io.observe(el);
     return () => io.disconnect();
   }, []);
@@ -578,11 +661,14 @@ export default function Propiedades() {
               ))}
             </SimpleGrid>
           </Box>
-        ) : filtered.length === 0 ? (
-          <Center py={20}>
-            <Text color="gray.500">No encontramos propiedades con esos filtros.</Text>
-          </Center>
-        ) : (
+        ) : (() => {
+          const showEmpty = !loading && !loadingMore && !pendingMore && !isPrefetching && allProperties.length > 0 && filtered.length === 0;
+          return showEmpty ? (
+            <Center py={20}>
+              <Text color="gray.500">No encontramos propiedades con esos filtros.</Text>
+            </Center>
+          ) : null;
+        })() || (
           <>
             <Text mb={3} color="gray.600">
               {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
@@ -602,7 +688,7 @@ export default function Propiedades() {
                 </Button>
               </Center>
             )}
-            {loadingMore && (
+            {(pendingMore || loadingMore) && (
               <Box mt={6}>
                 <SimpleGrid columns={[1, 2, 3]} spacing={6}>
                   {Array.from({ length: 3 }).map((_, i) => (

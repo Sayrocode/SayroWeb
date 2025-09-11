@@ -4,7 +4,9 @@ import Head from "next/head";
 import Link from "next/link";
 import Layout from "../../components/Layout";
 import PropertyDetailsTable from "../../components/PropertyDetailsTable";
-import PropertyMap from "../../components/PropertyMap";
+import dynamic from 'next/dynamic';
+import Image from 'next/image';
+const PropertyMapLazy = dynamic(() => import('../../components/PropertyMap'), { ssr: false, loading: () => <Box h={{ base: '280px', md: '360px' }} bg='gray.100' rounded='md' /> });
 import {
   Box,
   Container,
@@ -35,7 +37,7 @@ import {
   CardFooter,
 } from "@chakra-ui/react";
 import { useMemo, useState } from "react";
-import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail } from "react-icons/fi";
+import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, FiShield, FiCheckCircle } from "react-icons/fi";
 import { FaWhatsapp, FaHeart, FaShare } from 'react-icons/fa';
 import { CONTACT_EMAIL, waHref } from "../../lib/site";
 import PropertyContactPanel from "../../components/PropertyContactPanel";
@@ -365,15 +367,18 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
           {/* Galería de imágenes - lado izquierdo */}
           <Box flex={{ base: "none", lg: "3" }}>
             <AspectRatio ratio={16 / 9} mb={3}>
-              <ChakraImage
-                src={coverSrc}
-                alt={property.title || `Propiedad ${property.public_id}`}
-                objectFit="cover"
-                fallbackSrc="/image3.jpg"
-                onError={() => setCoverSrc("/house.jpg")}
-                referrerPolicy="no-referrer"
-                rounded="lg"
-              />
+              <Box position="relative" w="100%" h="100%" overflow="hidden" rounded="lg">
+                <Image
+                  src={coverSrc}
+                  alt={property.title || `Propiedad ${property.public_id}`}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 60vw"
+                  priority
+                  placeholder="blur"
+                  blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnPjxyZWN0IHdpZHRoPScxMDAlJyBoZWlnaHQ9JzEwMCUnIGZpbGw9JyNFQUVFRTAnLz48L3N2Zz4="
+                  style={{ objectFit: 'cover' }}
+                />
+              </Box>
             </AspectRatio>
 
             {gallery.thumbs.length > 0 && (
@@ -391,6 +396,8 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                       cursor="pointer"
                       _hover={{ opacity: 0.9 }}
                       onClick={() => setCoverSrc(u)}
+                      loading="lazy"
+                      decoding="async"
                     />
                   </AspectRatio>
                 ))}
@@ -427,8 +434,10 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
         {/* Tabla de detalles del inmueble */}
         <PropertyDetailsTable property={property} />
 
-        {/* Mapa de ubicación */}
-        <PropertyMap property={property} />
+        {/* Mapa de ubicación (diferido) */}
+        <Box id="map-anchor" mt={8}>
+          <PropertyMapLazy property={property} />
+        </Box>
 
         {/* Botón de contacto adicional */}
         <Box textAlign="center" mt={8}>
@@ -465,6 +474,8 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                       src={firstImage(p)}
                       alt={p.title || `Propiedad ${p.public_id}`}
                       objectFit="cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </AspectRatio>
                   <CardBody>
@@ -495,6 +506,15 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
           </Box>
         )}
 
+        {/* Cinta de confianza / beneficios sutiles */}
+        <Box mt={10} aria-label="Confianza y beneficios" role="note">
+          <HStack spacing={6} color="gray.600" fontSize="sm" flexWrap="wrap">
+            <HStack><Icon as={FiClock} color="green.600" /><Text>Respuesta en minutos</Text></HStack>
+            <HStack><Icon as={FiShield} color="green.600" /><Text>Tus datos están protegidos</Text></HStack>
+            <HStack><Icon as={FiCheckCircle} color="green.600" /><Text>Asesoría sin costo</Text></HStack>
+          </HStack>
+        </Box>
+
         {/* Relacionadas */}
         {related?.length > 0 && (
           <Box mt={12}>
@@ -509,6 +529,8 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                       src={firstImage(p)}
                       alt={p.title || `Propiedad ${p.public_id}`}
                       objectFit="cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </AspectRatio>
                   <CardBody>
@@ -590,7 +612,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (context)
   try {
     // Intento 0: detalle desde nuestra DB (Turso)
     let property: EBProperty | null = null;
-    const db = await fetchJSON(`${base}/api/properties/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    const db = await fetchJSON(`${base}/api/properties/${encodeURIComponent(id)}`);
     if (db.ok && isDetailShape(db.data)) {
       property = db.data as EBProperty;
       const { related, uniqueCandidates } = await fetchRelated(base, property);
@@ -598,9 +620,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (context)
     }
 
     // Intento A: proxy nuevo (detalle EB)
-    let detail = await fetchJSON(`${base}/api/easybroker/properties/${encodeURIComponent(id)}`, {
-      cache: "no-store",
-    });
+    let detail = await fetchJSON(`${base}/api/easybroker/properties/${encodeURIComponent(id)}`);
 
     // Si devolvió listado por error, intentamos rescatar
     if (detail.ok && isListShape(detail.data)) {
@@ -622,7 +642,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (context)
           accept: "application/json",
           "X-Authorization": process.env.EASYBROKER_API_KEY as string,
         },
-        cache: "no-store",
+        // allow upstream caching
       });
       if (ebDetail.ok) {
         const j = await ebDetail.json();
@@ -642,6 +662,8 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (context)
     // Relacionadas / Únicas
     const { related, uniqueCandidates } = await fetchRelated(base, property);
 
+    // Public page: enable CDN caching with revalidation
+    (context.res as any).setHeader?.('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
     return { props: { property, related, uniqueCandidates, canonicalUrl } };
   } catch (e: any) {
     console.error("Error SSR detalle propiedad:", e?.message || e);

@@ -19,6 +19,7 @@ import {
   Stack,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
+import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, ReactNode } from "react";
 import { FiChevronLeft, FiChevronRight, FiMapPin, FiHome, FiDroplet } from "react-icons/fi";
 
@@ -108,22 +109,21 @@ function FeaturedCard({ p }: { p: EBListItem }) {
     >
       {/* Imagen prominente 4:3 + gradiente */}
       <Box position="relative">
-      <Box position="relative" lineHeight={0}>
-      <AspectRatio ratio={4 / 3} overflow="hidden">
-    <ChakraImage
-      src={img}
-      alt={p.title || `Propiedad ${p.public_id}`}
-      w="100%"
-      h="100%"
-      objectFit="cover"
-      objectPosition="center"
-      display="block"          // sin huecos por baseline
-      verticalAlign="top"      // por si algún user agent lo respeta
-      draggable={false}
-      // tapamos cualquier hairline de subpíxel (Safari/zoom)
-      transform="translateZ(0) scale(1.01)"
-    />
-  </AspectRatio>
+        <Box position="relative" lineHeight={0}>
+          <AspectRatio ratio={4 / 3} overflow="hidden">
+            <Box position='relative' w='100%' h='100%'>
+              <Image
+                src={img}
+                alt={p.title || `Propiedad ${p.public_id}`}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                placeholder='blur'
+                blurDataURL='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTAwJScgaGVpZ2h0PSc3NSUnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc+PHJlY3Qgd2lkdGg9JzEwMCUnIGhlaWdodD0nMTAwJScgZmlsbD0nI0VBRUVFMCcvPjwvc3ZnPg=='
+                style={{ objectFit: 'cover', objectPosition: 'center' }}
+                priority={false}
+              />
+            </Box>
+          </AspectRatio>
 
   {/* overlay para dar contraste al precio */}
   <Box pointerEvents="none" position="absolute" inset={0}
@@ -201,26 +201,35 @@ export default function HomeFeaturedCarousel() {
   const perPage = useResponsivePerPage(); // 1 / 2 / 3 según ancho
 
   useEffect(() => {
-    const fetchProps = async () => {
+    const cached = (() => {
+      try { const raw = sessionStorage.getItem('home.props.v1'); return raw ? JSON.parse(raw) : null; } catch { return null; }
+    })();
+    if (cached && Array.isArray(cached.items)) {
+      setProperties(cached.items);
+      setLoading(false);
+      // refresh in background
+      void fetchProps(true);
+      return;
+    }
+    void fetchProps(false);
+    async function fetchProps(background: boolean) {
       try {
-        // Prioriza propiedades desde nuestra DB (Turso)
-        let res = await fetch("/api/properties?limit=12", { cache: "no-store" });
+        let res = await fetch("/api/properties?limit=12&fast=1");
         if (!res.ok) {
-          // Fallback a EasyBroker si falla la DB
-          res = await fetch("/api/easybroker/properties?limit=12", { cache: "no-store" });
-          if (!res.ok) res = await fetch("/api/easybroker?endpoint=properties&limit=12", { cache: "no-store" });
+          res = await fetch("/api/easybroker/properties?limit=12");
+          if (!res.ok) res = await fetch("/api/easybroker?endpoint=properties&limit=12");
         }
         if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
         const data: EBListResp = await res.json();
-        const items = Array.isArray(data?.content) ? data.content : [];
-        setProperties(items.filter((p) => p?.public_id));
+        const items = (Array.isArray(data?.content) ? data.content : []).filter((p) => p?.public_id);
+        setProperties(items);
+        try { sessionStorage.setItem('home.props.v1', JSON.stringify({ items })); } catch {}
       } catch (e: any) {
-        setError(e?.message ?? "Error al cargar");
+        setError(e?.message ?? 'Error al cargar');
       } finally {
-        setLoading(false);
+        if (!background) setLoading(false);
       }
-    };
-    fetchProps();
+    }
   }, []);
 
   // recalcular página si cambia perPage

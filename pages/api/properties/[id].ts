@@ -1,6 +1,21 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../lib/prisma';
 
+// Simple in-memory cache with TTL to speed up hot property requests
+type CacheEntry<T> = { value: T; exp: number };
+const CACHE_TTL_MS = 60_000; // 60s
+const cache = new Map<string, CacheEntry<any>>();
+function cacheGet<T>(key: string): T | null {
+  const e = cache.get(key);
+  if (!e) return null;
+  if (Date.now() > e.exp) { cache.delete(key); return null; }
+  return e.value as T;
+}
+function cacheSet<T>(key: string, value: T, ttl = CACHE_TTL_MS) {
+  if (cache.size > 500) cache.clear();
+  cache.set(key, { value, exp: Date.now() + ttl });
+}
+
 function formatPrice(amount?: number | null, currency?: string | null) {
   if (typeof amount !== 'number') return undefined;
   const cur = (currency || 'MXN').toUpperCase();
@@ -33,6 +48,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const id = String(req.query.id);
+  const cacheKey = `prop:${id}`;
+  const cached = cacheGet<any>(cacheKey);
+  if (cached) {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+    return res.status(200).json(cached);
+  }
   const p = await prisma.property.findUnique({
     where: { publicId: id },
     include: { media: { select: { key: true }, orderBy: { createdAt: 'asc' } } },
@@ -122,5 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     broker: broker ? { name: broker?.name || p.brokerName || null } : (p.brokerName ? { name: p.brokerName } : null),
   };
 
+  cacheSet(cacheKey, out);
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
   return res.status(200).json(out);
 }

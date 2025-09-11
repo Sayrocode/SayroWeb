@@ -9,6 +9,8 @@ import {
 } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import NextLink from "next/link";
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 const MotionBox = motion(Box);
 
@@ -19,6 +21,11 @@ type HeroProps = {
 export default function Hero({
   backgroundUrl = "/hero.png",
 }: HeroProps) {
+  const router = useRouter();
+  // Prefetch catálogo para clic instantáneo
+  useEffect(() => {
+    try { router.prefetch('/propiedades'); } catch {}
+  }, [router]);
   // Tinte verde + leve oscurecido para legibilidad
  // Verde MUY transparente + contraste con negro
  const overlay =
