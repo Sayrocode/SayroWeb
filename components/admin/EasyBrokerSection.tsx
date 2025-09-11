@@ -38,22 +38,24 @@ export default function EasyBrokerSection({ visible, onTotal }: Props) {
             <Box key={i} borderWidth='1px' rounded='lg' bg='white' p={4}>
               <Heading as='h3' size='md' mb={2}>{c.name || c.full_name || '-'}</Heading>
               <Stack spacing={1} color='gray.700'>
-                <HStack>
+                <Stack direction={{ base: 'column', sm: 'row' }} spacing={2} align={{ base: 'stretch', sm: 'center' }}>
                   <FiPhone />
-                  <CLink href={`tel:${digitsOnly(c.phone || '')}`} color='green.700'>{c.phone || '-'}</CLink>
-                  <Spacer />
+                  <CLink href={`tel:${digitsOnly(c.phone || '')}`} color='green.700' wordBreak='break-word'>
+                    {c.phone || '-'}
+                  </CLink>
+                  <Spacer display={{ base: 'none', sm: 'block' }} />
                   {c.phone && (
                     <CLink as='a' href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`} target='_blank' rel='noopener noreferrer' color='green.600'>
                       <FaWhatsapp />
                     </CLink>
                   )}
-                </HStack>
-                <HStack>
+                </Stack>
+                <Stack direction={{ base: 'column', sm: 'row' }} spacing={2} align={{ base: 'stretch', sm: 'center' }}>
                   <FiMail />
                   <CLink href={c.email ? `mailto:${c.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}` : '#'} color='blue.600'>
                     {c.email || '-'}
                   </CLink>
-                </HStack>
+                </Stack>
                 {c.notes && <Text color='gray.600' fontSize='sm'>{c.notes}</Text>}
               </Stack>
             </Box>
@@ -63,4 +65,3 @@ export default function EasyBrokerSection({ visible, onTotal }: Props) {
     </>
   );
 }
-

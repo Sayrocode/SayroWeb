@@ -1,4 +1,5 @@
 // components/Footer.tsx
+import React from 'react';
 import {
   Box,
   Container,
@@ -12,6 +13,9 @@ import {
   WrapItem,
   VStack,
   useBreakpointValue,
+  Collapse,
+  Flex,
+  Button,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
 import {
@@ -21,6 +25,7 @@ import {
   FiMail,
   FiPhone,
   FiMapPin,
+  FiChevronDown,
 } from "react-icons/fi";
 
 /** Item de link con punto verde y hover sutil */
@@ -47,30 +52,58 @@ function NavGroup({
   title,
   withDivider = false,
   children,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: string;
   withDivider?: boolean;
   children: React.ReactNode;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
-  return (
-    <Box
-      pl={{ md: withDivider ? 6 : 0 }}
-      borderLeft={{ md: withDivider ? "1px solid" : "none" }}
-      borderColor="whiteAlpha.200"
+  const [open, setOpen] = React.useState(defaultOpen);
+  React.useEffect(() => setOpen(defaultOpen), [defaultOpen]);
+  const HeadingEl = (
+    <Flex
+      align="center"
+      justify="space-between"
+      onClick={() => collapsible && setOpen((v) => !v)}
+      cursor={collapsible ? 'pointer' : 'default'}
+      userSelect="none"
+      py={{ base: 1, md: 0 }}
     >
       <Text
         fontSize="xs"
         color="white"
         textTransform="uppercase"
         letterSpacing="widest"
-        mb={2}
       >
         {title}
       </Text>
-      <Box w="28" h="1" bg="brand.100" mb={4} opacity={0.95} borderRadius="full" />
-      <VStack as="ul" align="start" spacing={2.5}>
-        {children}
-      </VStack>
+      {collapsible && (
+        <Icon
+          as={FiChevronDown}
+          transform={open ? 'rotate(180deg)' : 'rotate(0)'}
+          transition="transform .15s ease-out"
+        />
+      )}
+    </Flex>
+  );
+
+  return (
+    <Box
+      pl={{ md: withDivider ? 6 : 0 }}
+      borderLeft={{ md: withDivider ? "1px solid" : "none" }}
+      borderColor="whiteAlpha.200"
+    >
+      {HeadingEl}
+      <Box w="28" h="1" bg="brand.100" my={3} opacity={0.95} borderRadius="full" display={{ base: collapsible ? 'none' : 'block', md: 'block' }} />
+      <Collapse in={open} animateOpacity style={{ overflow: 'hidden' }}>
+        <VStack as="ul" align="start" spacing={2.5} pt={{ base: 2, md: 0 }}>
+          {children}
+        </VStack>
+      </Collapse>
+      {collapsible && <Box h="1px" bg="whiteAlpha.200" mt={4} display={{ base: 'block', md: 'none' }} />}
     </Box>
   );
 }
@@ -78,6 +111,7 @@ function NavGroup({
 export default function Footer() {
   const iconSize = useBreakpointValue({ base: 4, md: 5 });
   const dividerWidth = useBreakpointValue({ base: "140px", md: "220px" });
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   return (
     <Box bg="brand.900" color="white">
@@ -91,26 +125,26 @@ export default function Footer() {
         >
           {/* IZQUIERDA: menú en 2 por fila (base/sm), 3 columnas en md+ */}
           <SimpleGrid
-            columns={{ base: 2, md: 3 }}
+            columns={{ base: 1, sm: 2, md: 3 }}
             spacingX={{ base: 6, md: 10 }}
             spacingY={{ base: 8, md: 10 }}
             flex="1"
             minW={{ lg: "60%" }}
           >
-            <NavGroup title="Secciones">
+            <NavGroup title="Secciones" collapsible={!!isMobile} defaultOpen={!isMobile}>
               <NavLinkItem href="/">Inicio</NavLinkItem>
               <NavLinkItem href="/nosotros">Nosotros</NavLinkItem>
               <NavLinkItem href="/servicios">Servicios</NavLinkItem>
               <NavLinkItem href="/contacto">Contacto</NavLinkItem>
             </NavGroup>
 
-            <NavGroup title="Propiedades" withDivider>
+            <NavGroup title="Propiedades" withDivider collapsible={!!isMobile} defaultOpen={!isMobile}>
               <NavLinkItem href="/propiedades">Ver todas</NavLinkItem>
               <NavLinkItem href="/propiedades?operacion=venta">Venta</NavLinkItem>
               <NavLinkItem href="/propiedades?operacion=renta">Renta</NavLinkItem>
             </NavGroup>
 
-            <NavGroup title="Soporte" withDivider>
+            <NavGroup title="Soporte" withDivider collapsible={!!isMobile} defaultOpen={!isMobile}>
               <NavLinkItem href="/preguntas-frecuentes">Preguntas frecuentes</NavLinkItem>
               <NavLinkItem href="/aviso-de-privacidad">Aviso de Privacidad</NavLinkItem>
               <NavLinkItem href="/terminos">Términos y Condiciones</NavLinkItem>
@@ -122,20 +156,14 @@ export default function Footer() {
             w={{ base: "full", lg: "auto" }}
             textAlign={{ base: "center", md: "left", lg: "right" }}
           >
-            <HStack
-              justify={{ base: "center", md: "flex-start", lg: "flex-end" }}
-              spacing={5}
-              mb={3}
-            >
-              <Link href="https://facebook.com" isExternal aria-label="Facebook">
-                <Icon as={FiFacebook} boxSize={iconSize} />
-              </Link>
-              <Link href="https://instagram.com" isExternal aria-label="Instagram">
-                <Icon as={FiInstagram} boxSize={iconSize} />
-              </Link>
-              <Link href="https://linkedin.com" isExternal aria-label="LinkedIn">
-                <Icon as={FiLinkedin} boxSize={iconSize} />
-              </Link>
+            <HStack justify={{ base: "center", md: "flex-start", lg: "flex-end" }} spacing={4} mb={3}>
+              {[{ href: 'https://facebook.com', icon: FiFacebook, label: 'Facebook' }, { href: 'https://instagram.com', icon: FiInstagram, label: 'Instagram' }, { href: 'https://linkedin.com', icon: FiLinkedin, label: 'LinkedIn' }].map((s) => (
+                <Link key={s.label} href={s.href} isExternal aria-label={s.label} _focus={{ boxShadow: '0 0 0 2px rgba(255,255,255,0.6)', borderRadius: 'md' }}>
+                  <Button variant="ghost" color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }} p={3} minW="unset" borderRadius="md">
+                    <Icon as={s.icon} boxSize={{ base: 5, md: iconSize }} />
+                  </Button>
+                </Link>
+              ))}
             </HStack>
 
             <Box

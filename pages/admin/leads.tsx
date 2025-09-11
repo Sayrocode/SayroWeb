@@ -99,38 +99,43 @@ function LeadCard({ l }: { l: Lead }) {
         <Spacer />
         <Text>{new Date(l.createdAt).toLocaleString()}</Text>
       </HStack>
-      <Heading as='h3' size='md' mb={1}>{l.name || 'Sin nombre'}</Heading>
+      <Heading as='h3' size='md' mb={1} noOfLines={1}>{l.name || 'Sin nombre'}</Heading>
       {l.message && (
-        <Text mb={3} color='gray.700'>{l.message.slice(0, 160)}</Text>
+        <Text mb={3} color='gray.700' noOfLines={3}>{l.message}</Text>
       )}
       <Stack spacing={2} color='gray.700'>
-        <HStack spacing={2}>
+        <Stack direction={{ base: 'column', sm: 'row' }} spacing={2} align={{ base: 'stretch', sm: 'center' }}>
           <FiPhone />
           {l.phone ? (
-            <CLink href={`tel:${digitsOnly(l.phone)}`} color='green.700'>{l.phone}</CLink>
+            <CLink href={`tel:${digitsOnly(l.phone)}`} color='green.700' wordBreak='break-word'>
+              {l.phone}
+            </CLink>
           ) : (
             <Text color='gray.500'>-</Text>
           )}
-          <Spacer />
-          <CallMenu phone={l.phone} />
-          {l.phone && (
-            <Button
-              as='a'
-              href={`https://wa.me/${digitsOnly(l.phone)}?text=${encodeURIComponent(msg)}`}
-              target='_blank'
-              rel='noopener noreferrer'
-              size='xs'
-              bg='green.600'
-              color='white'
-              _hover={{ bg: 'green.700' }}
-              leftIcon={<FaWhatsapp />}
-              rounded='full'
-            >
-              WhatsApp
-            </Button>
-          )}
-        </HStack>
-        <HStack spacing={2}>
+          <Spacer display={{ base: 'none', sm: 'block' }} />
+          <HStack spacing={2}>
+            <CallMenu phone={l.phone} />
+            {l.phone && (
+              <Button
+                as='a'
+                href={`https://wa.me/${digitsOnly(l.phone)}?text=${encodeURIComponent(msg)}`}
+                target='_blank'
+                rel='noopener noreferrer'
+                size={{ base: 'sm', md: 'xs' }}
+                w={{ base: 'full', sm: 'auto' }}
+                bg='green.600'
+                color='white'
+                _hover={{ bg: 'green.700' }}
+                leftIcon={<FaWhatsapp />}
+                rounded='full'
+              >
+                WhatsApp
+              </Button>
+            )}
+          </HStack>
+        </Stack>
+        <Stack direction={{ base: 'column', sm: 'row' }} spacing={2} align={{ base: 'stretch', sm: 'center' }}>
           <FiMail />
           {l.email ? (
             <CLink href={`mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}`} color='blue.600'>
@@ -139,12 +144,13 @@ function LeadCard({ l }: { l: Lead }) {
           ) : (
             <Text color='gray.500'>-</Text>
           )}
-          <Spacer />
+          <Spacer display={{ base: 'none', sm: 'block' }} />
           {l.email && (
             <Button
               as='a'
               href={`mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}`}
-              size='xs'
+              size={{ base: 'sm', md: 'xs' }}
+              w={{ base: 'full', sm: 'auto' }}
               colorScheme='blue'
               variant='outline'
               leftIcon={<FiMail />}
@@ -153,7 +159,7 @@ function LeadCard({ l }: { l: Lead }) {
               Email
             </Button>
           )}
-        </HStack>
+        </Stack>
         <HStack spacing={2}>
           <Text fontSize='sm' color='gray.600'>Propiedad:</Text>
           {l.property?.publicId || l.propertyPublicId ? (
@@ -293,12 +299,14 @@ export default function LeadsPage() {
   return (
     <SWRConfig value={{ revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 15000 }}>
     <Layout title='Leads'>
-      <Container maxW='7xl' py={{ base: 6, md: 10 }}>
-        <HStack mb={4} spacing={3} align='center'>
-          <Heading size='lg'>Leads</Heading>
-          <Badge colorScheme='gray' variant='subtle'>{badgeCount} total</Badge>
-          <Spacer />
-          <HStack>
+      <Container maxW='7xl' py={{ base: 4, md: 10 }}>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={{ base: 3, md: 4 }} align={{ base: 'stretch', md: 'center' }} mb={4}>
+          <HStack spacing={2} align='center'>
+            <Heading size='lg'>Leads</Heading>
+            <Badge colorScheme='gray' variant='subtle'>{badgeCount} total</Badge>
+          </HStack>
+          <Spacer display={{ base: 'none', md: 'block' }} />
+          <HStack spacing={2} overflowX={{ base: 'auto', md: 'visible' }} py={{ base: 1, md: 0 }} px={{ base: 1, md: 0 }} sx={{ '::-webkit-scrollbar': { display: 'none' } }}>
             <Button size='sm' variant={source === '' ? 'solid' : 'outline'} onClick={() => setSource('')}>Todos</Button>
             <Button size='sm' variant={source === 'meta' ? 'solid' : 'outline'} onClick={() => setSource('meta')}>Meta</Button>
             <Button size='sm' variant={source === 'website' ? 'solid' : 'outline'} onClick={() => setSource('website')}>Website</Button>
@@ -309,8 +317,8 @@ export default function LeadsPage() {
             <InputLeftElement pointerEvents='none'><SearchIcon color='gray.400' /></InputLeftElement>
             <Input placeholder='Buscar nombre, email, teléfono, mensaje' value={qInput} onChange={(e) => setQInput(e.target.value)} bg='white' />
           </InputGroup>
-          <Button as={Link} href='/admin' variant='outline'>Volver</Button>
-        </HStack>
+          <Button as={Link} href='/admin' variant='outline' w={{ base: 'full', md: 'auto' }}>Volver</Button>
+        </Stack>
 
         {showLeads && (
           <>

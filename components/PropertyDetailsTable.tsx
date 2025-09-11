@@ -111,167 +111,175 @@ export default function PropertyDetailsTable({ property }: PropertyDetailsTableP
   const locationInfo = getLocationInfo();
 
   return (
-    <Box mb={8}>
-      <Heading as="h2" size="md" mb={4} color="gray.800" textAlign="center">
+    <Box mb={8} maxW={{ base: '100%', md: '3xl' }} mx="auto" px={{ base: 2, md: 0 }}>
+      <Heading as="h2" size={{ base: 'md', md: 'md' }} mb={4} color="gray.800" textAlign="center">
         Detalles del inmueble
       </Heading>
       
+      <Box overflowX="auto" borderRadius="md">
       <Table variant="simple" size="sm" border="1px" borderColor="gray.200" width="100%">
         <Thead>
           <Tr bg="gray.50">
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Estado
             </Th>
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Municipio
             </Th>
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Colonia
             </Th>
           </Tr>
         </Thead>
         <Tbody>
           <Tr>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {locationInfo.state || "N/A"}
             </Td>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {locationInfo.municipality || "N/A"}
             </Td>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {locationInfo.neighborhood || "N/A"}
             </Td>
           </Tr>
         </Tbody>
       </Table>
+      </Box>
 
-      <Table variant="simple" size="sm" border="1px" borderColor="gray.200" mt={2} width="100%">
+      <Box overflowX="auto" borderRadius="md" mt={2}>
+      <Table variant="simple" size="sm" border="1px" borderColor="gray.200" width="100%">
         <Thead>
           <Tr bg="gray.50">
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Estado
             </Th>
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Referencia
             </Th>
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Tipo de Inmueble
             </Th>
           </Tr>
         </Thead>
         <Tbody>
           <Tr>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {getCondition()}
             </Td>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {property.public_id}
             </Td>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {property.property_type || "N/A"}
             </Td>
           </Tr>
         </Tbody>
       </Table>
+      </Box>
 
-      <Table variant="simple" size="sm" border="1px" borderColor="gray.200" mt={2} width="100%">
+      <Box overflowX="auto" borderRadius="md" mt={2}>
+      <Table variant="simple" size="sm" border="1px" borderColor="gray.200" width="100%">
         <Thead>
           <Tr bg="gray.50">
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Habitaciones
             </Th>
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Superficie útil
             </Th>
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Superficie del Terreno
             </Th>
           </Tr>
         </Thead>
         <Tbody>
           <Tr>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {formatRooms()}
             </Td>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {formatM2(property.construction_size)}
             </Td>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {formatM2(property.lot_size)}
             </Td>
           </Tr>
         </Tbody>
       </Table>
+      </Box>
 
-      <Table variant="simple" size="sm" border="1px" borderColor="gray.200" mt={2} width="100%">
+      <Box overflowX="auto" borderRadius="md" mt={2}>
+      <Table variant="simple" size="sm" border="1px" borderColor="gray.200" width="100%">
         <Thead>
           <Tr bg="gray.50">
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="50%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="50%" fontSize={{ base: 'xs', md: 'sm' }}>
               {getOperationType()}
             </Th>
-            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="50%">
+            <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="50%" fontSize={{ base: 'xs', md: 'sm' }}>
               Estacionamientos
             </Th>
           </Tr>
         </Thead>
         <Tbody>
           <Tr>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {getPrice()}
             </Td>
-            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center">
+            <Td border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" fontSize={{ base: 'sm', md: 'md' }}>
               {property.parking_spaces || 0}
             </Td>
           </Tr>
         </Tbody>
       </Table>
+      </Box>
 
-      <Heading as="h3" size="sm" mt={6} mb={3} color="gray.800" textAlign="center">
+      <Heading as="h3" size={{ base: 'sm', md: 'sm' }} mt={6} mb={3} color="gray.800" textAlign="center">
         Características del inmueble
       </Heading>
       
-      <Box bg="gray.50" p={4} borderRadius="md" border="1px" borderColor="gray.200">
+      <Box bg="gray.50" p={{ base: 3, md: 4 }} borderRadius="md" border="1px" borderColor="gray.200" maxW={{ base: '100%', md: '3xl' }} mx="auto">
         <VStack spacing={2} align="stretch">
-          <HStack justify="space-between">
+          <HStack justify="space-between" fontSize={{ base: 'sm', md: 'md' }}>
             <Text fontWeight="bold">Tipo de propiedad:</Text>
             <Text>{property.property_type || "N/A"}</Text>
           </HStack>
-          <HStack justify="space-between">
+          <HStack justify="space-between" fontSize={{ base: 'sm', md: 'md' }}>
             <Text fontWeight="bold">Estado:</Text>
             <Text>{getCondition()}</Text>
           </HStack>
-          <HStack justify="space-between">
+          <HStack justify="space-between" fontSize={{ base: 'sm', md: 'md' }}>
             <Text fontWeight="bold">Operación:</Text>
             <Badge colorScheme={getOperationType() === "Venta" ? "green" : "blue"}>
               {getOperationType()}
             </Badge>
           </HStack>
           {property.bedrooms && (
-            <HStack justify="space-between">
+            <HStack justify="space-between" fontSize={{ base: 'sm', md: 'md' }}>
               <Text fontWeight="bold">Recámaras:</Text>
               <Text>{property.bedrooms}</Text>
             </HStack>
           )}
           {property.bathrooms && (
-            <HStack justify="space-between">
+            <HStack justify="space-between" fontSize={{ base: 'sm', md: 'md' }}>
               <Text fontWeight="bold">Baños:</Text>
               <Text>{property.bathrooms}</Text>
             </HStack>
           )}
           {property.parking_spaces && property.parking_spaces > 0 && (
-            <HStack justify="space-between">
+            <HStack justify="space-between" fontSize={{ base: 'sm', md: 'md' }}>
               <Text fontWeight="bold">Estacionamientos:</Text>
               <Text>{property.parking_spaces}</Text>
             </HStack>
           )}
           {property.lot_size && (
-            <HStack justify="space-between">
+            <HStack justify="space-between" fontSize={{ base: 'sm', md: 'md' }}>
               <Text fontWeight="bold">Superficie del terreno:</Text>
               <Text>{formatM2(property.lot_size)}</Text>
             </HStack>
           )}
           {property.construction_size && (
-            <HStack justify="space-between">
+            <HStack justify="space-between" fontSize={{ base: 'sm', md: 'md' }}>
               <Text fontWeight="bold">Superficie construida:</Text>
               <Text>{formatM2(property.construction_size)}</Text>
             </HStack>

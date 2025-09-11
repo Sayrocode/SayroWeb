@@ -145,23 +145,27 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
                 <Heading as='h3' size='md' mb={2}>{c.name || 'Sin nombre'}</Heading>
                 <Stack spacing={1} color='gray.700'>
                   {c.role && <Text><b>Rol:</b> {c.role}</Text>}
-                  <HStack>
+                  <Stack direction={{ base: 'column', sm: 'row' }} spacing={2} align={{ base: 'stretch', sm: 'center' }}>
                     <FiPhone />
-                    <CLink href={c.phone ? `tel:${digitsOnly(c.phone)}` : '#'} color='green.700'>{c.phone || '-'}</CLink>
-                    <Spacer />
-                    <CallMenu phone={c.phone} />
-                    {c.phone && (
-                      <Button as='a' bgColor={'green'} href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`} target='_blank' rel='noopener noreferrer' size='xs' colorScheme='whatsapp' leftIcon={<FaWhatsapp />} rounded='full'>
-                        WhatsApp
-                      </Button>
-                    )}
-                  </HStack>
-                  <HStack>
+                    <CLink href={c.phone ? `tel:${digitsOnly(c.phone)}` : '#'} color='green.700' wordBreak='break-word'>
+                      {c.phone || '-'}
+                    </CLink>
+                    <Spacer display={{ base: 'none', sm: 'block' }} />
+                    <HStack spacing={2}>
+                      <CallMenu phone={c.phone} />
+                      {c.phone && (
+                        <Button as='a' href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`} target='_blank' rel='noopener noreferrer' size={{ base: 'sm', md: 'xs' }} w={{ base: 'full', sm: 'auto' }} colorScheme='whatsapp' leftIcon={<FaWhatsapp />} rounded='full'>
+                          WhatsApp
+                        </Button>
+                      )}
+                    </HStack>
+                  </Stack>
+                  <Stack direction={{ base: 'column', sm: 'row' }} spacing={2} align={{ base: 'stretch', sm: 'center' }}>
                     <FiMail />
                     <CLink href={c.email ? `mailto:${c.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}` : '#'} color='blue.600'>
                       {c.email || '-'}
                     </CLink>
-                  </HStack>
+                  </Stack>
                   {c.createdText && <Text><b>Creada:</b> {c.createdText}</Text>}
                   {c.responsible && <Text><b>Responsable:</b> {c.responsible}</Text>}
                   {c.personId && <Text><b>Persona ID:</b> {c.personId}</Text>}

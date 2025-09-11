@@ -35,12 +35,14 @@ import {
   Card,
   CardBody,
   CardFooter,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import { useMemo, useState } from "react";
-import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, FiShield, FiCheckCircle } from "react-icons/fi";
+import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, FiShield, FiCheckCircle, FiGrid, FiMaximize, FiKey } from "react-icons/fi";
 import { FaWhatsapp, FaHeart, FaShare } from 'react-icons/fa';
 import { CONTACT_EMAIL, waHref } from "../../lib/site";
 import PropertyContactPanel from "../../components/PropertyContactPanel";
+// import MobileStickyActions from "../../components/MobileStickyActions";
 
 /* =============================
  * TIPOS (ajustados a EB)
@@ -122,7 +124,8 @@ function pickPrice(ops?: EBOperation[]) {
 
 function firstImage(p: EBListItem) {
   const candidate = p.title_image_full || p.title_image_thumb || "";
-  return typeof candidate === 'string' && candidate.startsWith('/') ? candidate : '/image3.jpg';
+  if (typeof candidate === 'string' && candidate.startsWith('/')) return candidate;
+  return '/image3.jpg';
 }
 
 /** Heurística simple para “propiedad única” */
@@ -187,25 +190,22 @@ export default function PropertyDetail({
   const locationText = getLocationText(property.location);
 // Galería robusta: prioriza portada, si no, la primera foto real del arreglo
 const gallery = useMemo(() => {
-  const candidate =
-    property.title_image_full ||
-    property.title_image_thumb ||
-    (Array.isArray(property.property_images) && property.property_images[0]?.url) ||
-    "";
-  const cover = typeof candidate === 'string' && candidate.startsWith('/') ? candidate : '/image3.jpg';
-
-  // Thumbs: solo rutas locales y sin duplicados
-  const thumbs = Array.isArray(property.property_images)
+  const localThumbs = Array.isArray(property.property_images)
     ? Array.from(
         new Set(
           property.property_images
             .map((i) => i?.url)
             .filter((u): u is string => typeof u === 'string' && u.startsWith('/'))
         )
-      ).filter((u) => u !== cover)
+      )
     : [];
-
-  return { cover, thumbs: thumbs.slice(0, 12) };
+  const preferredCover = (typeof property.title_image_full === 'string' && property.title_image_full.startsWith('/'))
+    ? property.title_image_full
+    : (typeof property.title_image_thumb === 'string' && property.title_image_thumb.startsWith('/'))
+      ? property.title_image_thumb
+      : (localThumbs[0] || '/image3.jpg');
+  const thumbs = localThumbs.filter((u) => u !== preferredCover).slice(0, 12);
+  return { cover: preferredCover, thumbs };
 }, [property]);
 
 // el estado arranca con la portada calculada
@@ -219,6 +219,9 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
     ? cleanDesc.slice(0, 160)
     : `${property.property_type || "Propiedad"} en ${locationText || "México"}`;
   const shareUrl = canonicalUrl;
+  const coverAbsolute = typeof coverSrc === 'string' && coverSrc.startsWith('http')
+    ? coverSrc
+    : (() => { try { return new URL(coverSrc, canonicalUrl).toString(); } catch { return canonicalUrl; } })();
 
   const copyLink = async () => {
     try {
@@ -271,6 +274,7 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
     ],
   } as const;
 
+  const pageBg = useColorModeValue('#FBF6E9', 'gray.900');
   return (
     <Layout title={pageTitle}>
       <Head>
@@ -280,17 +284,18 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
         <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1" />
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={pageDesc} />
-        <meta property="og:image" content={coverSrc} />
+        <meta property="og:image" content={coverAbsolute} />
         <meta property="og:type" content="article" />
         <meta property="og:url" content={canonicalUrl} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={pageDesc} />
-        <meta name="twitter:image" content={coverSrc} />
+        <meta name="twitter:image" content={coverAbsolute} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       </Head>
 
+      <Box bg={pageBg}>
       <Container maxW="7xl" py={{ base: 6, md: 10 }}>
         <Breadcrumb fontSize="sm" color="gray.600" mb={3}>
           <BreadcrumbItem>
@@ -304,11 +309,18 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
           </BreadcrumbItem>
         </Breadcrumb>
 
-        {/* Header con título, precio y botones */}
+        {/* Header con título, precio y botones (responsive) */}
         <Box mb={6}>
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={4}>
+          <Box
+            display="flex"
+            flexDir={{ base: 'column', md: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ base: 'flex-start', md: 'flex-end' }}
+            gap={3}
+            mb={2}
+          >
             {/* Título de la propiedad */}
-            <Heading as="h1" size="xl" lineHeight="1.2" color="gray.800" textTransform="uppercase">
+            <Heading as="h1" size={{ base: 'lg', md: 'xl' }} lineHeight="1.2" color="gray.800" textTransform="uppercase">
               {property.title || `Propiedad ${property.public_id}`}
             </Heading>
 
@@ -329,11 +341,11 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                   </Badge>
                 )}
                 {/* Precio */}
-                <Text fontSize="2xl" fontWeight="bold" color="gray.800">
+                <Text fontSize={{ base: 'xl', md: '2xl' }} fontWeight="bold" color="gray.800">
                   {price}
                 </Text>
               </HStack>
-              <HStack spacing={2}>
+              <HStack spacing={2} display={{ base: 'none', md: 'flex' }}>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -360,6 +372,32 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
               </HStack>
             </HStack>
           </Box>
+          {/* Chips de features + microcopy (mobile-first) */}
+          <HStack spacing={3} color="gray.700" fontSize="sm" flexWrap="wrap">
+            {typeof property.bedrooms === 'number' && (
+              <HStack px={2} py={1} bg="gray.100" rounded="full"><Icon as={FiHome} /><Text>{property.bedrooms} recámaras</Text></HStack>
+            )}
+            {typeof property.bathrooms === 'number' && (
+              <HStack px={2} py={1} bg="gray.100" rounded="full"><Icon as={FiDroplet} /><Text>{property.bathrooms} baños</Text></HStack>
+            )}
+            {typeof property.parking_spaces === 'number' && (
+              <HStack px={2} py={1} bg="gray.100" rounded="full"><Icon as={FiKey} /><Text>{property.parking_spaces} estacionamientos</Text></HStack>
+            )}
+            {(typeof property.construction_size === 'number' || typeof property.lot_size === 'number') && (
+              <HStack px={2} py={1} bg="gray.100" rounded="full"><Icon as={FiMaximize} /><Text>
+                {property.construction_size ? `${Math.round(property.construction_size)} m²` : ''}
+                {property.construction_size && property.lot_size ? ' · ' : ''}
+                {property.lot_size ? `${Math.round(property.lot_size)} m² terreno` : ''}
+              </Text></HStack>
+            )}
+            <HStack px={2} py={1} bg="gray.100" rounded="full">
+              <Icon as={FiMapPin} />
+              <Text noOfLines={1}>{locationText || 'Ubicación disponible'}</Text>
+            </HStack>
+          </HStack>
+          <Text mt={2} color="gray.600" fontSize="sm" display={{ base: 'block', md: 'none' }}>
+            ¿Te gustó esta propiedad? Escríbenos por WhatsApp o llámanos. Respondemos en minutos.
+          </Text>
         </Box>
 
         {/* Layout principal: imagen y panel lado a lado */}
@@ -406,7 +444,7 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
           </Box>
 
           {/* Panel de contacto - lado derecho */}
-          <Box flex={{ base: "none", lg: "2" }}>
+          <Box flex={{ base: "none", lg: "2" }} position={{ base: 'static', lg: 'sticky' }} top={{ base: 'auto', lg: 6 }}>
             <PropertyContactPanel
               propertyTitle={property.title || `Propiedad ${property.public_id}`}
               propertyId={property.public_id}
@@ -421,11 +459,11 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
 
         {/* Descripción */}
         {cleanDesc && (
-          <Box mb={8}>
+          <Box mt={{ base: 8, md: 10 }} mb={8}>
             <Heading as="h2" size="md" mb={4} color="gray.800">
               Descripción del inmueble
             </Heading>
-            <Text whiteSpace="pre-line" color="gray.700" lineHeight="1.6">
+            <Text whiteSpace="pre-line" color="gray.700" lineHeight={"1.8"} fontSize={{ base: 'md', md: 'lg' }} textAlign="justify" sx={{ hyphens: 'auto' }}>
               {cleanDesc}
             </Text>
           </Box>
@@ -439,23 +477,27 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
           <PropertyMapLazy property={property} />
         </Box>
 
-        {/* Botón de contacto adicional */}
-        <Box textAlign="center" mt={8}>
+        {/* CTA adicional (responsive) */}
+        <Box mt={{ base: 10, md: 12 }} px={{ base: 0, sm: 6 }}>
           <Button
-            as="a"
+            as={Link}
             href="/contacto"
-            size="lg"
+            size={{ base: 'md', md: 'lg' }}
+            colorScheme="green"
             bg="green.600"
-            color="white"
-            _hover={{ bg: "green.700" }}
-            borderRadius="none"
-            px={8}
-            py={4}
-            fontSize="md"
+            _hover={{ bg: 'green.700' }}
+            width={{ base: '100%', sm: 'auto' }}
+            borderRadius={{ base: 'md', md: 'full' }}
+            px={{ base: 6, md: 10 }}
+            py={{ base: 3.5, md: 4 }}
+            fontSize={{ base: 'md', md: 'md' }}
             fontWeight="bold"
-            textTransform="uppercase"
+            textTransform={{ base: 'none', md: 'uppercase' }}
+            display="block"
+            mx="auto"
+            aria-label="Ir a contacto"
           >
-            ¿NO ENCONTRÁSTE LO QUE BUSCABAS?
+            ¿No encontraste lo que buscabas?
           </Button>
         </Box>
 
@@ -466,7 +508,7 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
               <Heading as="h2" size="md">Propiedades únicas</Heading>
               <Tag colorScheme="purple">Curado</Tag>
             </HStack>
-            <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={6}>
+            <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 3, sm: 4, md: 6 }}>
               {uniqueCandidates.map((p) => (
                 <Card key={p.public_id} overflow="hidden" role="article">
                   <AspectRatio ratio={16 / 9}>
@@ -478,24 +520,24 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                       decoding="async"
                     />
                   </AspectRatio>
-                  <CardBody>
-                    <Heading as="h3" size="sm" noOfLines={2}>
+                  <CardBody p={{ base: 3, md: 4 }}>
+                    <Heading as="h3" fontSize={{ base: 'sm', md: 'sm' }} noOfLines={2}>
                       {p.title || `Propiedad ${p.public_id}`}
                     </Heading>
-                    <HStack mt={2} spacing={2} color="gray.600" fontSize="sm">
+                    <HStack mt={2} spacing={2} color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>
                       <Icon as={FiMapPin} />
                       <Text noOfLines={1}>{getLocationText((p as any).location) || "México"}</Text>
                     </HStack>
-                    <Text mt={2} fontWeight="bold" color="green.700">
+                    <Text mt={2} fontWeight="bold" color="green.700" fontSize={{ base: 'sm', md: 'md' }}>
                       {pickPrice(p.operations)}
                     </Text>
-                    <HStack mt={2} spacing={4} color="gray.700" fontSize="sm">
+                    <HStack mt={2} spacing={{ base: 3, md: 4 }} color="gray.700" fontSize={{ base: 'xs', md: 'sm' }}>
                       {typeof p.bedrooms === "number" && <Text>{p.bedrooms} rec</Text>}
                       {typeof p.bathrooms === "number" && <Text>{p.bathrooms} baños</Text>}
                       {typeof p.parking_spaces === "number" && <Text>{p.parking_spaces} estac.</Text>}
                     </HStack>
                   </CardBody>
-                  <CardFooter>
+                  <CardFooter pt={0} px={{ base: 3, md: 4 }} pb={{ base: 3, md: 4 }}>
                     <Button as={Link} href={`/propiedades/${p.public_id}`} colorScheme="green" size="sm" width="full">
                       Ver detalle
                     </Button>
@@ -521,7 +563,7 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
             <Heading as="h2" size="md" mb={3}>
               También te puede interesar
             </Heading>
-            <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={6}>
+            <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 3, sm: 4, md: 6 }}>
               {related.map((p) => (
                 <Card key={p.public_id} overflow="hidden" role="article">
                   <AspectRatio ratio={16 / 9}>
@@ -533,20 +575,20 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                       decoding="async"
                     />
                   </AspectRatio>
-                  <CardBody>
-                    <Heading as="h3" size="sm" noOfLines={2}>
+                  <CardBody p={{ base: 3, md: 4 }}>
+                    <Heading as="h3" fontSize={{ base: 'sm', md: 'sm' }} noOfLines={2}>
                       {p.title || `Propiedad ${p.public_id}`}
                     </Heading>
-                    <HStack mt={2} spacing={2} color="gray.600" fontSize="sm">
+                    <HStack mt={2} spacing={2} color="gray.600" fontSize={{ base: 'xs', md: 'sm' }}>
                       <Icon as={FiMapPin} />
                       <Text noOfLines={1}>{getLocationText((p as any).location) || "México"}</Text>
                     </HStack>
-                    <Text mt={2} fontWeight="bold" color="green.700">
+                    <Text mt={2} fontWeight="bold" color="green.700" fontSize={{ base: 'sm', md: 'md' }}>
                       {pickPrice(p.operations)}
                     </Text>
                   </CardBody>
-                  <CardFooter>
-                    <Button as={Link} href={`/propiedades/${p.public_id}`} variant="link" colorScheme="green">
+                  <CardFooter pt={0} px={{ base: 3, md: 4 }} pb={{ base: 3, md: 4 }}>
+                    <Button as={Link} href={`/propiedades/${p.public_id}`} variant="link" colorScheme="green" fontSize={{ base: 'sm', md: 'sm' }}>
                       Ver detalle
                     </Button>
                   </CardFooter>
@@ -555,7 +597,13 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
             </SimpleGrid>
           </Box>
         )}
+
+        {/* Espaciador eliminado: ya no usamos barra fija en móvil */}
+        {/* <Box h="90px" display={{ base: 'block', lg: 'none' }} /> */}
       </Container>
+      </Box>
+
+      {/* Barra fija de acciones para mobile eliminada a solicitud */}
 
       <VisuallyHidden>
         <Text>{[property.property_type, locationText, price].filter(Boolean).join(" · ")}</Text>

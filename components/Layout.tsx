@@ -15,6 +15,8 @@ type Props = {
 export default function Layout({ children, title }: Props) {
   const router = useRouter();
   const isHome = router.pathname === "/";
+  // Mostrar widget en el sitio público; ocultarlo sólo en el área admin
+  const hideContactWidget = router.pathname.startsWith('/admin');
   return (
     <>
       <Head>
@@ -36,7 +38,7 @@ export default function Layout({ children, title }: Props) {
           {children}
         </Box>
         <Footer />
-        <ContactWidget />
+        {!hideContactWidget && <ContactWidget />}
       </Box>
     </>
   );
