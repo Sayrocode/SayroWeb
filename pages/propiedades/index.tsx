@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Layout from "../../components/Layout";
 import {
@@ -31,31 +31,61 @@ export default function Propiedades() {
   const [loading, setLoading] = useState(true);
   const [allProperties, setAllProperties] = useState<any[]>([]);
   const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "", type: "" });
-  const [appliedFilters, setAppliedFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "", type: "" });
+  const [qRaw, setQRaw] = useState("");
+  const [qDebounced, setQDebounced] = useState("");
+  useEffect(() => { const h = setTimeout(() => setQDebounced(qRaw), 350); return () => clearTimeout(h); }, [qRaw]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loaderRef = useRef<HTMLDivElement | null>(null);
+
+  async function fetchPage(nextPage: number, limit = 24) {
+    const res = await fetch(`/api/properties?limit=${limit}&page=${nextPage}`, { cache: "no-store" });
+    const data = await res.json();
+    const list = Array.isArray(data.content) ? data.content : [];
+    const map = new Map<string, any>();
+    // Index existing
+    for (const p of allProperties) map.set(String(p?.public_id || ""), p);
+    // Aceptar solo propiedades con estatus publicable (available y variantes)
+    const isPublicable = (s: any) => {
+      if (!s) return false;
+      const t = String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      return [
+        'available', 'disponible', 'active', 'activa', 'published', 'publicada', 'en venta', 'en renta',
+      ].includes(t);
+    };
+
+    for (const p of list) {
+      const id = String(p?.public_id || "");
+      if (!id) continue;
+      if (!isPublicable(p?.status)) continue;
+      if (!map.has(id)) map.set(id, p);
+    }
+    setAllProperties(Array.from(map.values()));
+    const totalPages = Math.max(parseInt(String(data?.pagination?.total_pages ?? '1')) || 1, 1);
+    setPage(nextPage);
+    setHasMore(nextPage < totalPages);
+  }
 
   useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        // Solo propiedades disponibles desde DB (Turso) a través de nuestra API
-        const res = await fetch("/api/properties?limit=200", { cache: "no-store" });
-        const data = await res.json();
-        const list = Array.isArray(data.content) ? data.content : [];
-        // Deduplicar por public_id por si existen entradas repetidas
-        const map = new Map<string, any>();
-        for (const p of list) {
-          const id = String(p?.public_id || "");
-          if (!id) continue;
-          if (!map.has(id)) map.set(id, p);
-        }
-        setAllProperties(Array.from(map.values()));
-      } catch (err) {
-        console.error("Error al cargar propiedades", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProperties();
+    (async () => {
+      try { await fetchPage(1); } finally { setLoading(false); }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const el = loaderRef.current; if (!el) return;
+    const io = new IntersectionObserver(async (entries) => {
+      const e = entries[0];
+      if (e?.isIntersecting && hasMore && !loadingMore) {
+        setLoadingMore(true);
+        try { await fetchPage(page + 1); } finally { setLoadingMore(false); }
+      }
+    }, { rootMargin: '300px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [loaderRef.current, page, hasMore, loadingMore]);
 
   const cityOptions = useMemo(() => {
     const set = new Set<string>();
@@ -65,6 +95,23 @@ export default function Propiedades() {
       if (str) set.add(str);
     }
     return Array.from(set).sort();
+  }, [allProperties]);
+
+  // Partes de ubicación (colonia, municipio, ciudad, estado, país) para detección de "place"
+  const placeParts = useMemo(() => {
+    const set = new Set<string>();
+    const add = (s?: string | null) => { if (s && s.trim()) set.add(s.trim()); };
+    for (const p of allProperties) {
+      const loc = p?.location;
+      if (typeof loc === 'string') {
+        loc.split(',').forEach((part) => add(part));
+      } else if (loc && typeof loc === 'object') {
+        const o: any = loc;
+        add(o.name); add(o.neighborhood); add(o.municipality); add(o.delegation);
+        add(o.city); add(o.state); add(o.country);
+      }
+    }
+    return Array.from(set);
   }, [allProperties]);
 
   const typeOptions = useMemo(() => {
@@ -100,11 +147,14 @@ export default function Propiedades() {
     bathrooms?: number;
     parking?: number;
     place?: string | null; // texto de ubicación detectado
-    sizeMin?: number; // m² mínimo detectado explícito (con m2)
-    sizeRangeMin?: number; // m² mínimo inferido por número suelto (ej: "terreno 500")
-    sizeRangeMax?: number; // m² máximo inferido
+    sizeMin?: number; // m² mínimo detectado explícito (con m2). Se usa si no hay bucket.
+    sizeRangeMin?: number; // m² rango inferido
+    sizeRangeMax?: number; // m² rango inferido
+    sizeBucketMin?: number; // m² bucketizado (20-200, 200-500, 500-1000, 1000+)
+    sizeBucketMax?: number; // m² bucketizado (Infinity para 1000+)
     impliedLandBySize?: boolean; // si solo hay número, asumimos terrenos
     sizeGuess?: number; // valor base para ordenar por cercanía
+    amenityGuess?: number; // número suelto pequeño (1..20) => rec/baños/estac >= n
   };
 
   function parseQuery(qRaw: string): ParsedQuery {
@@ -139,40 +189,60 @@ export default function Propiedades() {
     const recM = qRaw.match(recRegex);
     const banM = qRaw.match(banRegex);
     const estM = qRaw.match(estRegex);
-    if (recM) bedrooms = parseInt(recM[1], 10);
-    if (banM) bathrooms = parseInt(banM[1], 10);
-    if (estM) parking = parseInt(estM[1], 10);
+    if (recM) bedrooms = Math.min(20, parseInt(recM[1], 10));
+    if (banM) bathrooms = Math.min(20, parseInt(banM[1], 10));
+    if (estM) parking = Math.min(20, parseInt(estM[1], 10));
 
-    // Heurística de tamaño (m²) con unidad explícita
-    let sizeMin: number | undefined;
-    const sizeRegex = /(\d{2,6})\s*(m2|m²|mts2|mts|metros\s*cuadrados?|metros2|metros)/i;
-    const sizeMatch = qRaw.match(sizeRegex);
-    if (sizeMatch) sizeMin = parseInt(sizeMatch[1], 10);
-
-    // Heurística de rango para números sueltos (p.ej. "terreno 500" o solo "500")
+    // Heurística de tamaño (m²)
+    // Declaramos rangos y guess antes porque se usan en más de una rama
     let sizeRangeMin: number | undefined;
     let sizeRangeMax: number | undefined;
     let sizeGuess: number | undefined;
-    const numericTokens = tokens.map((t) => (/(^\d{2,6}$)/.test(t) ? parseInt(t, 10) : NaN)).filter((n) => !Number.isNaN(n)) as number[];
+    let amenityGuess: number | undefined;
+    let sizeMin: number | undefined;
+    let sizeBucketMin: number | undefined;
+    let sizeBucketMax: number | undefined;
+    const sizeRegex = /(\d{2,6})\s*(m2|m²|mts2|mts|metros\s*cuadrados?|metros2|metros)/i;
+    const sizeMatch = qRaw.match(sizeRegex);
+    if (sizeMatch) {
+      const n = parseInt(sizeMatch[1], 10);
+      sizeMin = n;
+      // También lo mapeamos a buckets para comportamiento esperado
+      if (n < 20) {
+        // menor a 20: no bucket; se tratará como amenidad en la lógica general
+      } else if (n < 200) {
+        sizeBucketMin = 20; sizeBucketMax = 200; sizeGuess = n;
+      } else if (n < 500) {
+        sizeBucketMin = 200; sizeBucketMax = 500; sizeGuess = n;
+      } else if (n < 1000) {
+        sizeBucketMin = 500; sizeBucketMax = 1000; sizeGuess = n;
+      } else {
+        sizeBucketMin = 1000; sizeBucketMax = Infinity; sizeGuess = n;
+      }
+    }
 
-    // ¿solo número(s) sin unidades y sin señales de rec/baños/estac? -> inferimos búsqueda de terreno por tamaño
+    // Heurística de rango para números sueltos (p.ej. "terreno 500" o solo "500")
+    const numericTokens = tokens
+      .map((t) => (/^(\d{1,6})$/.test(t) ? parseInt(t, 10) : NaN))
+      .filter((n) => !Number.isNaN(n)) as number[];
+
+    // ¿número(s) sin unidades? Interpretación:
+    // - 1..20  => amenityGuess (recámaras/baños/estacionamientos >= n)
+    // - >20    => rango de m² alrededor del número (±20%)
     const impliedLandBySize = numericTokens.length > 0 && !recM && !banM && !estM && !sizeMatch;
 
-    if (numericTokens.length) {
-      // Si se habla de terreno/lote, hay palabras de superficie o lo inferimos por números sueltos
-      const talksLand =
-        typeHints.includes("terreno") ||
-        tokens.some((t) => ["superficie", "metros", "mtrs", "area", "área"].includes(norm(t))) ||
-        impliedLandBySize;
-      if (talksLand) {
-        // Elegimos el primer número razonable
-        const guess = numericTokens.find((n) => n >= 50 && n <= 200000);
-        if (typeof guess === "number") {
-          // Rango amplio: -25% / +35%
-          sizeRangeMin = Math.max(0, Math.floor(guess * 0.75));
-          sizeRangeMax = Math.ceil(guess * 1.35);
-          sizeGuess = guess;
-        }
+    if (impliedLandBySize && numericTokens.length) {
+      const first = numericTokens[0];
+      if (first <= 20) {
+        amenityGuess = first;
+      } else if (first < 200) {
+        sizeBucketMin = 20; sizeBucketMax = 200; sizeGuess = first;
+      } else if (first < 500) {
+        sizeBucketMin = 200; sizeBucketMax = 500; sizeGuess = first;
+      } else if (first < 1000) {
+        sizeBucketMin = 500; sizeBucketMax = 1000; sizeGuess = first;
+      } else {
+        sizeBucketMin = 1000; sizeBucketMax = Infinity; sizeGuess = first;
       }
     }
 
@@ -184,28 +254,22 @@ export default function Propiedades() {
       if (after) place = after;
     }
     if (!place) {
-      // Busca token que exista dentro de alguna opción de ciudad
-      const cityOptsNorm = cityOptions.map((c) => ({ raw: c, norm: norm(c) }));
+      // Busca token que exista dentro de alguna parte de ubicación conocida
+      const placeOptsNorm = placeParts.map((c) => ({ raw: c, norm: norm(c) }));
       for (let i = 0; i < tokens.length; i++) {
         const t = tokens[i];
         if (t.length < 3) continue;
-        const match = cityOptsNorm.find((co) => co.norm.includes(t));
-        if (match) {
-          place = match.raw;
-          break;
-        }
+        const match = placeOptsNorm.find((co) => co.norm.includes(t));
+        if (match) { place = match.raw; break; }
         // normalizar abreviatura qro -> queretaro
         if (["qro", "qro."].includes(t)) {
-          const m2 = cityOptsNorm.find((co) => co.norm.includes("queretaro"));
-          if (m2) {
-            place = m2.raw;
-            break;
-          }
+          const m2 = placeOptsNorm.find((co) => co.norm.includes("queretaro"));
+          if (m2) { place = m2.raw; break; }
         }
       }
     }
 
-    return { terms: tokens, typeHints, bedrooms, bathrooms, parking, place, sizeMin, sizeRangeMin, sizeRangeMax, impliedLandBySize, sizeGuess };
+    return { terms: tokens, typeHints, bedrooms, bathrooms, parking, place, sizeMin, sizeRangeMin, sizeRangeMax, sizeBucketMin, sizeBucketMax, impliedLandBySize, sizeGuess, amenityGuess }; 
   }
 
   function getPriceAmount(p: any): number | null {
@@ -246,11 +310,11 @@ export default function Propiedades() {
   };
 
   const filtered = useMemo(() => {
-    const q = (appliedFilters.q || "").trim();
+    const q = (qDebounced || "").trim();
     const parsed = parseQuery(q);
-    const city = norm(appliedFilters.city || "");
+    const city = norm(filters.city || "");
     const [min, max] = (() => {
-      switch (appliedFilters.price) {
+      switch (filters.price) {
         case "0-1000000":
           return [0, 1_000_000];
         case "1000000-3000000":
@@ -263,9 +327,9 @@ export default function Propiedades() {
     })();
 
     const [sMin, sMax] = (() => {
-      switch (appliedFilters.size) {
-        case "0-200":
-          return [0, 200];
+      switch (filters.size) {
+        case "20-200":
+          return [20, 200];
         case "200-500":
           return [200, 500];
         case "500-1000":
@@ -278,6 +342,7 @@ export default function Propiedades() {
     })();
 
     const results = allProperties.filter((p) => {
+      // El API ya filtra por estatus publicable; no duplicar el filtro aquí.
       // texto y campos relevantes normalizados
       const title = norm(String(p?.title || ""));
       const id = norm(String(p?.public_id || ""));
@@ -285,7 +350,7 @@ export default function Propiedades() {
       const typeText = norm(String(p?.property_type || ""));
 
       // filtro por tipo proveniente de la home (?type=...) o del select visual
-      const typeSelect = norm(String(appliedFilters.type || ""));
+      const typeSelect = norm(String(filters.type || ""));
       if (typeParam || typeSelect) {
         const tokens = TYPE_HINTS[typeParam] || [typeParam];
         const okParam = tokens.filter(Boolean).some((t) => typeText.includes(t));
@@ -296,7 +361,14 @@ export default function Propiedades() {
 
       // consulta libre: si hay q sin señales estructuradas, exige coincidencia textual
       if (q) {
-        const hasSignals = Boolean(parsed.typeHints.length || parsed.bedrooms || parsed.bathrooms || parsed.parking || parsed.place);
+        const hasSignals = Boolean(
+          parsed.typeHints.length ||
+          parsed.bedrooms || parsed.bathrooms || parsed.parking || parsed.place ||
+          typeof parsed.sizeMin === 'number' ||
+          typeof parsed.sizeRangeMin === 'number' ||
+          typeof parsed.sizeBucketMin === 'number' ||
+          typeof parsed.amenityGuess === 'number'
+        );
         const qn = norm(q);
         const textMatch = title.includes(qn) || id.includes(qn) || loc.includes(qn) || typeText.includes(qn);
         if (!hasSignals && !textMatch) return false;
@@ -308,12 +380,9 @@ export default function Propiedades() {
         if (!okType) return false;
       }
 
-      // Si solo escribieron números (p.ej. "500"), filtrar a terrenos
-      if (parsed.impliedLandBySize) {
-        if (!typeText.includes("terreno")) return false;
-      }
+      // Ya no restringimos a terrenos cuando el usuario escribe solo un número; se filtra por m² en cualquier tipo.
 
-      // recámaras/baños/estacionamiento
+      // recámaras/baños/estacionamiento explícitos
       if (typeof parsed.bedrooms === "number") {
         if (!(typeof p?.bedrooms === "number" && p.bedrooms >= parsed.bedrooms)) return false;
       }
@@ -322,6 +391,15 @@ export default function Propiedades() {
       }
       if (typeof parsed.parking === "number") {
         if (!(typeof p?.parking_spaces === "number" && p.parking_spaces >= parsed.parking)) return false;
+      }
+
+      // número suelto pequeño => al menos una amenidad >= n
+      if (typeof parsed.amenityGuess === 'number') {
+        const n = parsed.amenityGuess;
+        const okAmenity = [p?.bedrooms, p?.bathrooms, p?.parking_spaces].some(
+          (v) => typeof v === 'number' && (v as number) >= n
+        );
+        if (!okAmenity) return false;
       }
 
       // ubicación desde barra de búsqueda
@@ -341,14 +419,21 @@ export default function Propiedades() {
 
       // filtro de superficie desde el select
       const sqm = getSizeSqm(p);
-      if (appliedFilters.size && sqm != null && (sqm < sMin || sqm > sMax)) return false;
+      if (filters.size && sqm != null && (sqm < sMin || sqm > sMax)) return false;
 
-      // tamaño desde la búsqueda libre (m² mínimo)
-      if (typeof parsed.sizeMin === "number") {
+      // tamaño por bucket (número en la búsqueda o "500 m2")
+      if (typeof parsed.sizeBucketMin === 'number' && typeof parsed.sizeBucketMax === 'number') {
+        if (typeof sqm === 'number') {
+          if (sqm < parsed.sizeBucketMin || sqm > parsed.sizeBucketMax) return false;
+        } else {
+          // si no hay dato de m², permitimos pasar
+        }
+      } else if (typeof parsed.sizeMin === "number") {
+        // tamaño mínimo explícito
         if (!(typeof sqm === "number" && sqm >= parsed.sizeMin)) return false;
       }
 
-      // tamaño desde número suelto (rango amplio) para terrenos
+      // tamaño desde número suelto (rango amplio) (fallback)
       if (typeof parsed.sizeRangeMin === "number" && typeof parsed.sizeRangeMax === "number") {
         if (typeof sqm === "number") {
           if (sqm < parsed.sizeRangeMin || sqm > parsed.sizeRangeMax) return false;
@@ -374,12 +459,43 @@ export default function Propiedades() {
     }
 
     return results;
-  }, [allProperties, appliedFilters]);
+  }, [allProperties, filters, qDebounced]);
 
-  const applyFilters = () => setAppliedFilters(filters);
+  // Modo búsqueda completa: cuando el usuario aplica cualquier filtro/consulta,
+  // pre-cargamos páginas sucesivas hasta cubrir todo el catálogo available,
+  // para que la búsqueda se ejecute sobre el conjunto completo aun sin scroll.
+  const [isPrefetching, setIsPrefetching] = useState(false);
+  const [prefetchAll, setPrefetchAll] = useState(false);
+
+  useEffect(() => {
+    const isFiltering = Boolean(
+      (qDebounced || '').trim() || filters.city || filters.price || filters.size || filters.type
+    );
+    setPrefetchAll(isFiltering);
+  }, [qDebounced, filters.city, filters.price, filters.size, filters.type]);
+
+  useEffect(() => {
+    if (!prefetchAll) return;
+    if (loading) return;                // Esperar a la primera página
+    if (!hasMore) return;               // Ya cargamos todo
+    if (loadingMore || isPrefetching) return; // Evitar solaparse con infinito
+
+    let cancelled = false;
+    (async () => {
+      setIsPrefetching(true);
+      try {
+        await fetchPage(page + 1);
+      } finally {
+        if (!cancelled) setIsPrefetching(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // Mientras queden páginas y siga activo prefetchAll, este efecto se re-dispara (por cambios en page/hasMore)
+  }, [prefetchAll, page, hasMore, loading, loadingMore, isPrefetching]);
+
   const clearFilters = () => {
     setFilters({ q: "", city: "", price: "", size: "", type: "" });
-    setAppliedFilters({ q: "", city: "", price: "", size: "", type: "" });
+    setQRaw(""); setQDebounced("");
   };
 
   return (
@@ -398,7 +514,7 @@ export default function Propiedades() {
                 <InputLeftElement pointerEvents="none">
                   <SearchIcon color="gray.400" />
                 </InputLeftElement>
-                <Input bg="white" placeholder="Buscar" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} />
+                <Input bg="white" placeholder="Buscar" value={qRaw} onChange={(e) => { const v = e.target.value; setQRaw(v); setFilters((f) => ({ ...f, q: v })); }} />
               </InputGroup>
             </WrapItem>
             <WrapItem>
@@ -420,15 +536,13 @@ export default function Propiedades() {
             </WrapItem>
             <WrapItem>
               <Select bg="white" placeholder="Tamaño" value={filters.size} onChange={(e) => setFilters((f) => ({ ...f, size: e.target.value }))} minW="140px">
-                <option value="0-200">0 - 200 m²</option>
+                <option value="20-200">20 - 200 m²</option>
                 <option value="200-500">200 - 500 m²</option>
                 <option value="500-1000">500 - 1000 m²</option>
                 <option value="1000+">1000+ m²</option>
               </Select>
             </WrapItem>
-            <WrapItem>
-              <Button colorScheme="green" onClick={applyFilters}>Buscar</Button>
-            </WrapItem>
+            {/* Búsqueda en vivo (debounced). Sin botón Buscar */}
             <WrapItem>
               <Button variant="ghost" onClick={clearFilters}>Limpiar</Button>
             </WrapItem>
@@ -463,6 +577,23 @@ export default function Propiedades() {
                 <PropertyCard key={p.public_id} property={p} />
               ))}
             </SimpleGrid>
+            <Box ref={loaderRef} h="1px" />
+            {loadingMore && (
+              <Box mt={6}>
+                <SimpleGrid columns={[1, 2, 3]} spacing={6}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Box key={i} borderWidth="1px" rounded="xl" overflow="hidden">
+                      <Skeleton h="200px" w="100%" />
+                      <Box p={4}>
+                        <Skeleton height="20px" mb={2} />
+                        <Skeleton height="16px" mb={2} />
+                        <Skeleton height="16px" w="60%" />
+                      </Box>
+                    </Box>
+                  ))}
+                </SimpleGrid>
+              </Box>
+            )}
           </>
         )}
       </Container>

@@ -3,9 +3,9 @@ import React from 'react';
 import { getIronSession } from 'iron-session';
 import Layout from '../../components/Layout';
 import { sessionOptions, AppSession } from '../../lib/session';
-import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast, Wrap, WrapItem, Breadcrumb, BreadcrumbItem, Select, BreadcrumbLink } from '@chakra-ui/react';
+import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast, Wrap, WrapItem, Breadcrumb, BreadcrumbItem, Select, BreadcrumbLink, Icon } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
-import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2 } from 'react-icons/fi';
+import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2, FiMaximize } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import useSWR from 'swr';
 import useSWRInfinite from 'swr/infinite';
@@ -80,6 +80,15 @@ export default function AdminHome({ username }: Props) {
     const arr = (items || []).map((p: any) => (p.locationText || '').split(',').pop()?.trim()).filter(Boolean) as string[];
     return Array.from(new Set(arr));
   }, [items]);
+  // Partes de ubicación para coincidencias tipo "500 m2 queretaro" o colonia/municipio/estado
+  const placeParts = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const p of items || []) {
+      const txt = String(p?.locationText || '');
+      txt.split(',').map((s) => s.trim()).filter(Boolean).forEach((s) => set.add(s));
+    }
+    return Array.from(set);
+  }, [items]);
   const inRange = (amount?: number | null) => {
     if (!range || !amount || amount <= 0) return true;
     if (range === '0-1000') return amount < 1_000_000;
@@ -114,7 +123,10 @@ export default function AdminHome({ username }: Props) {
     sizeMin?: number;
     sizeRangeMin?: number;
     sizeRangeMax?: number;
+    sizeBucketMin?: number;
+    sizeBucketMax?: number;
     sizeGuess?: number;
+    amenityGuess?: number;
     impliedLandBySize?: boolean;
     place?: string | null;
   };
@@ -139,38 +151,59 @@ export default function AdminHome({ username }: Props) {
     const recM = qRaw.match(/(\d+)\s*(recamaras?|recámaras?|habitaciones?|rec\b)/i);
     const banM = qRaw.match(/(\d+)\s*(banos?|baños?)/i);
     const estM = qRaw.match(/(\d+)\s*(estacionamientos?|cocheras?|autos?)/i);
-    if (recM) bedrooms = parseInt(recM[1], 10);
-    if (banM) bathrooms = parseInt(banM[1], 10);
-    if (estM) parking = parseInt(estM[1], 10);
+    if (recM) bedrooms = Math.min(20, parseInt(recM[1], 10));
+    if (banM) bathrooms = Math.min(20, parseInt(banM[1], 10));
+    if (estM) parking = Math.min(20, parseInt(estM[1], 10));
 
-    // Tamaño
-    let sizeMin: number | undefined;
-    const sizeRegex = /(\d{2,6})\s*(m2|m²|mts2|mts|metros\s*cuadrados?|metros2|metros)/i;
-    const sizeMatch = qRaw.match(sizeRegex);
-    if (sizeMatch) sizeMin = parseInt(sizeMatch[1], 10);
-
+    // Tamaño y números sueltos
     let sizeRangeMin: number | undefined;
     let sizeRangeMax: number | undefined;
     let sizeGuess: number | undefined;
-    const numericTokens = tokens.map((t) => (/^\d{2,6}$/.test(t) ? parseInt(t, 10) : NaN)).filter((n) => !Number.isNaN(n)) as number[];
-    const impliedLandBySize = numericTokens.length > 0 && !recM && !banM && !estM && !sizeMatch;
-    if (numericTokens.length) {
-      const guess = numericTokens.find((n) => n >= 50 && n <= 200000);
-      if (typeof guess === 'number') {
-        sizeRangeMin = Math.max(0, Math.floor(guess * 0.75));
-        sizeRangeMax = Math.ceil(guess * 1.35);
-        sizeGuess = guess;
-      }
+    let amenityGuess: number | undefined;
+    let sizeMin: number | undefined;
+    let sizeBucketMin: number | undefined;
+    let sizeBucketMax: number | undefined;
+    const sizeRegex = /(\d{2,6})\s*(m2|m²|mts2|mts|metros\s*cuadrados?|metros2|metros)/i;
+    const sizeMatch = qRaw.match(sizeRegex);
+    if (sizeMatch) {
+      const n = parseInt(sizeMatch[1], 10);
+      sizeMin = n;
+      if (n >= 20 && n < 200) { sizeBucketMin = 20; sizeBucketMax = 200; sizeGuess = n; }
+      else if (n < 500) { sizeBucketMin = 200; sizeBucketMax = 500; sizeGuess = n; }
+      else if (n < 1000) { sizeBucketMin = 500; sizeBucketMax = 1000; sizeGuess = n; }
+      else if (n >= 1000) { sizeBucketMin = 1000; sizeBucketMax = Infinity; sizeGuess = n; }
     }
 
-    // Lugar: intentamos extraer después de "en " o por coincidencias contra locationText
+    const numericTokens = tokens.map((t) => (/^\d{1,6}$/.test(t) ? parseInt(t, 10) : NaN)).filter((n) => !Number.isNaN(n)) as number[];
+    const impliedLandBySize = numericTokens.length > 0 && !recM && !banM && !estM && !sizeMatch;
+    if (impliedLandBySize && numericTokens.length) {
+      const first = numericTokens[0];
+      if (first <= 20) amenityGuess = first;
+      else if (first < 200) { sizeBucketMin = 20; sizeBucketMax = 200; sizeGuess = first; }
+      else if (first < 500) { sizeBucketMin = 200; sizeBucketMax = 500; sizeGuess = first; }
+      else if (first < 1000) { sizeBucketMin = 500; sizeBucketMax = 1000; sizeGuess = first; }
+      else { sizeBucketMin = 1000; sizeBucketMax = Infinity; sizeGuess = first; }
+    }
+
+    // Lugar: intentamos extraer después de "en " o por coincidencias contra partes conocidas de ubicación
     let place: string | null = null;
     const enIdx = tokens.indexOf('en');
     if (enIdx >= 0 && enIdx < tokens.length - 1) {
       place = tokens.slice(enIdx + 1, enIdx + 4).join(' ');
     }
-
-    return { terms: tokens, typeHints, bedrooms, bathrooms, parking, sizeMin, sizeRangeMin, sizeRangeMax, sizeGuess, impliedLandBySize, place };
+    if (!place) {
+      const parts = placeParts.map((s) => ({ raw: s, norm: norm(s) }));
+      for (const t of tokens) {
+        if (t.length < 2) continue;
+        const m = parts.find((p) => p.norm.includes(t));
+        if (m) { place = m.raw; break; }
+        if (['qro', 'qro.'].includes(t)) {
+          const m2 = parts.find((p) => p.norm.includes('queretaro'));
+          if (m2) { place = m2.raw; break; }
+        }
+      }
+    }
+    return { terms: tokens, typeHints, bedrooms, bathrooms, parking, sizeMin, sizeRangeMin, sizeRangeMax, sizeBucketMin, sizeBucketMax, sizeGuess, amenityGuess, impliedLandBySize, place };
   }
 
   function getSizeSqmAdmin(p: any): number | null {
@@ -198,7 +231,10 @@ export default function AdminHome({ username }: Props) {
       const typeText = norm(p.propertyType || '');
 
       if (qx) {
-        const hasSignals = Boolean(parsed.typeHints.length || parsed.bedrooms || parsed.bathrooms || parsed.parking || parsed.place || parsed.sizeMin || parsed.sizeRangeMin);
+        const hasSignals = Boolean(
+          parsed.typeHints.length || parsed.bedrooms || parsed.bathrooms || parsed.parking || parsed.place ||
+          typeof parsed.sizeMin === 'number' || typeof parsed.sizeRangeMin === 'number' || typeof parsed.sizeBucketMin === 'number' || typeof parsed.amenityGuess === 'number'
+        );
         const qn = norm(qx);
         const textMatch = title.includes(qn) || id.includes(qn) || loc.includes(qn) || typeText.includes(qn);
         if (!hasSignals && !textMatch) return false;
@@ -209,7 +245,7 @@ export default function AdminHome({ username }: Props) {
         if (!okType) return false;
       }
 
-      if (parsed.impliedLandBySize && !typeText.includes('terreno')) return false;
+      // Amenidades explícitas
 
       if (typeof parsed.bedrooms === 'number') {
         if (!(typeof p?.bedrooms === 'number' && p.bedrooms >= parsed.bedrooms)) return false;
@@ -220,6 +256,11 @@ export default function AdminHome({ username }: Props) {
       if (typeof parsed.parking === 'number') {
         if (!(typeof p?.parkingSpaces === 'number' && p.parkingSpaces >= parsed.parking)) return false;
       }
+      if (typeof parsed.amenityGuess === 'number') {
+        const n = parsed.amenityGuess;
+        const okAmenity = [p?.bedrooms, p?.bathrooms, p?.parkingSpaces].some((v) => typeof v === 'number' && (v as number) >= n);
+        if (!okAmenity) return false;
+      }
 
       if (parsed.place) {
         const placeNorm = norm(parsed.place);
@@ -227,7 +268,11 @@ export default function AdminHome({ username }: Props) {
       }
 
       const sqm = getSizeSqmAdmin(p);
-      if (typeof parsed.sizeMin === 'number') {
+      if (typeof parsed.sizeBucketMin === 'number' && typeof parsed.sizeBucketMax === 'number') {
+        if (typeof sqm === 'number') {
+          if (sqm < parsed.sizeBucketMin || sqm > parsed.sizeBucketMax) return false;
+        }
+      } else if (typeof parsed.sizeMin === 'number') {
         if (!(typeof sqm === 'number' && sqm >= parsed.sizeMin)) return false;
       }
       if (typeof parsed.sizeRangeMin === 'number' && typeof parsed.sizeRangeMax === 'number') {
@@ -479,6 +524,7 @@ export default function AdminHome({ username }: Props) {
                 <Input placeholder="Buscar" value={qRaw} onChange={(e) => setQRaw(e.target.value)} bg="white" />
               </InputGroup>
             </WrapItem>
+            {/* Búsqueda en vivo debounced; sin botón Buscar */}
             <WrapItem>
               <Select bg='white' placeholder='Tipo' value={type} onChange={(e) => setType(e.target.value)} minW='140px'>
                 {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -589,6 +635,12 @@ export default function AdminHome({ username }: Props) {
                   {p.propertyType && <Badge colorScheme="green" variant="subtle" rounded="full">{p.propertyType}</Badge>}
                   {p.status && <Badge variant="outline" rounded="full">{p.status}</Badge>}
                   {p.price && <Text fontWeight="semibold" color="green.700">{p.price}</Text>}
+                  {(() => { const sqm = getSizeSqmAdmin(p); return typeof sqm === 'number' ? (
+                    <HStack spacing={1}>
+                      <Icon as={FiMaximize} />
+                      <Text>{new Intl.NumberFormat('es-MX').format(sqm)} m²</Text>
+                    </HStack>
+                  ) : null; })()}
                   {p.publicId && <Badge variant="subtle" rounded="full">ID {p.publicId}</Badge>}
                 </HStack>
                 <HStack mt={3} spacing={2}>

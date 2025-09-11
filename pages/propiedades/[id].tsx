@@ -3,6 +3,8 @@ import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import Layout from "../../components/Layout";
+import PropertyDetailsTable from "../../components/PropertyDetailsTable";
+import PropertyMap from "../../components/PropertyMap";
 import {
   Box,
   Container,
@@ -14,6 +16,7 @@ import {
   AspectRatio,
   Image as ChakraImage,
   HStack,
+  VStack,
   Badge,
   Icon,
   Divider,
@@ -33,8 +36,9 @@ import {
 } from "@chakra-ui/react";
 import { useMemo, useState } from "react";
 import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail } from "react-icons/fi";
-import { FaWhatsapp } from 'react-icons/fa';
+import { FaWhatsapp, FaHeart, FaShare } from 'react-icons/fa';
 import { CONTACT_EMAIL, waHref } from "../../lib/site";
+import PropertyContactPanel from "../../components/PropertyContactPanel";
 
 /* =============================
  * TIPOS (ajustados a EB)
@@ -298,9 +302,68 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
           </BreadcrumbItem>
         </Breadcrumb>
 
-        <SimpleGrid columns={{ base: 1, lg: 5 }} spacing={{ base: 6, md: 8 }}>
-          {/* Galería */}
-          <Box gridColumn={{ base: "1 / -1", lg: "1 / 4" }}>
+        {/* Header con título, precio y botones */}
+        <Box mb={6}>
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={4}>
+            {/* Título de la propiedad */}
+            <Heading as="h1" size="xl" lineHeight="1.2" color="gray.800" textTransform="uppercase">
+              {property.title || `Propiedad ${property.public_id}`}
+            </Heading>
+
+            {/* Precio, tipo de operación y botones de acción */}
+            <HStack spacing={4} alignItems="center">
+              <HStack spacing={3} alignItems="center">
+                {/* Tipo de operación */}
+                {property.operations && property.operations.length > 0 && (
+                  <Badge
+                    colorScheme={property.operations[0].type === 'sale' ? 'green' : 'blue'}
+                    variant="solid"
+                    fontSize="sm"
+                    px={3}
+                    py={1}
+                    borderRadius="md"
+                  >
+                    {property.operations[0].type === 'sale' ? 'VENTA' : property.operations[0].type === 'rental' ? 'RENTA' : 'CONSULTAR'}
+                  </Badge>
+                )}
+                {/* Precio */}
+                <Text fontSize="2xl" fontWeight="bold" color="gray.800">
+                  {price}
+                </Text>
+              </HStack>
+              <HStack spacing={2}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  color="gray.600"
+                  _hover={{ bg: 'gray.100' }}
+                  onClick={() => {
+                    // TODO: Implementar funcionalidad de favoritos
+                    toast({ title: "Agregado a favoritos", status: "info", duration: 2000 });
+                  }}
+                  aria-label="Agregar a favoritos"
+                >
+                  <Icon as={FaHeart} />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  color="gray.600"
+                  _hover={{ bg: 'gray.100' }}
+                  onClick={copyLink}
+                  aria-label="Compartir"
+                >
+                  <Icon as={FaShare} />
+                </Button>
+              </HStack>
+            </HStack>
+          </Box>
+        </Box>
+
+        {/* Layout principal: imagen y panel lado a lado */}
+        <Box display={{ base: "block", lg: "flex" }} gap={6} mb={8}>
+          {/* Galería de imágenes - lado izquierdo */}
+          <Box flex={{ base: "none", lg: "3" }}>
             <AspectRatio ratio={16 / 9} mb={3}>
               <ChakraImage
                 src={coverSrc}
@@ -335,101 +398,57 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
             )}
           </Box>
 
-          {/* Información sticky */}
-          <Stack gridColumn={{ base: "1 / -1", lg: "4 / 6" }} spacing={4} position={{ lg: "sticky" }} top={{ lg: 6 }} alignSelf="start">
-            <HStack spacing={2}>
-              {property.property_type && (
-                <Badge colorScheme="green" rounded="full" px={2}>
-                  {property.property_type}
-                </Badge>
-              )}
-              {property.status && (
-                <Badge variant="subtle" rounded="full" px={2}>
-                  {property.status}
-                </Badge>
-              )}
-              <Badge variant="subtle" rounded="full" px={2}>
-                ID {property.public_id}
-              </Badge>
-            </HStack>
+          {/* Panel de contacto - lado derecho */}
+          <Box flex={{ base: "none", lg: "2" }}>
+            <PropertyContactPanel
+              propertyTitle={property.title || `Propiedad ${property.public_id}`}
+              propertyId={property.public_id}
+              onShare={copyLink}
+              onFavorite={() => {
+                // TODO: Implementar funcionalidad de favoritos
+                toast({ title: "Agregado a favoritos", status: "info", duration: 2000 });
+              }}
+            />
+          </Box>
+        </Box>
 
-            <Heading as="h1" size="lg" lineHeight="1.2">
-              {property.title || `Propiedad ${property.public_id}`}
+        {/* Descripción */}
+        {cleanDesc && (
+          <Box mb={8}>
+            <Heading as="h2" size="md" mb={4} color="gray.800">
+              Descripción del inmueble
             </Heading>
-
-            {locationText && (
-              <HStack color="gray.600" spacing={2}>
-                <Icon as={FiMapPin} />
-                <Text>{locationText}</Text>
-              </HStack>
-            )}
-
-            <HStack spacing={6} color="gray.700">
-              {typeof property.bedrooms === "number" && (
-                <HStack spacing={1}>
-                  <Icon as={FiHome} />
-                  <Text>{property.bedrooms} rec</Text>
-                </HStack>
-              )}
-              {typeof property.bathrooms === "number" && (
-                <HStack spacing={1}>
-                  <Icon as={FiDroplet} />
-                  <Text>{property.bathrooms} baños</Text>
-                </HStack>
-              )}
-              {typeof property.parking_spaces === "number" && (
-                <HStack spacing={1}>
-                  <Box as="span">🚗</Box>
-                  <Text>{property.parking_spaces} estac.</Text>
-                </HStack>
-              )}
-            </HStack>
-
-            <Text fontSize="3xl" fontWeight="extrabold" color="green.700">
-              {price}
+            <Text whiteSpace="pre-line" color="gray.700" lineHeight="1.6">
+              {cleanDesc}
             </Text>
+          </Box>
+        )}
 
-            <Wrap>
-              <WrapItem>
-                <Button as="a" href={waUrl} target="_blank" rel="noopener noreferrer" colorScheme="whatsapp" leftIcon={<FaWhatsapp />}>WhatsApp</Button>
-              </WrapItem>
+        {/* Tabla de detalles del inmueble */}
+        <PropertyDetailsTable property={property} />
 
-              <WrapItem>
-                <Button as="a" href={mailtoUrl} variant="outline" colorScheme="green" leftIcon={<FiMail />}>Email</Button>
-              </WrapItem>
+        {/* Mapa de ubicación */}
+        <PropertyMap property={property} />
 
-              <WrapItem>
-                <Button leftIcon={<FiCopy />} variant="ghost" onClick={copyLink} aria-label="Copiar enlace">
-                  Copiar enlace
-                </Button>
-              </WrapItem>
-
-              {mapQuery && (
-                <WrapItem>
-                  <Button
-                    as="a"
-                    href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    leftIcon={<FiExternalLink />}
-                    variant="ghost"
-                  >
-                    Ver en mapa
-                  </Button>
-                </WrapItem>
-              )}
-            </Wrap>
-
-            {cleanDesc && (
-              <>
-                <Divider />
-                <Text whiteSpace="pre-line" color="gray.700">
-                  {cleanDesc}
-                </Text>
-              </>
-            )}
-          </Stack>
-        </SimpleGrid>
+        {/* Botón de contacto adicional */}
+        <Box textAlign="center" mt={8}>
+          <Button
+            as="a"
+            href="/contacto"
+            size="lg"
+            bg="green.600"
+            color="white"
+            _hover={{ bg: "green.700" }}
+            borderRadius="none"
+            px={8}
+            py={4}
+            fontSize="md"
+            fontWeight="bold"
+            textTransform="uppercase"
+          >
+            ¿NO ENCONTRÁSTE LO QUE BUSCABAS?
+          </Button>
+        </Box>
 
         {/* Únicas */}
         {uniqueCandidates?.length > 0 && (

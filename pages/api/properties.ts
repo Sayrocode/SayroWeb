@@ -61,18 +61,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const page = Math.max(parseInt(String(req.query.page ?? '1')) || 1, 1);
   const skip = (page - 1) * limit;
 
+  // Aceptar múltiples variantes de "disponible" para asegurar que
+  // se incluyan todas las propiedades publicables aunque el origen
+  // use otros textos o capitalización distinta.
+  const allowedBase = [
+    'available',
+    'disponible',
+    'active',
+    'activa',
+    'published',
+    'publicada',
+    'en venta',
+    'en renta',
+  ];
+  const allowedStatuses = Array.from(new Set<string>([
+    ...allowedBase,
+    ...allowedBase.map((s) => s.charAt(0).toUpperCase() + s.slice(1)),
+    ...allowedBase.map((s) => s.toUpperCase()),
+  ]));
+
+  // Solo propiedades con estatus "publicables". Excluimos null/unknown.
+  const whereClause: any = {
+    status: { in: allowedStatuses },
+  };
+
   const [items, total] = await Promise.all([
     prisma.property.findMany({
-    where: {
-      // Solo propiedades disponibles en el catálogo público
-      status: 'available',
-    },
-    orderBy: { updatedAt: 'desc' },
-    include: { media: { select: { key: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
-    take: limit,
-    skip,
-  }),
-    prisma.property.count({ where: { status: 'available' } }),
+      where: whereClause,
+      orderBy: { updatedAt: 'desc' },
+      include: { media: { select: { key: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
+      take: limit,
+      skip,
+    }),
+    prisma.property.count({ where: whereClause }),
   ]);
 
   const content = items.map((p: any) => {
