@@ -79,7 +79,7 @@ export default function PropertyCard({ property }: Props) {
       role="group"
       borderWidth="1px"
       borderColor={border}
-      rounded="xl"
+      rounded="none"
       overflow="hidden"
       bg={cardBg}
       transition="all .25s ease"

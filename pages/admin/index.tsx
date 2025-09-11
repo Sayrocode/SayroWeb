@@ -675,7 +675,7 @@ export default function AdminHome({ username }: Props) {
 
         <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={{ base: 4, md: 6 }}>
           {(isInitial && aggregated.length === 0) ? Array.from({ length: 6 }).map((_, i) => (
-            <Box key={i} borderWidth="1px" rounded="lg" overflow="hidden" bg="white" p={0}>
+            <Box key={i} borderWidth="1px" rounded="none" overflow="hidden" bg="white" p={0}>
               <Skeleton height="180px" />
               <Box p={3}>
                 <Skeleton height="20px" mb={2} />
@@ -686,7 +686,7 @@ export default function AdminHome({ username }: Props) {
             <Box
               key={p.id}
               borderWidth="1px"
-              rounded="lg"
+              rounded="none"
               overflow="hidden"
               bg="white"
               _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}

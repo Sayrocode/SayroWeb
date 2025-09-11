@@ -739,7 +739,7 @@ export default function Propiedades() {
           <Box>
             <SimpleGrid columns={[1, 2, 3]} spacing={6}>
               {Array.from({ length: 6 }).map((_, i) => (
-                <Box key={i} borderWidth="1px" rounded="xl" overflow="hidden">
+                <Box key={i} borderWidth="1px" rounded="none" overflow="hidden">
                   <Skeleton h="200px" w="100%" />
                   <Box p={4}>
                     <Skeleton height="20px" mb={2} />
@@ -781,7 +781,7 @@ export default function Propiedades() {
               <Box mt={6}>
                 <SimpleGrid columns={[1, 2, 3]} spacing={6}>
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <Box key={i} borderWidth="1px" rounded="xl" overflow="hidden">
+                    <Box key={i} borderWidth="1px" rounded="none" overflow="hidden">
                       <Skeleton h="200px" w="100%" />
                       <Box p={4}>
                         <Skeleton height="20px" mb={2} />

@@ -23,6 +23,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
+import { useIsIpad } from "utils/device";
 
 const publicLinks = [
   { name: "Inicio", href: "/" },
@@ -36,6 +37,7 @@ const publicLinks = [
 export default function Navbar() {
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const isIpad = useIsIpad();
 
   const isHome = router.pathname === "/";
   // Solo mostramos navegación de admin cuando NO estamos en la pantalla de login
@@ -44,7 +46,15 @@ export default function Navbar() {
     { name: "Propiedades", href: "/admin" },
     { name: "Leads", href: "/admin/leads" },
   ];
-  const links = isAdmin ? adminLinks : publicLinks;
+  // En iPad, redirige "Nosotros" y "Servicios" a vistas de pantalla completa
+  const links = isAdmin
+    ? adminLinks
+    : publicLinks.map((l) => {
+        if (!isIpad) return l;
+        if (l.name === "Nosotros") return { ...l, href: "/ipad/nosotros" };
+        if (l.name === "Servicios") return { ...l, href: "/ipad/servicios" };
+        return l;
+      });
   const [overHero, setOverHero] = useState(true);
   useEffect(() => {
     if (!isHome) return;
