@@ -26,6 +26,10 @@ type Props = {
   desktopMaxShift?: number;
   /** Intensidad base mobile (px máx. de desplazamiento). Default 46 */
   mobileMaxShift?: number;
+  /** iPad tuning: tipografía y dimensiones ligeramente mayores */
+  ipad?: boolean;
+  /** Forzar a ocupar toda la pantalla en alto */
+  fullScreen?: boolean;
 };
 
 export default function AboutSplitHeroParallax({
@@ -42,6 +46,8 @@ export default function AboutSplitHeroParallax({
   anchorId,
   desktopMaxShift = 80,
   mobileMaxShift = 46,
+  ipad = false,
+  fullScreen = false,
 }: Props) {
   const leftBg = useColorModeValue("#013927", "#013927");
   const prefersReduced = usePrefersReducedMotion();
@@ -125,14 +131,15 @@ export default function AboutSplitHeroParallax({
       bg="white"
       _dark={{ bg: "gray.900" }}
       scrollMarginTop={{ base: "56px", md: "64px" }}
+      minH={fullScreen ? "100vh" : undefined}
     >
       <Grid templateColumns={{ base: "1fr", md: "1.5fr 1fr" }} gap={0} alignItems="stretch">
         {/* IZQUIERDA */}
         <GridItem
           bg={leftBg}
           color="white"
-          px={{ base: 6, md: 10, lg: 14 }}
-          py={{ base: 8, md: 12 }}
+          px={{ base: ipad ? 8 : 6, md: ipad ? 14 : 10, lg: ipad ? 16 : 14 }}
+          py={{ base: ipad ? 10 : 8, md: ipad ? 14 : 12 }}
         >
           {/* Animamos solo el contenido para mantener el fondo verde visible */}
           <Box
@@ -154,7 +161,7 @@ export default function AboutSplitHeroParallax({
                   as="h2" // semántico; si quieres conservar "p", cámbialo
                   fontFamily="heading"
                   fontWeight="700"
-                  fontSize={{ base: "2.6rem", md: "3.8rem" }}
+                  fontSize={ipad ? { base: "3rem", md: "4.2rem" } : { base: "2.6rem", md: "3.8rem" }}
                   lineHeight="1.08"
                   letterSpacing=".02em"
                   mb={{ base: 3, md: 4 }}
@@ -184,7 +191,10 @@ export default function AboutSplitHeroParallax({
               {paragraphs.map((p, i) => (
                 <Text
                   key={i}
-                  fontSize={{ base: i === 0 ? "lg" : "md", md: i === 0 ? "xl" : "lg" }} // “lead” en el primero
+                  fontSize={ipad
+                    ? { base: i === 0 ? "xl" : "lg", md: i === 0 ? "2xl" : "xl" }
+                    : { base: i === 0 ? "lg" : "md", md: i === 0 ? "xl" : "lg" }
+                  }
                   lineHeight={{ base: 1.85, md: 1.9 }}
                   color={i === 0 ? "whiteAlpha.950" : "whiteAlpha.900"}                  // más contraste en el primero
                   letterSpacing=".005em"
@@ -202,7 +212,7 @@ export default function AboutSplitHeroParallax({
         </GridItem>
 
         {/* DERECHA: Imagen con parallax */}
-        <GridItem position="relative" minH={{ base: "60vw", md: "80vh" }} overflow="hidden">
+        <GridItem position="relative" minH={{ base: fullScreen ? "100vh" : "60vw", md: fullScreen ? "100vh" : "80vh" }} overflow="hidden">
           {/* Capa con “sangre”: top/bottom negativos para cubrir cuando se traslada */}
           <Box position="absolute" left={0} right={0} top={`-${bleed}px`} bottom={`-${bleed}px`} overflow="hidden">
             <ChakraImage
@@ -213,7 +223,7 @@ export default function AboutSplitHeroParallax({
               h="100%"
               objectFit="cover"
               transform={
-                prefersReduced ? undefined : `translate3d(0, ${y}px, 0) scale(1.06)`
+                prefersReduced ? undefined : `translate3d(0, ${y}px, 0) scale(${ipad ? 1.08 : 1.06})`
               }
               transition="transform 40ms linear"
               willChange="transform"

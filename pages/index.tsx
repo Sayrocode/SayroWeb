@@ -7,6 +7,7 @@ import Hero from "../components/Hero"; // above-the-fold: keep static
 // Reemplaza PropertyCategories por grid de servicios
 const ServicesGridLazy = dynamic(() => import("components/ServicesGrid"), { ssr: true, loading: () => null });
 import Layout from "components/Layout";
+import { useIsIpad } from "utils/device";
 
 // Below-the-fold components via dynamic import (code-splitting)
 const DualCTASectionLazy = dynamic(() => import("components/DualCTASection"), {
@@ -54,6 +55,7 @@ export default function HomePage() {
   const title = "Propiedades en venta y renta — Sayro Bienes Raíces";
   const description =
     "Encuentra tu próxima propiedad con Sayro Bienes Raíces. Inventario actualizado, atención personalizada y procesos claros.";
+  const isIpad = useIsIpad();
 
   // Reintento de scroll a hash tras montaje y posibles cargas diferidas
   useEffect(() => {
@@ -96,6 +98,10 @@ export default function HomePage() {
             logoSrc="/logos/sayro-sello-blanco.svg"
             logoAlt="SR · Sayro Bienes Raíces S.A. de C.V."
             title="¿Quiénes somos?"
+            ipad={isIpad}
+            fullScreen={isIpad}
+            desktopMaxShift={isIpad ? 100 : undefined as any}
+            mobileMaxShift={isIpad ? 58 : undefined as any}
             paragraphs={[
               "Somos una empresa líder en el sector inmobiliario de la Ciudad de Querétaro, México, con más de 33 años de experiencia respaldando nuestro trabajo.",
               "Nuestro compromiso es garantizar que cada cliente obtenga el mejor precio, con rapidez y seguridad, asegurando la máxima rentabilidad de sus operaciones inmobiliarias y la mayor optimización en sus inversiones.",
@@ -110,7 +116,7 @@ export default function HomePage() {
           />
 
         <HomePropertiesLazy />
-        <ServicesGridLazy />
+        <ServicesGridLazy ipad={isIpad} fullScreen={isIpad} cardScale={isIpad ? 1.15 : 1} />
 
       </main>
       </Layout>
