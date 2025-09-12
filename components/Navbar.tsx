@@ -80,9 +80,9 @@ export default function Navbar() {
     try { import('components/HomeContactSection'); } catch {}
     try {
       ['/contactohero.jpg?v=1', '/director.jpg'].forEach((src) => {
-        const img = new Image();
-        img.decoding = 'async';
-        img.loading = 'eager' as any;
+        const img = new window.Image();
+        img.decoding = 'async' as any;
+        img.loading = 'eager';
         img.src = src;
       });
     } catch {}
