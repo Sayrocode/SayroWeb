@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../../../../lib/prisma';
 import { requireAdmin } from '../../../_utils';
-import { getBaseUrlFromReq } from '../../../../../../lib/meta';
+import { getBaseUrlFromReq } from '../../../../../lib/meta';
 
 const EB_BASE = 'https://api.easybroker.com/v1/properties';
 

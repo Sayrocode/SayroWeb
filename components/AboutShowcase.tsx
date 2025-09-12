@@ -65,7 +65,12 @@ export default function AboutSplitHeroParallax({
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
-    if (prefersReduced) return;
+    // Evitar parallax en dispositivos táctiles (iPhone/iPad) y cuando el usuario prefiere menos movimiento
+    const isCoarsePointer =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(pointer: coarse)').matches
+        : false;
+    if (prefersReduced || isCoarsePointer) return;
 
     let raf = 0;
     const update = () => {

@@ -145,15 +145,15 @@ export default function ContactoPage() {
         <HeroContacto />
 
         {/* CONTENIDO */}
-        <Container bgColor="white" maxW="auto" my={10} py={{ base: 10, md: 14 }}>
-          <Grid templateColumns={{ base: "1fr", md: "0.9fr 1.1fr" }} gap={{ base: 6, md: 10 }}>
+        <Container bgColor="white" maxW="7xl" my={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }} py={{ base: 8, md: 14 }}>
+          <Grid templateColumns={{ base: "1fr", md: "0.9fr 1.1fr" }} gap={{ base: 6, md: 10 }} alignItems="stretch">
             {/* LADO IZQUIERDO: Info + redes + WhatsApp */}
-            <GridItem>
+            <GridItem mb={{ base: 4, md: 0 }}>
               <Box
                 bg={GREEN}
                 color="white"
-                rounded="xl"
-                p={{ base: 6, md: 8 }}
+                rounded={{ base: "lg", md: "xl" }}
+                p={{ base: 5, md: 8 }}
                 border="1px solid"
                 borderColor="whiteAlpha.200"
                 boxShadow="0 10px 30px rgba(0,0,0,.35)"
@@ -162,24 +162,24 @@ export default function ContactoPage() {
                   Información de contacto
                 </Heading>
 
-                <HStack align="start" spacing={4} mb={3}>
-                  <Icon as={FiMapPin} mt="1" />
-                  <Text>{ADDRESS}</Text>
+                <HStack align="flex-start" spacing={4} mb={3}>
+                  <Icon as={FiMapPin} mt="1" boxSize={{ base: 5, md: 6 }} />
+                  <Text wordBreak="break-word">{ADDRESS}</Text>
                 </HStack>
-                <HStack align="start" spacing={4} mb={3}>
-                  <Icon as={FiPhone} mt="1" />
-                  <Link href={`tel:+${WHATSAPP_NUMBER}`} _hover={{ textDecoration: "underline" }}>
+                <HStack align="flex-start" spacing={4} mb={3}>
+                  <Icon as={FiPhone} mt="1" boxSize={{ base: 5, md: 6 }} />
+                  <Link href={`tel:+${WHATSAPP_NUMBER}`} _hover={{ textDecoration: "underline" }} wordBreak="break-word">
                     +{WHATSAPP_NUMBER}
                   </Link>
                 </HStack>
-                <HStack align="start" spacing={4} mb={3}>
-                  <Icon as={FiMail} mt="1" />
-                  <Link href={`mailto:${EMAIL_TO}`} _hover={{ textDecoration: "underline" }}>
+                <HStack align="flex-start" spacing={4} mb={3}>
+                  <Icon as={FiMail} mt="1" boxSize={{ base: 5, md: 6 }} />
+                  <Link href={`mailto:${EMAIL_TO}`} _hover={{ textDecoration: "underline" }} wordBreak="break-word">
                     {EMAIL_TO}
                   </Link>
                 </HStack>
-                <HStack align="start" spacing={4} mb={6}>
-                  <Icon as={FiClock} mt="1" />
+                <HStack align="flex-start" spacing={4} mb={6}>
+                  <Icon as={FiClock} mt="1" boxSize={{ base: 5, md: 6 }} />
                   <Text>{HOURS}</Text>
                 </HStack>
 
@@ -188,8 +188,8 @@ export default function ContactoPage() {
                   href={waUrl}
                   isExternal
                   leftIcon={<FaWhatsapp />}
-                  size="md"
-                  w="full"
+                  size={{ base: "lg", md: "md" }}
+                  w={{ base: "full", md: "auto" }}
                   bg="white"
                   color={GREEN}
                   _hover={{ bg: "white" }}
@@ -203,13 +203,13 @@ export default function ContactoPage() {
                 <Heading as="h3" fontSize="md" mb={3}>
                   Síguenos
                 </Heading>
-                <HStack spacing={4}>
-                  <Link href="https://facebook.com/" isExternal aria-label="Facebook">
-                    <Icon as={FaFacebook} boxSize="6" />
+                <HStack spacing={{ base: 5, md: 4 }}>
+                  <Link href="https://facebook.com/" isExternal aria-label="Facebook" _hover={{ opacity: 0.9 }}>
+                    <Icon as={FaFacebook} boxSize={{ base: 7, md: 6 }} />
                     <VisuallyHidden>Facebook</VisuallyHidden>
                   </Link>
-                  <Link href="https://instagram.com/" isExternal aria-label="Instagram">
-                    <Icon as={FaInstagram} boxSize="6" />
+                  <Link href="https://instagram.com/" isExternal aria-label="Instagram" _hover={{ opacity: 0.9 }}>
+                    <Icon as={FaInstagram} boxSize={{ base: 7, md: 6 }} />
                     <VisuallyHidden>Instagram</VisuallyHidden>
                   </Link>
                 </HStack>
@@ -220,8 +220,8 @@ export default function ContactoPage() {
             <GridItem >
               <Box
                 bg="white"
-                rounded="xl"
-                p={{ base: 6, md: 8 }}
+                rounded={{ base: "lg", md: "xl" }}
+                p={{ base: 5, md: 8 }}
                 boxShadow="0 10px 30px rgba(0,0,0,.18)"
                 border="1px solid"
                 borderColor="blackAlpha.100"
@@ -236,7 +236,7 @@ export default function ContactoPage() {
                 <Box as="form" onSubmit={handleSubmit}>
                   <FormControl isRequired mb={4}>
                     <FormLabel>Nombre</FormLabel>
-                    <Input name="nombre" placeholder="Tu nombre" />
+                    <Input name="nombre" placeholder="Tu nombre" size={{ base: "lg", md: "md" }} />
                   </FormControl>
 
                   <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={4}>
@@ -244,24 +244,24 @@ export default function ContactoPage() {
                       <FormLabel>Correo electrónico</FormLabel>
                       <InputGroup>
                         <InputLeftElement pointerEvents="none" children={<Icon as={FiMail} color="gray.400" />} />
-                        <Input type="email" name="email" placeholder="tucorreo@ejemplo.com" />
+                        <Input type="email" name="email" placeholder="tucorreo@ejemplo.com" size={{ base: "lg", md: "md" }} />
                       </InputGroup>
                     </FormControl>
                     <FormControl>
                       <FormLabel>Teléfono</FormLabel>
                       <InputGroup>
                         <InputLeftElement pointerEvents="none" children={<Icon as={FiPhone} color="gray.400" />} />
-                        <Input type="tel" name="telefono" placeholder="+52 ..." />
+                        <Input type="tel" name="telefono" placeholder="+52 ..." size={{ base: "lg", md: "md" }} />
                       </InputGroup>
                     </FormControl>
                   </Grid>
 
                   <FormControl isRequired mt={4}>
                     <FormLabel>Mensaje</FormLabel>
-                    <Textarea name="mensaje" rows={6} placeholder="Cuéntanos qué necesitas" />
+                    <Textarea name="mensaje" rows={6} placeholder="Cuéntanos qué necesitas" resize="vertical" minH={{ base: 36, md: 40 }} />
                   </FormControl>
 
-                  <HStack mt={6} spacing={4}>
+                  <HStack mt={6} spacing={4} display={{ base: "none", md: "flex" }}>
                     <Button
                       type="submit"
                       colorScheme="green"
@@ -276,6 +276,26 @@ export default function ContactoPage() {
                       Volver al inicio
                     </Button>
                   </HStack>
+
+                  {/* Mobile buttons stacked for better tapping */}
+                  <Box mt={6} display={{ base: "block", md: "none" }}>
+                    <Button
+                      type="submit"
+                      colorScheme="green"
+                      bg={GREEN}
+                      _hover={{ bg: GREEN_DARK }}
+                      leftIcon={<FiArrowRight />}
+                      isLoading={loading}
+                      w="full"
+                      size="lg"
+                      mb={3}
+                    >
+                      Enviar
+                    </Button>
+                    <Button as={NextLink} href="/" variant="ghost" w="full" size="lg">
+                      Volver al inicio
+                    </Button>
+                  </Box>
                 </Box>
               </Box>
             </GridItem>

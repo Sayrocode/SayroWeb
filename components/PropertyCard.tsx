@@ -31,6 +31,7 @@ type EBProperty = {
   operations?: EBOperation[];
   lot_size?: number | null;
   construction_size?: number | null;
+  cover_zoom?: number;
 };
 
 type Props = { property: EBProperty; priority?: boolean; sizes?: string };
@@ -63,8 +64,13 @@ function getLocationText(loc: unknown): string {
 
 export default function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" }: Props) {
   const rawImg = property.title_image_full || property.title_image_thumb || "";
-  const img = rawImg.startsWith("/") ? rawImg : "/image3.jpg";
+  const isAbs = typeof rawImg === 'string' && /^https?:\/\//i.test(rawImg);
+  const img = (typeof rawImg === 'string' && (rawImg.startsWith("/") || isAbs)) ? rawImg : "/image3.jpg";
   const price = formatPrice(property?.operations?.[0]);
+  const zoom = (typeof (property as any)?.cover_zoom === 'number' && isFinite((property as any).cover_zoom!)
+    && (property as any).cover_zoom! >= 1.0 && (property as any).cover_zoom! <= 2.0)
+    ? (property as any).cover_zoom!
+    : 1;
   const cardBg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
   const titleColorHover = useColorModeValue("green.700", "green.300");
@@ -95,7 +101,7 @@ export default function PropertyCard({ property, priority = false, sizes = "(max
             priority={priority}
             placeholder="blur"
             blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTAwJScgaGVpZ2h0PSc1NiUnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc+PHJlY3Qgd2lkdGg9JzEwMCUnIGhlaWdodD0nMTAwJScgZmlsbD0nI0VBRUVFMCcvPjwvc3ZnPg=="
-            style={{ objectFit: 'cover' }}
+            style={{ objectFit: 'cover', transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.2s ease' }}
           />
         </Box>
       </AspectRatio>

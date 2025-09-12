@@ -102,9 +102,15 @@ export default function AdminPropertyEdit() {
   const gallery = useMemo(() => {
     const all = [...localUrls.map((o) => o.url), ...ebUrls];
     const cover = all[0] || '/image3.jpg';
-    const thumbs = all.slice(0, 12);
-    return { cover, thumbs };
+    return { cover, all };
   }, [localUrls, ebUrls]);
+
+  // Paginación de miniaturas (evitar cargar 50 de golpe)
+  const [thumbsCount, setThumbsCount] = useState<number>(18);
+  useEffect(() => {
+    // reset when gallery changes
+    setThumbsCount(18);
+  }, [gallery.all?.length]);
 
   const [coverSrc, setCoverSrc] = useState<string>('');
   const [zoomByUrl, setZoomByUrl] = useState<Record<string, number>>({});
@@ -433,9 +439,10 @@ export default function AdminPropertyEdit() {
               </HStack>
             </Box>
 
-            {gallery.thumbs.length > 0 && (
+            {gallery.all.length > 0 && (
+              <>
               <SimpleGrid columns={{ base: 3, sm: 4, md: 5 }} spacing={2}>
-                {gallery.thumbs.map((u, i) => (
+                {gallery.all.slice(0, thumbsCount).map((u, i) => (
                   <Box key={i} position="relative">
                     <AspectRatio ratio={1}>
                       <Box overflow="hidden" rounded="md">
@@ -446,6 +453,7 @@ export default function AdminPropertyEdit() {
                           fallbackSrc="/image3.jpg"
                           w="100%"
                           h="100%"
+                          loading="lazy"
                           transform={`scale(${getZoom(u)})`}
                           transformOrigin="center"
                           transition="transform 0.2s ease"
@@ -474,6 +482,14 @@ export default function AdminPropertyEdit() {
                   </Box>
                 ))}
               </SimpleGrid>
+              {gallery.all.length > thumbsCount && (
+                <Box mt={3} textAlign="center">
+                  <Button size="sm" variant="outline" onClick={() => setThumbsCount((n) => n + 18)}>
+                    Cargar más ({thumbsCount}/{gallery.all.length})
+                  </Button>
+                </Box>
+              )}
+              </>
             )}
 
             <Box mt={4}>

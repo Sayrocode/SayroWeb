@@ -97,6 +97,15 @@ type PageProps = {
   canonicalUrl: string;
 };
 
+// Estados publicables (local DB y EB)
+function isPublicable(status?: string | null): boolean {
+  if (!status) return false;
+  const t = String(status).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  return [
+    'available', 'disponible', 'active', 'activa', 'published', 'publicada', 'en venta', 'en renta',
+  ].includes(t);
+}
+
 /* =============================
  * Utilidades de UI/formatos
  * ============================= */
@@ -124,7 +133,9 @@ function pickPrice(ops?: EBOperation[]) {
 
 function firstImage(p: EBListItem) {
   const candidate = p.title_image_full || p.title_image_thumb || "";
-  if (typeof candidate === 'string' && candidate.startsWith('/')) return candidate;
+  if (typeof candidate !== 'string' || !candidate) return '/image3.jpg';
+  if (candidate.startsWith('/')) return candidate;
+  if (/^https?:\/\//i.test(candidate)) return candidate; // permitir EB absoluto
   return '/image3.jpg';
 }
 
@@ -188,24 +199,24 @@ export default function PropertyDetail({
 
   // Normalizamos ubicación para TODO el render
   const locationText = getLocationText(property.location);
-// Galería robusta: prioriza portada, si no, la primera foto real del arreglo
+// Galería: usar imágenes de EasyBroker si están disponibles (URLs absolutas) y/o locales
 const gallery = useMemo(() => {
-  const localThumbs = Array.isArray(property.property_images)
-    ? Array.from(
-        new Set(
-          property.property_images
-            .map((i) => i?.url)
-            .filter((u): u is string => typeof u === 'string' && u.startsWith('/'))
-        )
-      )
-    : [];
-  const preferredCover = (typeof property.title_image_full === 'string' && property.title_image_full.startsWith('/'))
-    ? property.title_image_full
-    : (typeof property.title_image_thumb === 'string' && property.title_image_thumb.startsWith('/'))
-      ? property.title_image_thumb
-      : (localThumbs[0] || '/image3.jpg');
-  const thumbs = localThumbs.filter((u) => u !== preferredCover).slice(0, 12);
-  return { cover: preferredCover, thumbs };
+  const urls: string[] = [];
+  const add = (u?: string | null) => {
+    if (!u) return;
+    if (typeof u !== 'string') return;
+    if (!urls.includes(u)) urls.push(u);
+  };
+  add(property.title_image_full as any);
+  add(property.title_image_thumb as any);
+  if (Array.isArray(property.property_images)) {
+    for (const img of property.property_images) add(img?.url || undefined);
+  }
+  // Fallback si nada válido
+  if (!urls.length) urls.push('/image3.jpg');
+  const cover = urls[0];
+  const thumbs = urls.slice(1, 13);
+  return { cover, thumbs };
 }, [property]);
 
 // el estado arranca con la portada calculada
@@ -659,16 +670,8 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (context)
   const canonicalUrl = `${base}/propiedades/${encodeURIComponent(id)}`;
 
   try {
-    // Intento 0: detalle desde nuestra DB (Turso)
+    // Prioridad: EasyBroker primero
     let property: EBProperty | null = null;
-    const db = await fetchJSON(`${base}/api/properties/${encodeURIComponent(id)}`);
-    if (db.ok && isDetailShape(db.data)) {
-      property = db.data as EBProperty;
-      const { related, uniqueCandidates } = await fetchRelated(base, property);
-      return { props: { property, related, uniqueCandidates, canonicalUrl } };
-    }
-
-    // Intento A: proxy nuevo (detalle EB)
     let detail = await fetchJSON(`${base}/api/easybroker/properties/${encodeURIComponent(id)}`);
 
     // Si devolvió listado por error, intentamos rescatar
@@ -699,14 +702,12 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (context)
       }
     }
 
+    // Fallback C: nuestra DB si no existe en EB
     if (!property) {
-      console.error("No se pudo obtener detalle de propiedad", {
-        id,
-        status: detail.status,
-        detailResp: detail.data,
-      });
-      return { props: { property: null, related: [], uniqueCandidates: [], canonicalUrl } };
+      const db = await fetchJSON(`${base}/api/properties/${encodeURIComponent(id)}`);
+      if (db.ok && isDetailShape(db.data)) property = db.data as EBProperty;
     }
+    if (!property) return { props: { property: null, related: [], uniqueCandidates: [], canonicalUrl } };
 
     // Relacionadas / Únicas
     const { related, uniqueCandidates } = await fetchRelated(base, property);
@@ -739,7 +740,7 @@ async function fetchRelated(base: string, property: EBProperty) {
         const loc = getLocationText((p as any).location).toLowerCase();
         const sameType = type ? t.includes(type) : true;
         const matchLoc = kw ? loc.includes(kw) : true;
-        return sameType && matchLoc && p.public_id !== property.public_id;
+        return sameType && matchLoc && p.public_id !== property.public_id && isPublicable((p as any)?.status);
       });
       const cleaned = dedupe(filtered);
       related = cleaned.slice(0, 6);
@@ -760,7 +761,10 @@ async function fetchRelated(base: string, property: EBProperty) {
     if (!list.ok) list = await fetchJSON(`${base}/api/easybroker?${sp.toString()}`, { cache: 'no-store' });
     if (list.ok && isListShape(list.data)) {
       const content = Array.isArray(list.data.content) ? list.data.content : [];
-      const cleaned = dedupe(content).filter((p) => p.public_id !== property.public_id);
+      const cleaned = dedupe(content)
+        // Solo EB activos/publicables
+        .filter((p) => isPublicable((p as any)?.status))
+        .filter((p) => p.public_id !== property.public_id);
       related = cleaned.slice(0, 6);
       uniqueCandidates = cleaned.filter(isUniqueCandidate).slice(0, 6);
     }

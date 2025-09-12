@@ -165,10 +165,12 @@ export default function AddPropertyModal({ isOpen, onClose, onCreated }: Props) 
 
       // 2) Optionally publish to EasyBroker (combina URLs ingresadas + subidas a Turso)
       if (publishEB) {
-        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        // Always use public base domain for absolute URLs (required by EasyBroker)
+        const publicBase = process.env.NEXT_PUBLIC_SITE_URL || 'https://sayro-web.vercel.app';
+        const toAbs = (u: string) => (u.startsWith('http') ? u : `${publicBase}${u}`);
         const property_images2 = [
-          ...property_images,
-          ...uploadedLocalUrls.map((u) => ({ url: u.startsWith('http') ? u : `${origin}${u}` }))
+          ...property_images.map((it) => ({ url: toAbs(it.url) })),
+          ...uploadedLocalUrls.map((u) => ({ url: toAbs(u) })),
         ];
         const ebDraft: any = {
           title,
@@ -185,6 +187,8 @@ export default function AddPropertyModal({ isOpen, onClose, onCreated }: Props) 
             cross_street: crossStreet || undefined,
           },
           operations,
+          // Send images to EB via URL
+          property_images: property_images2,
         };
         const ebResp = await fetch('/api/admin/easybroker/properties', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ebDraft)

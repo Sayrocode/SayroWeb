@@ -48,7 +48,13 @@ function useCardParallax(
     const img = imgRef.current;
     if (!el || !img) return;
 
-    if (prefersReduced) {
+    // Evitar parallax en dispositivos táctiles (iPhone/iPad) y cuando el usuario prefiere menos movimiento
+    const isCoarsePointer =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(pointer: coarse)').matches
+        : false;
+
+    if (prefersReduced || isCoarsePointer) {
       img.style.setProperty("--y", "0px");
       img.style.setProperty("--s", "1.06");
       return;

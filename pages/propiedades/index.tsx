@@ -52,21 +52,18 @@ export default function Propiedades() {
   useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
 
   // Session cache: restore list + scroll instantly on back navigation
+  // Utilidad: prioriza EB-* al tope; el resto conserva su orden
+  const reorderByPriority = (arr: any[]) => {
+    const items = Array.isArray(arr) ? arr : [];
+    const id = (p: any) => String(p?.public_id || '').toUpperCase();
+    const eb = items.filter((p) => id(p).startsWith('EB-'));
+    const others = items.filter((p) => !id(p).startsWith('EB-'));
+    return [...eb, ...others];
+  };
+
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('public.props.list.v1');
-      if (raw) {
-        const j = JSON.parse(raw);
-        if (Array.isArray(j?.all) && typeof j?.page === 'number') {
-          setAllProperties(j.all);
-          setPage(j.page);
-          setHasMore(Boolean(j.hasMore));
-          setLoading(false);
-          const y = Number(sessionStorage.getItem('public.props.scroll') || '0');
-          if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
-        }
-      }
-    } catch {}
+    // Evitar restaurar estados antiguos que mezclen DB antes de EB;
+    // siempre iniciamos con carga fresca de EB primero.
     return () => {
       try {
         sessionStorage.setItem('public.props.list.v1', JSON.stringify({ all: allProperties, page, hasMore }));
@@ -76,15 +73,27 @@ export default function Propiedades() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lookahead prefetch: tras agregar una página, descargar la siguiente en background
+  // Lookahead prefetch (dos fases): primero EB, luego DB
   const lookaheadRef = useRef<number>(0);
   const isLookaheadRef = useRef(false);
-  async function fetchPageSilent(nextPage: number, limit = 18) {
+  const ebPageRef = useRef(0);
+  const ebTotalPagesRef = useRef<number | null>(null);
+  const ebDoneRef = useRef(false);
+  const dbPageRef = useRef(0);
+  const dbTotalPagesRef = useRef<number | null>(null);
+
+  function computeHasMore(): boolean {
+    if (!ebDoneRef.current) {
+      const total = ebTotalPagesRef.current;
+      return total == null || ebPageRef.current < total;
+    }
+    const totalDb = dbTotalPagesRef.current;
+    return totalDb == null || dbPageRef.current < totalDb;
+  }
+
+  async function fetchPageSilent(nextBatch: number, limit = 18) {
     try {
       isLookaheadRef.current = true;
-      const res = await fetch(`/api/properties?limit=${limit}&page=${nextPage}`);
-      const data = await res.json();
-      const list = Array.isArray(data.content) ? data.content : [];
       const map = new Map<string, any>();
       for (const p of allProperties) map.set(String(p?.public_id || ''), p);
       const isPublicable = (s: any) => {
@@ -92,16 +101,39 @@ export default function Propiedades() {
         const t = String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
         return [ 'available', 'disponible', 'active', 'activa', 'published', 'publicada', 'en venta', 'en renta' ].includes(t);
       };
-      for (const p of list) {
-        const id = String(p?.public_id || '');
-        if (!id) continue;
-        if (!isPublicable(p?.status)) continue;
-        if (!map.has(id)) map.set(id, p);
+
+      if (!ebDoneRef.current) {
+        const target = ebPageRef.current + 1;
+        const ebRes = await fetch(`/api/easybroker/properties?limit=${limit}&page=${target}`);
+        const ebJson = ebRes.ok ? await ebRes.json() : { content: [], pagination: { total_pages: ebPageRef.current } };
+        const ebList = Array.isArray(ebJson.content) ? ebJson.content : [];
+        for (const p of ebList) {
+          const id = String(p?.public_id || ''); if (!id) continue;
+          const isEbId = id.toUpperCase().startsWith('EB-');
+          if (!isEbId && !isPublicable(p?.status)) continue;
+          if (!map.has(id)) map.set(id, p);
+        }
+        const total = parseInt(String(ebJson?.pagination?.total_pages ?? '')) || (ebList.length < limit ? target : target + 1);
+        ebTotalPagesRef.current = total;
+        ebPageRef.current = target;
+        if (!ebList.length || ebPageRef.current >= total) ebDoneRef.current = true;
+      } else {
+        const target = dbPageRef.current + 1;
+        const dbRes = await fetch(`/api/properties?limit=${limit}&page=${target}`);
+        const dbJson = dbRes.ok ? await dbRes.json() : { content: [], pagination: { total_pages: dbPageRef.current } };
+        const dbList = Array.isArray(dbJson.content) ? dbJson.content : [];
+        for (const p of dbList) {
+          const id = String(p?.public_id || ''); if (!id) continue; if (!isPublicable(p?.status)) continue; if (!map.has(id)) map.set(id, p);
+        }
+        const totalDb = parseInt(String(dbJson?.pagination?.total_pages ?? '')) || (dbList.length < limit ? target : target + 1);
+        dbTotalPagesRef.current = totalDb;
+        dbPageRef.current = target;
       }
-      setAllProperties(Array.from(map.values()));
-      const totalPages = Math.max(parseInt(String(data?.pagination?.total_pages ?? '1')) || 1, 1);
-      setPage(nextPage);
-      setHasMore(nextPage < totalPages);
+
+      const merged = Array.from(map.values());
+      setAllProperties(reorderByPriority(merged));
+      setPage(nextBatch);
+      setHasMore(computeHasMore());
     } finally {
       isLookaheadRef.current = false;
     }
@@ -118,10 +150,7 @@ export default function Propiedades() {
     fetchPageSilent(page + 1).catch(() => {});
   }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation]);
 
-  async function fetchPage(nextPage: number, limit = 18) {
-    const res = await fetch(`/api/properties?limit=${limit}&page=${nextPage}`);
-    const data = await res.json();
-    const list = Array.isArray(data.content) ? data.content : [];
+  async function fetchPage(nextBatch: number, limit = 18) {
     const map = new Map<string, any>();
     // Index existing
     for (const p of allProperties) map.set(String(p?.public_id || ""), p);
@@ -134,31 +163,43 @@ export default function Propiedades() {
       ].includes(t);
     };
 
-    for (const p of list) {
-      const id = String(p?.public_id || "");
-      if (!id) continue;
-      if (!isPublicable(p?.status)) continue;
-      if (!map.has(id)) {
-        let opKind: '' | 'sale' | 'rental' = '';
-        try {
-          const t = String(p?.operations?.[0]?.type || '').toLowerCase();
-          if (t.includes('sale')) opKind = 'sale';
-          else if (t.includes('rental')) opKind = 'rental';
-        } catch {}
-        map.set(id, { ...p, opKind });
+    if (!ebDoneRef.current) {
+      const target = ebPageRef.current + 1;
+      const ebRes = await fetch(`/api/easybroker/properties?limit=${limit}&page=${target}`);
+      const ebJson = ebRes.ok ? await ebRes.json() : { content: [], pagination: { total_pages: ebPageRef.current } };
+      const ebList = Array.isArray(ebJson.content) ? ebJson.content : [];
+      for (const p of ebList) {
+        const id = String(p?.public_id || ""); if (!id) continue;
+        const isEbId = id.toUpperCase().startsWith('EB-');
+        if (!isEbId && !isPublicable(p?.status)) continue;
+        if (!map.has(id)) map.set(id, p);
       }
+      const total = parseInt(String(ebJson?.pagination?.total_pages ?? '')) || (ebList.length < limit ? target : target + 1);
+      ebTotalPagesRef.current = total;
+      ebPageRef.current = target;
+      if (!ebList.length || ebPageRef.current >= total) ebDoneRef.current = true;
+    } else {
+      const target = dbPageRef.current + 1;
+      const dbRes = await fetch(`/api/properties?limit=${limit}&page=${target}`);
+      const dbJson = dbRes.ok ? await dbRes.json() : { content: [], pagination: { total_pages: dbPageRef.current } };
+      const dbList = Array.isArray(dbJson.content) ? dbJson.content : [];
+      for (const p of dbList) {
+        const id = String(p?.public_id || ""); if (!id) continue; if (!isPublicable(p?.status)) continue; if (!map.has(id)) map.set(id, p);
+      }
+      const totalDb = parseInt(String(dbJson?.pagination?.total_pages ?? '')) || (dbList.length < limit ? target : target + 1);
+      dbTotalPagesRef.current = totalDb;
+      dbPageRef.current = target;
     }
-    setAllProperties(Array.from(map.values()));
-    const totalPages = Math.max(parseInt(String(data?.pagination?.total_pages ?? '1')) || 1, 1);
-    setPage(nextPage);
-    setHasMore(nextPage < totalPages);
-    try { sessionStorage.setItem('public.props.list.v1', JSON.stringify({ all: Array.from(map.values()), page: nextPage, hasMore: nextPage < totalPages })); } catch {}
+    const merged = Array.from(map.values());
+    setAllProperties(reorderByPriority(merged));
+    setPage(nextBatch);
+    const more = computeHasMore();
+    setHasMore(more);
+    try { sessionStorage.setItem('public.props.list.v1', JSON.stringify({ all: merged, page: nextBatch, hasMore: more })); } catch {}
   }
 
   useEffect(() => {
-    (async () => {
-      try { await fetchPage(1); } finally { setLoading(false); }
-    })();
+    (async () => { try { await fetchPage(1); } finally { setLoading(false); } })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

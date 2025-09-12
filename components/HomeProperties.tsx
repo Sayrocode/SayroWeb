@@ -55,7 +55,10 @@ function firstImage(p: EBListItem) {
     p.title_image_thumb ||
     (Array.isArray(p.property_images) && p.property_images[0]?.url) ||
     "";
-  return typeof candidate === "string" && candidate.startsWith("/") ? candidate : "/image3.jpg";
+  if (typeof candidate !== 'string' || !candidate) return "/image3.jpg";
+  if (candidate.startsWith('/')) return candidate;
+  if (/^https?:\/\//i.test(candidate)) return candidate;
+  return "/image3.jpg";
 }
 function priceLabel(ops?: EBOperation[]) {
   if (!ops?.length) return "PRECIO A CONSULTAR";
@@ -88,7 +91,6 @@ function SafeAspect({ ratio, children }: { ratio: number; children: ReactNode })
 function FeaturedCard({ p }: { p: EBListItem }) {
   const img = firstImage(p);
   const price = priceLabel(p.operations);
-  const loc = (getLocationText(p.location) || "México").toUpperCase();
 
   const cardBg = "transparent";
   const priceBg = "blackAlpha.700";
@@ -152,39 +154,19 @@ function FeaturedCard({ p }: { p: EBListItem }) {
       </Box>
 
       {/* Texto */}
-      <Box px={2} pt={3} pb={4} color="whiteAlpha.900">
+      <Box px={{ base: 3, md: 4 }} pt={{ base: 3, md: 4 }} pb={{ base: 5, md: 6 }} color="whiteAlpha.900" textAlign="center">
         <Heading
           as="h3"
           fontFamily="heading"
           fontWeight="700"
-          fontSize="md"
-          lineHeight="1.15"
+          fontSize={{ base: "xl", md: "2xl" }}
+          lineHeight="1.1"
           noOfLines={2}
+          letterSpacing="wide"
+          textShadow="0 2px 10px rgba(0,0,0,.35)"
         >
           {(p.title || `Propiedad ${p.public_id}`).toUpperCase()}
         </Heading>
-        {/* Ocultamos la fila de ubicación para igualar el mock */}
-
-        <HStack mt={3} spacing={6} fontSize="sm" color="whiteAlpha.900">
-          {typeof p.bedrooms === "number" && (
-            <HStack spacing={1}>
-              <FiHome />
-              <Text>{p.bedrooms}</Text>
-            </HStack>
-          )}
-          {typeof p.bathrooms === "number" && (
-            <HStack spacing={1}>
-              <FiDroplet />
-              <Text>{p.bathrooms}</Text>
-            </HStack>
-          )}
-          {typeof p.parking_spaces === "number" && (
-            <HStack spacing={1}>
-              <Text as="span">🚗</Text>
-              <Text>{p.parking_spaces}</Text>
-            </HStack>
-          )}
-        </HStack>
       </Box>
     </Box>
   );
@@ -214,16 +196,44 @@ export default function HomeFeaturedCarousel() {
     void fetchProps(false);
     async function fetchProps(background: boolean) {
       try {
-        let res = await fetch("/api/properties?limit=12&fast=1");
-        if (!res.ok) {
-          res = await fetch("/api/easybroker/properties?limit=12");
-          if (!res.ok) res = await fetch("/api/easybroker?endpoint=properties&limit=12");
+        // Prioriza EasyBroker y complementa con DB local
+        const [ebRes, dbRes] = await Promise.all([
+          fetch("/api/easybroker/properties?limit=12"),
+          fetch("/api/properties?limit=12&fast=1"),
+        ]);
+        let ebJson: EBListResp = ebRes.ok ? await ebRes.json() : { content: [] };
+        let dbJson: EBListResp = dbRes.ok ? await dbRes.json() : { content: [] };
+        // Si el proxy principal a EB falla, intenta ruta alternativa
+        if (!ebRes.ok) {
+          const alt = await fetch("/api/easybroker?endpoint=properties&limit=12");
+          if (alt.ok) {
+            ebJson = await alt.json();
+          }
         }
-        if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
-        const data: EBListResp = await res.json();
-        const items = (Array.isArray(data?.content) ? data.content : []).filter((p) => p?.public_id);
-        setProperties(items);
-        try { sessionStorage.setItem('home.props.v1', JSON.stringify({ items })); } catch {}
+        const ebItems = Array.isArray(ebJson?.content) ? ebJson.content : [];
+        const dbItems = Array.isArray(dbJson?.content) ? dbJson.content : [];
+        const map = new Map<string, any>();
+        // EB primero
+        for (const p of ebItems) {
+          const id = String((p as any)?.public_id || ''); if (!id) continue;
+          if (!map.has(id)) map.set(id, p);
+        }
+        // Luego DB local
+        for (const p of dbItems) {
+          const id = String((p as any)?.public_id || ''); if (!id) continue;
+          if (!map.has(id)) map.set(id, p);
+        }
+        const items = Array.from(map.values());
+        // Prioriza EB-* al tope
+        const ordered = (() => {
+          const id = (p: any) => String(p?.public_id || '').toUpperCase();
+          const eb = items.filter((p) => id(p).startsWith('EB-'));
+          const mid = items.filter((p) => !id(p).startsWith('EB-') && !id(p).startsWith('LOC-'));
+          const loc = items.filter((p) => id(p).startsWith('LOC-'));
+          return [...eb, ...mid, ...loc];
+        })();
+        setProperties(ordered);
+        try { sessionStorage.setItem('home.props.v1', JSON.stringify({ items: ordered })); } catch {}
       } catch (e: any) {
         setError(e?.message ?? 'Error al cargar');
       } finally {
@@ -327,42 +337,22 @@ export default function HomeFeaturedCarousel() {
 
             {/* Overlay de flechas (por fuera del overflow hidden) */}
             <ArrowsOverlay>
-              <IconButton
+              <ArrowButton
                 aria-label="Anterior"
-                icon={<FiChevronLeft />}
+                side="left"
+                disabled={!canPrev}
                 onClick={() => canPrev && setPage((p) => p - 1)}
-                isDisabled={!canPrev}
-                position="absolute"
-                left={2}
-                top="50%"
-                transform="translateY(-50%)"
-                zIndex={3}
-                rounded="full"
-                size="lg"
-                bg="transparent"
-                color="white"
-                borderWidth="1px"
-                borderColor="whiteAlpha.600"
-                _hover={{ bg: "whiteAlpha.200" }}
-              />
-              <IconButton
+              >
+                <FiChevronLeft />
+              </ArrowButton>
+              <ArrowButton
                 aria-label="Siguiente"
-                icon={<FiChevronRight />}
+                side="right"
+                disabled={!canNext}
                 onClick={() => canNext && setPage((p) => p + 1)}
-                isDisabled={!canNext}
-                position="absolute"
-                right={2}
-                top="50%"
-                transform="translateY(-50%)"
-                zIndex={3}
-                rounded="full"
-                size="lg"
-                bg="transparent"
-                color="white"
-                borderWidth="1px"
-                borderColor="whiteAlpha.600"
-                _hover={{ bg: "whiteAlpha.200" }}
-              />
+              >
+                <FiChevronRight />
+              </ArrowButton>
             </ArrowsOverlay>
 
             {/* Bullets */}
@@ -422,6 +412,46 @@ function ArrowsOverlay({ children }: { children: ReactNode }) {
     <Box position="absolute" inset={0} pointerEvents="none">
       {/* los botones sí deben responder al click */}
       <Box pointerEvents="auto">{children}</Box>
+    </Box>
+  );
+}
+
+// Botón de flecha sin círculo, con ícono grueso y mejor contraste
+function ArrowButton({ side, disabled, onClick, children, ...rest }: any) {
+  const pos = side === 'left' ? { left: 8 } : { right: 8 };
+  const color = 'white';
+  return (
+    <Box
+      as="button"
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-disabled={disabled}
+      aria-label={rest['aria-label']}
+      position="absolute"
+      top={{ base: '42%', md: '40%' }}
+      style={{ transform: 'translateY(-50%)' }}
+      zIndex={3}
+      {...pos}
+      display="grid"
+      placeItems="center"
+      w={{ base: 10, md: 12 }}
+      h={{ base: 10, md: 12 }}
+      bg="transparent"
+      color={color}
+      _disabled={{ opacity: 0.4, cursor: 'not-allowed' }}
+      _hover={{ color: 'white', opacity: 0.95 }}
+      _focusVisible={{ outline: '3px solid rgba(255,255,255,.6)', outlineOffset: '2px' }}
+    >
+      <Box
+        as={children.type}
+        boxSize={{ base: 8, md: 9 }}
+        // Feather icons aceptan strokeWidth
+        // @ts-ignore
+        strokeWidth={3.25}
+        // Mejorar visibilidad con sombra sutil
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.6))' }}
+      />
     </Box>
   );
 }
