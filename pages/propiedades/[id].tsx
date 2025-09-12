@@ -412,6 +412,7 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                   fill
                   sizes="(max-width: 768px) 100vw, 60vw"
                   priority
+                  fetchPriority="high"
                   placeholder="blur"
                   blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnPjxyZWN0IHdpZHRoPScxMDAlJyBoZWlnaHQ9JzEwMCUnIGZpbGw9JyNFQUVFRTAnLz48L3N2Zz4="
                   style={{ objectFit: 'cover' }}

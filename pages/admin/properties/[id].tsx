@@ -59,6 +59,7 @@ export default function AdminPropertyEdit() {
   const [dlLoading, setDlLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -326,6 +327,22 @@ export default function AdminPropertyEdit() {
     }
   };
 
+  const publishToEasyBroker = async () => {
+    if (!id) return;
+    if (!confirm('Enviar esta propiedad a EasyBroker usando las imágenes locales?')) return;
+    setPublishing(true);
+    try {
+      const r = await fetch(`/api/admin/easybroker/properties/${id}/publish`, { method: 'POST' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || 'No se pudo publicar');
+      toast({ title: 'Publicada en EasyBroker', status: 'success', duration: 2000 });
+    } catch (e: any) {
+      toast({ title: 'Error al publicar', description: e?.message || String(e), status: 'error', duration: 2500 });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   // Map of local url -> key to allow deleting from cover/thumbs
   const localMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -462,6 +479,7 @@ export default function AdminPropertyEdit() {
             <Box mt={4}>
               <HStack mb={2}>
                 <Button onClick={downloadEBImages} isLoading={dlLoading} colorScheme='green' variant='outline'>Descargar imágenes EB</Button>
+                <Button onClick={publishToEasyBroker} isLoading={publishing} colorScheme='purple'>Publicar en EasyBroker</Button>
               </HStack>
               <Input type="file" ref={fileRef} multiple accept="image/*" onChange={(e) => uploadFiles(e.target.files)} />
             </Box>

@@ -763,8 +763,13 @@ export default function Propiedades() {
               {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
             </Text>
             <SimpleGrid columns={[1, 2, 3]} spacing={6}>
-              {filtered.map((p) => (
-                <PropertyCard key={p.public_id} property={p} />
+              {filtered.map((p, i) => (
+                <PropertyCard
+                  key={p.public_id}
+                  property={p}
+                  priority={i < 3}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                />
               ))}
             </SimpleGrid>
             {/* Sentinel para infinito: altura mayor para intersección más confiable */}

@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const body = req.body || {};
     const data: any = {};
     const fields = [
-      'title','titleImageFull','titleImageThumb','propertyType','status','bedrooms','bathrooms','parkingSpaces','lotSize','constructionSize','brokerName','locationText'
+      'publicId','title','titleImageFull','titleImageThumb','propertyType','status','bedrooms','bathrooms','parkingSpaces','lotSize','constructionSize','brokerName','locationText'
     ];
     for (const f of fields) if (f in body) data[f] = body[f];
     // Allow updating operations (price/offers)
@@ -77,6 +77,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try { data.ebDetailJson = JSON.stringify({ operations: body.operations }); } catch {}
       }
     }
+    // Optional: update EB detail blob directly
+    if (body.eb_detail) {
+      try { data.ebDetailJson = typeof body.eb_detail === 'string' ? body.eb_detail : JSON.stringify(body.eb_detail); } catch {}
+    }
     // Optional: update embedded description inside ebDetailJson
     if (typeof body.description === 'string') {
       const current = await prisma.property.findUnique({ where: { id }, select: { ebDetailJson: true } });
@@ -87,6 +91,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch {
         data.ebDetailJson = JSON.stringify({ description: body.description });
       }
+    }
+    // Optional: update propertyImagesJson with an array of { url }
+    if (Array.isArray(body.property_images)) {
+      try { data.propertyImagesJson = JSON.stringify(body.property_images); } catch {}
     }
     const updated = await prisma.property.update({ where: { id }, data });
     return res.status(200).json({ ok: true, id: updated.id });

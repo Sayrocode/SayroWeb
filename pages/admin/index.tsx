@@ -8,8 +8,10 @@ import { SearchIcon } from '@chakra-ui/icons';
 import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2, FiMaximize } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import useSWR from 'swr';
+import dynamic from 'next/dynamic';
 import useSWRInfinite from 'swr/infinite';
 import Link from 'next/link';
+import AddPropertyModal from '../../components/admin/AddPropertyModal';
 
 type Props = {
   username: string;
@@ -152,6 +154,7 @@ export default function AdminHome({ username }: Props) {
   const [preview, setPreview] = React.useState<any | null>(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const items = aggregated; // no filtro por texto aquí; lo maneja la búsqueda avanzada
+  const [addOpen, setAddOpen] = React.useState(false);
 
   const typeOptions = React.useMemo(() => Array.from(new Set((items || []).map((p: any) => p.propertyType).filter(Boolean))) as string[], [items]);
   const cityOptions = React.useMemo(() => {
@@ -516,76 +519,8 @@ export default function AdminHome({ username }: Props) {
     const dict = new Map<number, any>((items || []).map((p: any) => [p.id, p]));
     return selected.map((id) => dict.get(id)).filter(Boolean);
   }, [selected, items]);
-
-  function FacebookSinglePreview({ spec }: { spec: any }) {
-    const linkData = spec?.link_data || {};
-    const image = linkData.image_url || null;
-    return (
-      <Box borderWidth='1px' rounded='md' bg='white' color='gray.800' maxW='480px' overflow='hidden'>
-        <Box p={3} borderBottomWidth='1px'>
-          <HStack spacing={2}>
-            <Box boxSize='28px' bg='gray.200' rounded='full' />
-            <Box>
-              <Text fontWeight='semibold'>Sayro Bienes Raíces</Text>
-              <Text fontSize='xs' color='gray.500'>Patrocinado · Facebook</Text>
-            </Box>
-          </HStack>
-          {linkData.message && <Text mt={3}>{linkData.message}</Text>}
-        </Box>
-        {image && (
-          <Box>
-            <AspectRatio ratio={1200/628}>
-              <Image src={image} alt={linkData.name || 'Anuncio'} objectFit='cover' />
-            </AspectRatio>
-          </Box>
-        )}
-        <HStack p={3} spacing={3} align='stretch' borderTopWidth='1px'>
-          <Box flex='1'>
-            <Text fontSize='xs' color='gray.500'>sayro.mx</Text>
-            <Text fontWeight='bold' noOfLines={1}>{linkData.name}</Text>
-            <Text fontSize='sm' color='gray.600' noOfLines={1}>{linkData.description}</Text>
-          </Box>
-          <Box alignSelf='center'>
-            <Button size='sm' colorScheme='blue' variant='outline'>Más información</Button>
-          </Box>
-        </HStack>
-      </Box>
-    );
-  }
-
-  function FacebookCarouselPreview({ spec }: { spec: any }) {
-    const car = spec?.carousel_data || {};
-    const children = Array.isArray(car.child_attachments) ? car.child_attachments : [];
-    return (
-      <Box borderWidth='1px' rounded='md' bg='white' color='gray.800' maxW='520px' overflow='hidden'>
-        <Box p={3} borderBottomWidth='1px'>
-          <HStack spacing={2}>
-            <Box boxSize='28px' bg='gray.200' rounded='full' />
-            <Box>
-              <Text fontWeight='semibold'>Sayro Bienes Raíces</Text>
-              <Text fontSize='xs' color='gray.500'>Patrocinado · Facebook</Text>
-            </Box>
-          </HStack>
-          {car.message && <Text mt={3}>{car.message}</Text>}
-        </Box>
-        <Box p={3}>
-          <HStack spacing={3} overflowX='auto'>
-            {children.map((c: any, i: number) => (
-              <Box key={i} minW='180px' maxW='180px' borderWidth='1px' rounded='md' overflow='hidden'>
-                <AspectRatio ratio={1}>
-                  <Image src={c.image_url || '/image3.jpg'} alt={c.name || 'card'} objectFit='cover' />
-                </AspectRatio>
-                <Box p={2}>
-                  <Text fontWeight='bold' fontSize='sm' noOfLines={1}>{c.name}</Text>
-                  <Text fontSize='xs' color='gray.600' noOfLines={2}>{c.description}</Text>
-                </Box>
-              </Box>
-            ))}
-          </HStack>
-        </Box>
-      </Box>
-    );
-  }
+  const FacebookSinglePreview = dynamic(() => import('../../components/admin/FacebookSinglePreview'), { ssr: false, loading: () => <Box>Generando vista previa…</Box> });
+  const FacebookCarouselPreview = dynamic(() => import('../../components/admin/FacebookCarouselPreview'), { ssr: false, loading: () => <Box>Generando vista previa…</Box> });
 
   const generateCopy = async () => {
     setGenLoading(true);
@@ -619,6 +554,9 @@ export default function AdminHome({ username }: Props) {
             <Badge colorScheme="gray" variant="subtle">{total || 0} total</Badge>
           </HStack>
           <Wrap spacing={3} justify="center">
+            <WrapItem>
+              <Button colorScheme='green' onClick={() => setAddOpen(true)}>Agregar Propiedad</Button>
+            </WrapItem>
             <WrapItem flex='1 1 260px' position='relative'>
               <InputGroup>
                 <InputLeftElement pointerEvents="none"><SearchIcon color="gray.400" /></InputLeftElement>
@@ -900,6 +838,7 @@ export default function AdminHome({ username }: Props) {
           </ModalContent>
         </Modal>
       </Container>
+      <AddPropertyModal isOpen={addOpen} onClose={() => setAddOpen(false)} onCreated={() => { setSize(1); mutate(); }} />
       </Box>
     </Layout>
   );

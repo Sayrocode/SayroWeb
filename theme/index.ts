@@ -2,8 +2,9 @@ import { extendTheme } from "@chakra-ui/react";
 
 const theme = extendTheme({
   fonts: {
-    heading: "'Binggo Wood','Cinzel', serif",
-    body: "'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+    // next/font variables se definen en Layout: --font-cinzel y --font-montserrat
+    heading: "'Binggo Wood', var(--font-cinzel), serif",
+    body: "var(--font-montserrat), system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
   },
   colors: {
     brand: {

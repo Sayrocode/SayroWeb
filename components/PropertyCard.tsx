@@ -8,11 +8,11 @@ import {
   LinkBox,
   LinkOverlay,
   AspectRatio,
-  Image as ChakraImage,
   useColorModeValue,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { FiMapPin, FiHome, FiDroplet, FiMaximize } from "react-icons/fi";
+import Image from 'next/image';
 
 type EBOperation = {
   prices?: { amount?: number; currency?: string; formatted_amount?: string }[];
@@ -33,7 +33,7 @@ type EBProperty = {
   construction_size?: number | null;
 };
 
-type Props = { property: EBProperty };
+type Props = { property: EBProperty; priority?: boolean; sizes?: string };
 
 function formatPrice(p?: EBOperation) {
   const formatted = p?.prices?.[0]?.formatted_amount;
@@ -61,7 +61,7 @@ function getLocationText(loc: unknown): string {
   return [o.name, o.neighborhood, o.municipality || o.delegation, o.city, o.state, o.country].filter(Boolean).join(", ");
 }
 
-export default function PropertyCard({ property }: Props) {
+export default function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" }: Props) {
   const rawImg = property.title_image_full || property.title_image_thumb || "";
   const img = rawImg.startsWith("/") ? rawImg : "/image3.jpg";
   const price = formatPrice(property?.operations?.[0]);
@@ -86,14 +86,18 @@ export default function PropertyCard({ property }: Props) {
       _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
     >
       <AspectRatio ratio={16 / 9}>
-        <ChakraImage
-          src={img}
-          alt={property.title || `Propiedad ${property.public_id}`}
-          objectFit="cover"
-          fallbackSrc="/image3.jpg"
-          loading="lazy"
-          decoding="async"
-        />
+        <Box position="relative" w="100%" h="100%">
+          <Image
+            src={img}
+            alt={property.title || `Propiedad ${property.public_id}`}
+            fill
+            sizes={sizes}
+            priority={priority}
+            placeholder="blur"
+            blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTAwJScgaGVpZ2h0PSc1NiUnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc+PHJlY3Qgd2lkdGg9JzEwMCUnIGhlaWdodD0nMTAwJScgZmlsbD0nI0VBRUVFMCcvPjwvc3ZnPg=="
+            style={{ objectFit: 'cover' }}
+          />
+        </Box>
       </AspectRatio>
 
       <Stack p={4} spacing={3}>

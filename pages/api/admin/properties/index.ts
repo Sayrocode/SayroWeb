@@ -6,6 +6,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const user = await requireAdmin(req, res);
   if (!user) return;
 
+  if (req.method === 'POST') {
+    try {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const nowId = `LOC-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`.toUpperCase();
+      const publicId: string = String(body.publicId || '').trim() || nowId;
+
+      const operations = Array.isArray(body.operations) ? body.operations : [];
+      const propertyImages = Array.isArray(body.property_images) ? body.property_images : [];
+      let operationsJson: string | undefined;
+      let propertyImagesJson: string | undefined;
+      try { operationsJson = operations.length ? JSON.stringify(operations) : undefined; } catch {}
+      try { propertyImagesJson = propertyImages.length ? JSON.stringify(propertyImages) : undefined; } catch {}
+
+      const created = await prisma.property.create({
+        data: {
+          publicId,
+          title: body.title || null,
+          titleImageFull: body.titleImageFull || null,
+          titleImageThumb: body.titleImageThumb || null,
+          propertyType: body.property_type || body.propertyType || null,
+          status: body.status || 'available',
+          bedrooms: typeof body.bedrooms === 'number' ? body.bedrooms : null,
+          bathrooms: typeof body.bathrooms === 'number' ? body.bathrooms : (typeof body.bathrooms === 'string' ? parseFloat(body.bathrooms) : null),
+          parkingSpaces: typeof body.parking_spaces === 'number' ? body.parking_spaces : (typeof body.parkingSpaces === 'number' ? body.parkingSpaces : null),
+          lotSize: typeof body.lot_size === 'number' ? body.lot_size : (typeof body.lotSize === 'number' ? body.lotSize : null),
+          constructionSize: typeof body.construction_size === 'number' ? body.construction_size : (typeof body.constructionSize === 'number' ? body.constructionSize : null),
+          brokerName: body.brokerName || null,
+          locationText: body.locationText || (typeof body.location === 'string' ? body.location : (body.location?.name || null)),
+          operationsJson,
+          propertyImagesJson,
+          ebDetailJson: typeof body.eb_detail === 'object' ? JSON.stringify(body.eb_detail) : (typeof body.eb_detail === 'string' ? body.eb_detail : null),
+        },
+      });
+      return res.status(201).json({ ok: true, id: created.id, publicId: created.publicId });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, error: 'cannot_create', message: e?.message || String(e) });
+    }
+  }
+
   if (req.method === 'GET') {
     // Light private caching for admin navigation
     res.setHeader('Cache-Control', 'private, max-age=10, stale-while-revalidate=60');

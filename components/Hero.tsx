@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import NextLink from "next/link";
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
+import Image from 'next/image';
 
 const MotionBox = motion(Box);
 
@@ -34,21 +35,28 @@ export default function Hero({
   radial-gradient(1600px 600px at 50% 20%, rgba(0,0,0,.04) 0%, transparent 70%)";
   return (
     <header id="hero" role="banner" aria-label="Hero Sayro Bienes Raíces">
-      <Box
-        position="relative"
-        minH={{ base: "80vh", md: "100vh" }}
-        bgImage={`${overlay}, url(${backgroundUrl})`}
-        bgPos="center"
-        bgSize="cover"
-        bgRepeat="no-repeat"
-        display="flex"
-        alignItems="center"
-      >
+      <Box position="relative" minH={{ base: "80vh", md: "100vh" }} display="flex" alignItems="center" overflow="hidden">
+        {/* Imagen LCP optimizada */}
+        <Box position="absolute" inset={0} zIndex={0} aria-hidden>
+          <Image
+            src={backgroundUrl}
+            alt=""
+            fill
+            priority
+            fetchPriority="high"
+            sizes="100vw"
+            style={{ objectFit: 'cover', objectPosition: 'center' }}
+          />
+          {/* Overlays para legibilidad (replican el bgImage anterior) */}
+          <Box position="absolute" inset={0} pointerEvents="none" sx={{ backgroundImage: overlay, backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        </Box>
         <Container maxW="7xl">
           <VStack
             spacing={{ base: 4, md: 6 }}
             align="center"
             textAlign="center"
+            position="relative"
+            zIndex={1}
           >
             <MotionBox
               initial={{ opacity: 0, y: 18 }}

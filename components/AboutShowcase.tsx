@@ -13,6 +13,7 @@ import {
   Center,
 } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
+import Image from 'next/image';
 
 type Props = {
   title?: string;
@@ -215,20 +216,23 @@ export default function AboutSplitHeroParallax({
         <GridItem position="relative" minH={{ base: fullScreen ? "100vh" : "60vw", md: fullScreen ? "100vh" : "80vh" }} overflow="hidden">
           {/* Capa con “sangre”: top/bottom negativos para cubrir cuando se traslada */}
           <Box position="absolute" left={0} right={0} top={`-${bleed}px`} bottom={`-${bleed}px`} overflow="hidden">
-            <ChakraImage
-              ref={imgRef}
-              src={imageSrc}
-              alt={imageAlt}
-              w="100%"
-              h="100%"
-              objectFit="cover"
-              transform={
-                prefersReduced ? undefined : `translate3d(0, ${y}px, 0) scale(${ipad ? 1.08 : 1.06})`
-              }
-              transition="transform 40ms linear"
-              willChange="transform"
-              draggable={false}
-            />
+            <Box position="absolute" inset={0}>
+              <Image
+                ref={imgRef as any}
+                src={imageSrc}
+                alt={imageAlt}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority={false}
+                style={{
+                  objectFit: 'cover',
+                  transform: prefersReduced ? undefined : `translate3d(0, ${y}px, 0) scale(${ipad ? 1.08 : 1.06})`,
+                  transition: 'transform 40ms linear',
+                  willChange: 'transform',
+                }}
+                draggable={false}
+              />
+            </Box>
           </Box>
 
           {/* Logo centrado (usa logoSrc y sin desplazamiento lateral) */}
