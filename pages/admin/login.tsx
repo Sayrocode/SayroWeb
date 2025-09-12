@@ -57,7 +57,7 @@ export default function AdminLogin() {
         <Grid templateColumns={{ base: '1fr', md: '0.75fr 1.25fr', lg: '0.7fr 1.3fr' }} minH="calc(100vh - 96px)">
           {/* IZQUIERDA: imagen con logo centrado */}
           <GridItem display={{ base: 'none', md: 'block' }} position="relative" overflow="hidden">
-            <ChakraImage src="/image2.jpg" alt="Ciudad" w="100%" h="100%" objectFit="cover" />
+            <ChakraImage src="/login.png" alt="Ciudad" w="100%" h="100%" objectFit="cover" />
             <Box position="absolute" inset={0} bg="blackAlpha.400" />
             <Box position="absolute" inset={0} display="grid" placeItems="center">
               <ChakraImage src="/sayrologo.png" alt="Sayro Bienes Raíces" maxW="320px" opacity={0.92} />
