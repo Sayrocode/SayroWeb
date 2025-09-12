@@ -84,28 +84,25 @@ export default function AnunciatePage() {
 
   return (
     <Layout>
-    <Box as="main"  bg={GREEN}>
-      {/* franja con imagen a la izquierda y panel a la derecha */}
+    {/* Fondo de imagen a todo el bloque */}
+    <Box
+      as="main"
+      position="relative"
+      bgImage="url(/anunciate.png)"
+      bgSize="cover"
+      bgPos="center"
+      bgRepeat="no-repeat"
+    >
+      {/* overlay sutil para legibilidad */}
+      <Box position="absolute" inset={0} bg="blackAlpha.300" />
+      {/* franja con panel sobre el fondo de imagen */}
       <Grid
+        position="relative"
         templateColumns={{ base: "1fr", md: "minmax(0,1.1fr) minmax(0,0.9fr)" }}
         minH={{ base: "auto", md: "100vh" }}
       >
         {/* LADO IZQUIERDO: imagen + claim superpuesto */}
-        <GridItem
-          position="relative"
-          bgImage="url(/anunciate.png)"
-          bgSize="cover"
-          bgPos="center"
-          bgRepeat="no-repeat"
-          minH={{ base: "46vh", md: "100%" }}
-          _after={{
-            content: '""',
-            position: "absolute",
-            inset: 0,
-            bg:
-              "linear-gradient(0deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.15) 35%, rgba(0,0,0,.15) 100%)",
-          }}
-        >
+        <GridItem position="relative" minH={{ base: "46vh", md: "100%" }}>
           <Container maxW="7xl" h="100%" position="relative" zIndex={1}>
             <Box
               position="absolute"
@@ -128,24 +125,20 @@ export default function AnunciatePage() {
         </GridItem>
 
         {/* LADO DERECHO: panel compacto (verde oscuro) */}
-        <GridItem
-          bg={GREEN}
-          display="flex"
-          alignItems="center"
-          py={{ base: 8, md: 0 }}
-        >
+        <GridItem display="flex" alignItems="center" py={{ base: 8, md: 0 }}>
           <Container maxW="container.sm" px={{ base: 4, md: 8 }}>
             <Box
               as="section"
               aria-labelledby="anun-title"
-              bg={GREEN}
+              bg="rgba(14,59,48,0.78)" /* verde translúcido: deja ver la imagen */
               my={10}
               color="white"
               rounded={{ base: "xl", md: "xl" }}
               boxShadow="0 8px 28px rgba(0,0,0,.35)"
               border="1px solid"
-              borderColor="whiteAlpha.200"
+              borderColor="whiteAlpha.300"
               p={{ base: 5, md: 8 }}
+              style={{ backdropFilter: "saturate(1.05)" }}
             >
               <Heading
                 id="anun-title"

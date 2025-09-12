@@ -17,10 +17,30 @@ async function ensureAdminFromEnv() {
   await prisma.user.create({ data: { username, passwordHash, role: 'ADMIN' } });
 }
 
+// Pre-compute a dummy bcrypt hash to mitigate timing-based user enumeration
+const DUMMY_HASH = bcrypt.hashSync('invalid-password', 12);
+
+function sameOrigin(req: NextApiRequest) {
+  const host = req.headers.host || '';
+  const proto = (req.headers['x-forwarded-proto'] as string) || (process.env.NODE_ENV === 'production' ? 'https' : 'http');
+  const originExpected = `${proto}://${host}`;
+  const origin = (req.headers.origin as string) || '';
+  const referer = (req.headers.referer as string) || '';
+  // Accept if Origin matches exactly, or Referer starts with our origin
+  if (origin && origin.toLowerCase() === originExpected.toLowerCase()) return true;
+  if (referer && referer.toLowerCase().startsWith(originExpected.toLowerCase())) return true;
+  return false;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  // Basic anti-CSRF for login (prevents login CSRF). Require same-origin request.
+  if (!sameOrigin(req)) {
+    return res.status(403).json({ error: 'Cross-site request not allowed' });
   }
 
   try {
@@ -48,10 +68,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const user = await prisma.user.findUnique({ where: { username } });
-  if (!user) return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
+  if (!user) {
+    // Equalize timing against valid users
+    try { await bcrypt.compare(password, DUMMY_HASH); } catch {}
+    return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
+  }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
+
+  // Refuse to operate with a weak/missing session password in production
+  if (process.env.NODE_ENV === 'production') {
+    const pw = process.env.SESSION_PASSWORD || '';
+    if (pw.length < 32) return res.status(500).json({ error: 'Server misconfigured: SESSION_PASSWORD too short' });
+  }
 
   const session = await getIronSession<AppSession>(req, res, sessionOptions);
   session.user = { id: user.id, username: user.username, role: 'ADMIN' };
