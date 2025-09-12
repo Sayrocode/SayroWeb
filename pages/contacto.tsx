@@ -55,7 +55,7 @@ function HeroContacto() {
     <Box as="section" position="relative" bg="gray.900" color="white">
       <Box position="absolute" inset={0} zIndex={0} aria-hidden>
         <ChakraImage
-          src="/image6.jpg" // tu imagen de contacto
+          src="/contactohero.jpg?v=1" // tu imagen de contacto
           alt="Atención y contacto Sayro"
           w="100%"
           h={{ base: "42vh", md: "48vh", lg: "52vh" }}   // ← mismas alturas

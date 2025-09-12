@@ -26,6 +26,10 @@ const HomePropertiesLazy = dynamic(() => import("../components/HomeProperties"),
   ssr: false,
   loading: () => null,
 });
+const HomeContactSectionLazy = dynamic(() => import("components/HomeContactSection"), {
+  ssr: true,
+  loading: () => null,
+});
 
 // Mount children only when they enter the viewport to avoid loading their chunks early
 function Viewport({ children, rootMargin = "300px 0px" }: PropsWithChildren<{ rootMargin?: string }>) {
@@ -117,6 +121,11 @@ export default function HomePage() {
 
         <HomePropertiesLazy />
         <ServicesGridLazy ipad={isIpad} fullScreen={isIpad} cardScale={isIpad ? 1.15 : 1} />
+
+        {/* Contacto: sección específica del home, debajo de servicios */}
+        <Viewport>
+          <HomeContactSectionLazy />
+        </Viewport>
 
       </main>
       </Layout>

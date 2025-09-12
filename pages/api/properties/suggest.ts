@@ -64,14 +64,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (seenLoc.has(keyL)) continue; seenLoc.add(keyL);
     items.push({ type: 'location', label: v, value: v });
   }
-  // operations
+  // operations (sinónimos ES/EN)
   const qn = q.toLowerCase();
-  if ('venta'.includes(qn) || qn.includes('venta')) items.push({ type: 'operation', label: 'Venta', value: 'sale' });
-  if ('renta'.includes(qn) || qn.includes('renta')) items.push({ type: 'operation', label: 'Renta', value: 'rental' });
+  const isSale = /\b(venta|vender|compra|comprar|sale|sell|purchase)\b/.test(qn);
+  const isRent = /\b(renta|rent|rental|alquiler|arrendamiento|lease|leased?)\b/.test(qn);
+  if (isSale) items.push({ type: 'operation', label: 'Venta', value: 'sale' });
+  if (isRent) items.push({ type: 'operation', label: 'Renta', value: 'rental' });
+
+  // tipos en inglés comunes como sugerencia adicional
+  const typeSyn: Record<string,string> = {
+    house: 'Casa', apartment: 'Departamento', flat: 'Departamento', condo: 'Departamento',
+    land: 'Terreno', lot: 'Terreno', plot: 'Terreno', office: 'Oficina', shop: 'Local', store: 'Local',
+    warehouse: 'Bodega', villa: 'Villa', industrial: 'Nave industrial', commercial: 'Local comercial',
+  };
+  const words = qn.split(/[^a-z0-9ñ]+/).filter(Boolean);
+  const added = new Set<string>();
+  for (const w of words) {
+    const label = typeSyn[w];
+    if (label && !added.has(label)) { items.push({ type: 'type', label, value: label }); added.add(label); }
+  }
+
+  // ubicaciones abreviadas comunes
+  if (/\bqro\b/.test(qn)) items.push({ type: 'location', label: 'Querétaro', value: 'Querétaro' });
+  if (/\bcdmx\b|\bdf\b/.test(qn)) items.push({ type: 'location', label: 'Ciudad de México', value: 'Ciudad de México' });
 
   const payload = { items } satisfies Payload;
   setCache(key, payload);
   res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
   return res.status(200).json(payload);
 }
-

@@ -33,11 +33,11 @@ export default function Propiedades() {
   const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "", type: "", operation: '' });
   const [qRaw, setQRaw] = useState("");
   const [qDebounced, setQDebounced] = useState("");
-  // Debounce largo para filtrar resultados (evita trabajo pesado mientras tipeas)
-  useEffect(() => { const h = setTimeout(() => setQDebounced(qRaw), 700); return () => clearTimeout(h); }, [qRaw]);
-  // Debounce medio para sugerencias
+  // Debounce más largo para filtros (suaviza la experiencia al teclear rápido)
+  useEffect(() => { const h = setTimeout(() => setQDebounced(qRaw), 950); return () => clearTimeout(h); }, [qRaw]);
+  // Debounce mayor para sugerencias (evita consultas mientras se escribe)
   const [qSuggest, setQSuggest] = useState("");
-  useEffect(() => { const h = setTimeout(() => setQSuggest(qRaw), 350); return () => clearTimeout(h); }, [qRaw]);
+  useEffect(() => { const h = setTimeout(() => setQSuggest(qRaw), 750); return () => clearTimeout(h); }, [qRaw]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -354,6 +354,7 @@ export default function Propiedades() {
   type ParsedQuery = {
     terms: string[];
     typeHints: string[]; // casa, departamento, terreno, etc
+    operation?: '' | 'sale' | 'rental';
     bedrooms?: number;
     bathrooms?: number;
     parking?: number;
@@ -386,6 +387,12 @@ export default function Propiedades() {
     };
 
     tokens.forEach(maybeType);
+
+    // Operación: venta/compra/sale vs renta/alquiler/rent/lease
+    let op: '' | 'sale' | 'rental' = '';
+    const allText = ` ${q} `;
+    if (/\b(venta|vender|compra|comprar|sale|sell|purchase)\b/.test(allText)) op = 'sale';
+    if (/\b(renta|rent|rental|alquiler|arrendamiento|lease|leased?)\b/.test(allText)) op = op || 'rental';
 
     // números con unidades: 3 recamaras, 2 baños, 1 estacionamiento
     let bedrooms: number | undefined;
@@ -480,7 +487,7 @@ export default function Propiedades() {
       }
     }
 
-    return { terms: tokens, typeHints, bedrooms, bathrooms, parking, place, sizeMin, sizeRangeMin, sizeRangeMax, sizeBucketMin, sizeBucketMax, impliedLandBySize, sizeGuess, amenityGuess }; 
+    return { terms: tokens, typeHints, operation: op, bedrooms, bathrooms, parking, place, sizeMin, sizeRangeMin, sizeRangeMax, sizeBucketMin, sizeBucketMax, impliedLandBySize, sizeGuess, amenityGuess };
   }
 
   function getPriceAmount(p: any): number | null {
@@ -524,7 +531,7 @@ export default function Propiedades() {
     const q = (qDebounced || "").trim();
     const parsed = parseQuery(q);
     const city = norm(filters.city || "");
-    const opFilter = (filters.operation || '') as '' | 'sale' | 'rental';
+    const opFilterRaw = (filters.operation || '') as '' | 'sale' | 'rental';
     const [min, max] = (() => {
       switch (filters.price) {
         case "0-1000000":
@@ -554,7 +561,8 @@ export default function Propiedades() {
     })();
 
     const results = allProperties.filter((p) => {
-      // operación (venta/renta) si está filtrada
+      // operación (venta/renta): usar filtro explícito o lo detectado en el texto
+      const opFilter = (opFilterRaw || parsed.operation) as (''|'sale'|'rental');
       if (opFilter) {
         const kind = (p as any).opKind as ('' | 'sale' | 'rental') || (String(p?.operations?.[0]?.type || '').toLowerCase().includes('rental') ? 'rental' : (String(p?.operations?.[0]?.type || '').toLowerCase().includes('sale') ? 'sale' : ''));
         if (kind !== opFilter) return false;
