@@ -23,26 +23,38 @@ export default function HomeContactSection() {
   const sectionBg = useColorModeValue("#FBF6E9", "gray.900");
 
   return (
-    <Box as="section" bg={sectionBg} pt={{ base: 8, md: 12 }} pb={0}>
+    <Box
+      as="section"
+      id="contacto"
+      bg={sectionBg}
+      pt={{ base: 8, md: 12 }}
+      pb={0}
+      // margen de scroll para que el ancla no quede oculta bajo el navbar fijo
+      scrollMarginTop={{ base: "56px", md: "64px" }}
+    >
       {/* Full-bleed: sin márgenes horizontales */}
       <Container maxW="100%" px={0} py={0} position="relative">
         {/* Sin espacios entre verde e imagen en desktop */}
-        <Grid templateColumns={{ base: "1fr", md: "1.1fr 1.2fr" }} gap={{ base: 6, md: 0 }} alignItems="stretch">
+        <Grid
+          templateColumns={{ base: "1fr", md: "1.1fr 1.2fr" }}
+          gap={{ base: 0, md: 0 }}
+          alignItems="stretch"
+        >
           {/* Panel izquierdo */}
           <GridItem>
             <Box
               bg={GREEN}
               color="white"
-              /* Esquinas exteriores redondeadas; costado al centro recto */
-              borderTopLeftRadius={{ base: "none", md: "none" }}
-              borderBottomLeftRadius={{ base: "none", md: "none" }}
+              /* Bordes responsivos: en móvil (stack) redondea arriba; en desktop, sin esquinas (par con imagen) */
+              borderTopLeftRadius={{ base: "lg", md: "none" }}
               borderTopRightRadius={{ base: "lg", md: "none" }}
-              borderBottomRightRadius={{ base: "lg", md: "none" }}
+              borderBottomLeftRadius={{ base: "none", md: "none" }}
+              borderBottomRightRadius={{ base: "none", md: "none" }}
               pl={{ base: 6, md: 10 }}
               pr={{ base: 2, md: 0 }}
               py={{ base: 8, md: 12 }}
               position="relative"
-              minH={{ md: "520px" }}
+              minH={{ base: "", md: "520px" }}
               /* Sin borde/sombra para que no se vea separación */
               border="none"
               boxShadow="none"
@@ -59,28 +71,50 @@ export default function HomeContactSection() {
                 CONTACTO
               </Heading>
 
+              {/* Retrato del asesor: arriba del texto en mobile y tablet; flotante a la derecha en desktop */}
+              <ChakraImage
+                src="/director.jpg"
+                alt="Retrato"
+                position={{ base: 'relative', md: 'relative', lg: 'absolute' }}
+                top={{ base: 'auto', md: 'auto', lg: '16%' }}
+                right={{ base: 'auto', md: 'auto', lg: 0 }}
+                transform={{ base: 'none', md: 'none', lg: 'translateX(50%)' }}
+                w={{ base: 28, sm: 32, md: 40, lg: 56, xl: 64 }}
+                h="auto"
+                rounded="md"
+                shadow="xl"
+                border="1px solid rgba(255,255,255,.6)"
+                display="block"
+                zIndex={2}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+                mx={{ base: 'auto', md: 'auto', lg: 'unset' }}
+                mb={{ base: 4, md: 6, lg: 0 }}
+              />
+
               {/* Contenido textual con espacio reservado para el retrato */}
               {/* Acerca el texto al retrato; reserva ~mitad de la foto + pequeño margen */}
-              <VStack align="start" spacing={{ base: 1.5, md: 2 }} pr={{ base: 0, md: 30 }}>
-                <Text fontSize={{ base: "xl", md: "2xl" }}>
+              <VStack align={{ base: 'center', md: 'start' }} textAlign={{ base: 'center', md: 'left' }} spacing={{ base: 1.5, md: 2 }} pr={{ base: 0, md: 28 }}>
+                <Text fontSize={{ base: "lg", md: "2xl" }}>
                   Raul Martín Salamanca Riba
                 </Text>
-                <Text fontSize={{ base: "lg", md: "2xl" }} fontStyle="italic" fontWeight="semibold">
+                <Text fontSize={{ base: "md", md: "xl" }} fontStyle="italic" fontWeight="semibold">
                   Director
                 </Text>
 
                 <Box h={{ base: 2, md: 4 }} />
 
-                <Text fontSize={{ base: "md", md: "lg" }} fontStyle="italic">
+                <Text fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
                   Av. Circunvalación 11-5
                 </Text>
-                <Text fontSize={{ base: "md", md: "lg" }} fontStyle="italic">
+                <Text fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
                   Col. Diligencias C.P. 76020 Qro. Qro.
                 </Text>
-                <Text fontSize={{ base: "md", md: "lg" }} fontStyle="italic">
-                  (442)213-30-30
+                <Text fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
+                  <Link href="tel:+524422133030" _hover={{ textDecoration: 'underline' }}>(442)213-30-30</Link>
                 </Text>
-                <Text fontSize={{ base: "md", md: "lg" }} fontStyle="italic">
+                <Text fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
                   9:00 a 17:00 (lunes a viernes)
                 </Text>
               </VStack>
@@ -100,23 +134,7 @@ export default function HomeContactSection() {
                 </HStack>
               </Box>
 
-              {/* Retrato flotante */}
-              <ChakraImage
-                src="/director.jpg" // retrato (actualiza si subes otro)
-                alt="Retrato"
-                position="absolute"
-                top={{ base: "14%", md: "18%" }}
-                right={{ base: 0, md: 0 }}
-                left="auto"
-                transform="translateX(50%)" /* mitad sobre el borde de unión */
-                w={{ base: 40, md: 56 }}
-                h="auto"
-                rounded="md"
-                shadow="xl"
-                border="1px solid rgba(255,255,255,.6)"
-                display={{ base: "none", sm: "block" }}
-                zIndex={2}
-              />
+              
             </Box>
           </GridItem>
 
@@ -125,11 +143,11 @@ export default function HomeContactSection() {
             <Box
               role="img"
               aria-label="Edificio"
-              /* Esquinas exteriores redondeadas; costado al centro recto */
+              /* En móvil, redondea abajo; en desktop, sin esquinas */
+              borderTopLeftRadius={{ base: "none", md: "none" }}
               borderTopRightRadius={{ base: "none", md: "none" }}
-              borderBottomRightRadius={{ base: "none", md: "none" }}
-              borderTopLeftRadius={{ base: "lg", md: "none" }}
               borderBottomLeftRadius={{ base: "lg", md: "none" }}
+              borderBottomRightRadius={{ base: "lg", md: "none" }}
               overflow="hidden"
               position="relative"
               minH={{ base: 56, md: 96 }}
@@ -143,9 +161,13 @@ export default function HomeContactSection() {
                 w="100%"
                 h="100%"
                 objectFit="cover"
+                objectPosition={{ base: 'center', md: 'center right' }}
                 bg={GREEN} /* fondo verde mientras carga para mantener estética */
                 display="block" /* elimina gap por baseline de imagen */
                 draggable={false}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
               />
             </Box>
           </GridItem>

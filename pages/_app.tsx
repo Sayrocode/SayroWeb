@@ -18,7 +18,14 @@ function MyApp({ Component, pageProps }: AppProps) {
     const start = (url: string) => {
       if (url !== router.asPath) setRouteLoading(true);
     };
-    const done = () => setRouteLoading(false);
+    const done = (url?: string) => {
+      setRouteLoading(false);
+      try {
+        const h = typeof window !== 'undefined' ? (window.location.hash || '') : '';
+        const id = h.startsWith('#') ? h.slice(1) : '';
+        if (id) window.dispatchEvent(new CustomEvent('app:show-section', { detail: { id } } as any));
+      } catch {}
+    };
     const custom = () => {
       // Start loader even before Next.js route event, with a fallback auto-hide
       setRouteLoading(true);
@@ -38,6 +45,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   }, [router]);
   useEffect(() => {
     try { document.body.style.overflow = routeLoading ? 'hidden' : ''; } catch {}
+    try { if (!routeLoading) window.dispatchEvent(new CustomEvent('app:route-loading-done')); } catch {}
   }, [routeLoading]);
   return (
     <ChakraProvider theme={theme}>

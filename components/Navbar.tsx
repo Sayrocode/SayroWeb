@@ -28,7 +28,8 @@ const publicLinks = [
   { name: "Inicio", href: "/" },
   { name: "Nosotros", href: "/#nosotros" },
   { name: "Servicios", href: "/#servicios" },
-  { name: "Contacto", href: "/contacto" },
+  // Cambiamos contacto para apuntar a la sección del home
+  { name: "Contacto", href: "/#contacto" },
   // Mantener orden según diseño de referencia
   { name: "Noticias", href: "/#noticias" },
 ];
@@ -74,6 +75,19 @@ export default function Navbar() {
   const isActive = (href: string) =>
     href === "/" ? router.pathname === "/" : router.pathname.startsWith(href);
 
+  function prewarmContactoAssets() {
+    if (typeof window === 'undefined') return;
+    try { import('components/HomeContactSection'); } catch {}
+    try {
+      ['/contactohero.jpg?v=1', '/director.jpg'].forEach((src) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.loading = 'eager' as any;
+        img.src = src;
+      });
+    } catch {}
+  }
+
   function handleNavClick(e: React.MouseEvent, href: string) {
     if (!href.startsWith('/#')) {
       // navegación normal; si cambiará de ruta, dispara loader custom
@@ -81,6 +95,7 @@ export default function Navbar() {
       if (!same) navStart();
       return;
     }
+    if (href === '/#contacto') prewarmContactoAssets();
     const id = href.slice(2);
     if (router.pathname !== '/') {
       // Deja que el router navegue con hash para que el ancla funcione tras montar
@@ -90,8 +105,31 @@ export default function Navbar() {
       return;
     }
     e.preventDefault();
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Actualiza el hash sin desplazamiento brusco
+    try {
+      const url = new URL(window.location.href);
+      url.hash = id;
+      window.history.replaceState(null, '', url.toString());
+    } catch {}
+    // Si aún no existe (por carga diferida), fuerza el montaje y reintenta scroll
+    let attempts = 0;
+    const tryScroll = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        const md = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 48em)').matches;
+        const headerOffset = md ? 64 : 56;
+        const y = el.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - headerOffset;
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {}
+        try { window.scrollTo({ top: y, behavior: 'smooth' }); } catch {}
+      } else if (attempts < 8) {
+        attempts += 1;
+        if (attempts === 1) {
+          try { window.dispatchEvent(new CustomEvent('app:show-section', { detail: { id } } as any)); } catch {}
+        }
+        setTimeout(tryScroll, attempts === 1 ? 50 : 150);
+      }
+    };
+    tryScroll();
   }
 
   return (
@@ -167,6 +205,8 @@ export default function Navbar() {
                     hoverColor={hoverColor}
                     activeBar={activeBar}
                     onClick={(e: any) => handleNavClick(e, link.href)}
+                    onMouseEnter={link.href === '/#contacto' ? () => prewarmContactoAssets() : undefined}
+                    onFocus={link.href === '/#contacto' ? () => prewarmContactoAssets() : undefined}
                   >
                     {link.name}
                   </NavItem>
@@ -230,6 +270,8 @@ export default function Navbar() {
                   color={linkColor}
                   hoverColor={hoverColor}
                   onClick={(e: any) => { handleNavClick(e, link.href); onClose(); }}
+                  onMouseEnter={link.href === '/#contacto' ? () => prewarmContactoAssets() : undefined}
+                  onFocus={link.href === '/#contacto' ? () => prewarmContactoAssets() : undefined}
                 >
                   {link.name}
                 </MobileNavItem>
@@ -253,6 +295,8 @@ function NavItem({
   hoverColor,
   activeBar,
   onClick,
+  onMouseEnter,
+  onFocus,
 }: {
   href: string;
   children: React.ReactNode;
@@ -261,12 +305,16 @@ function NavItem({
   hoverColor: string;
   activeBar: string;
   onClick?: (e: any) => void;
+  onMouseEnter?: () => void;
+  onFocus?: () => void;
 }) {
   return (
     <ChakraLink
       as={NextLink}
       href={href}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onFocus={onFocus}
       position="relative"
       fontWeight="bold"
       fontSize="md"
@@ -302,6 +350,8 @@ function MobileNavItem({
   hoverColor,
   activeBar,
   onClick,
+  onMouseEnter,
+  onFocus,
 }: {
   href: string;
   children: React.ReactNode;
@@ -310,12 +360,16 @@ function MobileNavItem({
   hoverColor: string;
   activeBar: string;
   onClick?: (e: any) => void;
+  onMouseEnter?: () => void;
+  onFocus?: () => void;
 }) {
   return (
     <ChakraLink
       as={NextLink}
       href={href}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onFocus={onFocus}
       py={3.5}
       px={1}
       fontSize="lg"
