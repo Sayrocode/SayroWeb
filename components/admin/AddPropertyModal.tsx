@@ -110,6 +110,16 @@ export default function AddPropertyModal({ isOpen, onClose, onCreated }: Props) 
     if (!title.trim()) { toast({ title: 'Título requerido', status: 'warning' }); return; }
     if (!saleEnabled && !rentEnabled) { toast({ title: 'Selecciona al menos una operación (venta/renta)', status: 'warning' }); return; }
     if (!locationName.trim()) { toast({ title: 'Ubicación (name) requerida', description: 'Escribe: Colonia, Ciudad, Estado. Ejemplo: Sonterra, Querétaro, Querétaro', status: 'warning' }); return; }
+    const latNum = parseFloat(lat);
+    const lngNum = parseFloat(lng);
+    if (!Number.isFinite(latNum) || latNum < -90 || latNum > 90) {
+      toast({ title: 'Latitud requerida', description: 'Ingresa una latitud válida (-90 a 90).', status: 'warning' });
+      return;
+    }
+    if (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180) {
+      toast({ title: 'Longitud requerida', description: 'Ingresa una longitud válida (-180 a 180).', status: 'warning' });
+      return;
+    }
     if (saleEnabled && (!salePrice || salePrice <= 0)) { toast({ title: 'Precio de venta inválido', status: 'warning' }); return; }
     if (rentEnabled && (!rentPrice || rentPrice <= 0)) { toast({ title: 'Precio de renta inválido', status: 'warning' }); return; }
     setLoading(true);
@@ -181,8 +191,8 @@ export default function AddPropertyModal({ isOpen, onClose, onCreated }: Props) 
             name: locationName,
             street: address || undefined,
             postal_code: postalCode || undefined,
-            latitude: lat ? parseFloat(lat) : undefined,
-            longitude: lng ? parseFloat(lng) : undefined,
+            latitude: latNum,
+            longitude: lngNum,
             exterior_number: exteriorNumber || undefined,
             cross_street: crossStreet || undefined,
           },
@@ -317,13 +327,13 @@ export default function AddPropertyModal({ isOpen, onClose, onCreated }: Props) 
                 </FormControl>
               </HStack>
               <HStack>
-                <FormControl>
+                <FormControl isRequired>
                   <FormLabel>Latitud</FormLabel>
-                  <Input value={lat} onChange={(e) => setLat(e.target.value)} placeholder='Opcional' />
+                  <Input value={lat} onChange={(e) => setLat(e.target.value)} placeholder='Ej. 20.6736' />
                 </FormControl>
-                <FormControl>
+                <FormControl isRequired>
                   <FormLabel>Longitud</FormLabel>
-                  <Input value={lng} onChange={(e) => setLng(e.target.value)} placeholder='Opcional' />
+                  <Input value={lng} onChange={(e) => setLng(e.target.value)} placeholder='Ej. -100.3850' />
                 </FormControl>
               </HStack>
             </Stack>

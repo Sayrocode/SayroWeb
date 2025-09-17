@@ -114,7 +114,7 @@ export default function Footer() {
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   return (
-    <Box bg="brand.900" color="white">
+    <Box bg="#013927" color="white">
       {/* Sección principal */}
       <Container maxW="7xl" py={{ base: 8, md: 12, lg: 14 }} px={{ base: 4, md: 6 }}>
         <Stack
@@ -205,7 +205,7 @@ export default function Footer() {
       </Container>
 
       {/* Subfooter */}
-      <Box bg="brand.700">
+      <Box bg="#0E3B30">
         <Container maxW="7xl" py={{ base: 4, md: 5 }} px={{ base: 4, md: 6 }}>
           <Stack
             direction={{ base: "column", md: "row" }}

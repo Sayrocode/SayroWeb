@@ -54,7 +54,6 @@ function CallMenu({ phone }: { phone?: string | null }) {
 }
 
 export default function EgoSection({ q, visible, onTotal }: Props) {
-  const [showAllEgo, setShowAllEgo] = React.useState(false);
   const [pendingMore, setPendingMore] = React.useState(false);
   const EGO_PAGE_SIZE = 30;
   const getEgoKey = (index: number) => (visible)
@@ -66,7 +65,9 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      dedupingInterval: 15000,
+      dedupingInterval: 30000,
+      persistSize: true,
+      revalidateFirstPage: false,
     }
   );
   const egoPages = egoData || [];
@@ -114,33 +115,19 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
   }, [visible, setEgoSize]);
   React.useEffect(() => { if (!egoLoading) setPendingMore(false); }, [egoLoading]);
 
-  const importEgo = async () => {
-    if (!confirm('¿Importar contactos desde EgoRealEstate? Esto puede tardar.')) return;
-    const r = await fetch('/api/admin/ego/contacts', { method: 'POST' });
-    if (r.ok) mutateEgo?.();
-    else {
-      const j = await r.json().catch(() => ({}));
-      alert(j?.error || 'No se pudo importar');
-    }
-  };
-
   return (
     <>
       <Heading size='lg' mt={12} mb={3}>Contactos EGO</Heading>
       <HStack mb={4}>
         <Badge variant='subtle'>{egoTotal || 0} total</Badge>
         <Spacer />
-        {!showAllEgo && egoItems.length > 24 && (
-          <Button size='sm' variant='outline' onClick={() => setShowAllEgo(true)}>Ver todos</Button>
-        )}
-        <Button colorScheme='purple' size='sm' onClick={importEgo} isLoading={egoLoading}>Importar</Button>
       </HStack>
       {egoItems.length === 0 ? (
-        <Text color='gray.600'>No hay contactos aún. Usa “Importar”.</Text>
+        <Text color='gray.600'>No hay contactos aún.</Text>
       ) : (
         <>
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
-            {(showAllEgo ? egoItems : egoItems.slice(0, 24)).map((c: any) => (
+            {egoItems.map((c: any) => (
               <Box key={c.id} borderWidth='1px' rounded='lg' bg='white' p={4}>
                 <Heading as='h3' size='md' mb={2}>{c.name || 'Sin nombre'}</Heading>
                 <Stack spacing={1} color='gray.700'>
@@ -154,7 +141,7 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
                     <HStack spacing={2}>
                       <CallMenu phone={c.phone} />
                       {c.phone && (
-                        <Button as='a' href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`} target='_blank' rel='noopener noreferrer' size={{ base: 'sm', md: 'xs' }} w={{ base: 'full', sm: 'auto' }} colorScheme='whatsapp' leftIcon={<FaWhatsapp />} rounded='full'>
+                        <Button as='a' href={`https://wa.me/${digitsOnly(c.phone)}?text=${encodeURIComponent(`Hola ${c.name || ''}. Te contacto de Sayro Bienes Raíces.`)}`} target='_blank' rel='noopener noreferrer' size={{ base: 'sm', md: 'xs' }} w={{ base: 'full', sm: 'auto' }} bgColor={'green.400'} leftIcon={<FaWhatsapp />} rounded='full'>
                           WhatsApp
                         </Button>
                       )}
@@ -173,29 +160,20 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
               </Box>
             ))}
           </SimpleGrid>
-          {showAllEgo && (
-            <>
-              <Box ref={egoLoaderRef} h='1px' />
-              {(!egoEnd && (pendingMore || egoLoading)) && (
-                <Box mt={4}>
-                  <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Box key={i} borderWidth='1px' rounded='lg' bg='white' p={4}>
-                        <Box height='20px' bg='gray.100' mb={2} rounded='md' />
-                        <Box height='16px' bg='gray.100' mb={1} rounded='md' />
-                        <Box height='16px' bg='gray.100' mb={1} rounded='md' />
-                        <Box height='16px' bg='gray.100' mb={1} rounded='md' />
-                      </Box>
-                    ))}
-                  </SimpleGrid>
-                </Box>
-              )}
-              {!egoEnd && !egoLoading && !pendingMore && (
-                <Box textAlign='center' mt={6}>
-                  <Button onClick={() => setEgoSize(egoSize + 1)} variant='outline'>Cargar más EGO</Button>
-                </Box>
-              )}
-            </>
+          <Box ref={egoLoaderRef} h='1px' />
+          {(!egoEnd && (pendingMore || egoLoading)) && (
+            <Box mt={4}>
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Box key={i} borderWidth='1px' rounded='lg' bg='white' p={4}>
+                    <Box height='20px' bg='gray.100' mb={2} rounded='md' />
+                    <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                    <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                    <Box height='16px' bg='gray.100' mb={1} rounded='md' />
+                  </Box>
+                ))}
+              </SimpleGrid>
+            </Box>
           )}
         </>
       )}

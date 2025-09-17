@@ -54,7 +54,7 @@ const SERVICES: Service[] = [
 
 function ServiceCard({ icon, title, desc, scale = 1 }: Service & { scale?: number }) {
   // Fondo verde como el de las letras y texto blanco
-  const cardBg = 'green.700';
+  const cardBg = '#013927';
   const border = 'whiteAlpha.300';
   const iconBg = 'whiteAlpha.200';
   const iconColor = 'white';

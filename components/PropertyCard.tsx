@@ -71,7 +71,7 @@ export default function PropertyCard({ property, priority = false, sizes = "(max
     && (property as any).cover_zoom! >= 1.0 && (property as any).cover_zoom! <= 2.0)
     ? (property as any).cover_zoom!
     : 1;
-  const cardBg = useColorModeValue("white", "gray.800");
+  const cardBg = '#fffcf1';
   const border = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
   const titleColorHover = useColorModeValue("green.700", "green.300");
   const locationText = getLocationText(property.location);

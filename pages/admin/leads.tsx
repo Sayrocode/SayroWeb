@@ -294,7 +294,21 @@ export default function LeadsPage() {
   const showEgo = source === '' || source === 'ego';
   const showEasybrokerContacts = source === '' || source === 'easybroker';
 
-  const badgeCount = showLeads ? (q ? aggregated.length : (total || 0)) : showEgo ? (egoTotal || 0) : (ebTotal || 0);
+  // Contador del badge en el header: cuando está en "Todos",
+  // mostrar la suma de las tres secciones visibles (Leads + EGO + EasyBroker).
+  // Bajo búsqueda (q) usamos el número de elementos ya agregados para Leads,
+  // y los totales reportados por las secciones secundarias.
+  let badgeCount: number;
+  if (source === '') {
+    const leadsCount = q ? aggregated.length : (total || 0);
+    badgeCount = leadsCount + (egoTotal || 0) + (ebTotal || 0);
+  } else if (source === 'ego') {
+    badgeCount = egoTotal || 0;
+  } else if (source === 'easybroker') {
+    badgeCount = ebTotal || 0;
+  } else {
+    badgeCount = q ? aggregated.length : (total || 0);
+  }
 
   return (
     <SWRConfig value={{ revalidateOnFocus: false, revalidateOnReconnect: false, dedupingInterval: 15000 }}>
@@ -362,7 +376,7 @@ export default function LeadsPage() {
         )}
 
         {showEasybrokerContacts && !deferSecondary && (
-          <EasyBrokerSection visible onTotal={(n) => setEbTotal(n)} />
+          <EasyBrokerSection visible q={q} onTotal={(n) => setEbTotal(n)} />
         )}
       </Container>
     </Layout>

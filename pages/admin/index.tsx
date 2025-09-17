@@ -11,7 +11,7 @@ import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import useSWRInfinite from 'swr/infinite';
 import Link from 'next/link';
-import AddPropertyModal from '../../components/admin/AddPropertyModal';
+const AddPropertyModal = dynamic(() => import('../../components/admin/AddPropertyModal'), { ssr: false });
 
 type Props = {
   username: string;
@@ -626,7 +626,8 @@ export default function AdminHome({ username }: Props) {
               borderWidth="1px"
               rounded="none"
               overflow="hidden"
-              bg="white"
+              bg={campaignMode && selected.includes(p.id) ? 'green.50' : '#fffcf1'}
+              borderColor={campaignMode && selected.includes(p.id) ? 'green.400' : undefined}
               _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
               transition="all 0.15s ease"
               cursor={campaignMode ? 'pointer' : 'default'}
@@ -663,6 +664,7 @@ export default function AdminHome({ username }: Props) {
                     px={2}
                     py={1}
                     rounded="md"
+                    shadow="sm"
                   />
                 )}
                 <Menu placement="bottom-end" isLazy>

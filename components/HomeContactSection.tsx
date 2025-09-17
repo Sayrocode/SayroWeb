@@ -17,10 +17,10 @@ import { FaFacebook, FaInstagram } from "react-icons/fa";
   y actualiza los src abajo.
 */
 
-const GREEN = "#0E3B30"; // acorde al diseño
+const GREEN = "#013927"; // unificado con About/WhatWeDo/Services
 
 export default function HomeContactSection() {
-  const sectionBg = useColorModeValue("#FBF6E9", "gray.900");
+  const sectionBg = useColorModeValue("#fffcf1", "gray.900");
 
   return (
     <Box

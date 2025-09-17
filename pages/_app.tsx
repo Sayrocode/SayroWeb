@@ -59,6 +59,9 @@ function MyApp({ Component, pageProps }: AppProps) {
           rel="stylesheet"
         />
       </Head>
+      <Script id="force-light-mode" strategy="beforeInteractive">{`
+        try{localStorage.setItem('chakra-ui-color-mode','light');}catch(e){}
+      `}</Script>
       {process.env.NEXT_PUBLIC_FB_PIXEL_ID && (
         <>
           <Script id="fb-pixel-init" strategy="afterInteractive">

@@ -522,7 +522,7 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
             </HStack>
             <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 3, sm: 4, md: 6 }}>
               {uniqueCandidates.map((p) => (
-                <Card key={p.public_id} overflow="hidden" role="article">
+                <Card key={p.public_id} overflow="hidden" role="article" bg="#fffcf1">
                   <AspectRatio ratio={16 / 9}>
                     <ChakraImage
                       src={firstImage(p)}
@@ -577,7 +577,7 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
             </Heading>
             <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 3, sm: 4, md: 6 }}>
               {related.map((p) => (
-                <Card key={p.public_id} overflow="hidden" role="article">
+                <Card key={p.public_id} overflow="hidden" role="article" bg="#fffcf1">
                   <AspectRatio ratio={16 / 9}>
                     <ChakraImage
                       src={firstImage(p)}

@@ -1,6 +1,12 @@
-import { extendTheme } from "@chakra-ui/react";
+import { extendTheme, type ThemeConfig } from "@chakra-ui/react";
+
+const config: ThemeConfig = {
+  initialColorMode: 'light',
+  useSystemColorMode: false,
+};
 
 const theme = extendTheme({
+  config,
   fonts: {
     // next/font variables se definen en Layout: --font-cinzel y --font-montserrat
     heading: "'Binggo Wood', var(--font-cinzel), serif",
@@ -19,10 +25,12 @@ const theme = extendTheme({
     global: {
       html: {
         scrollBehavior: 'smooth',
+        colorScheme: 'light',
       },
       body: {
-        bg: "gray.50",
+        bg: "#fffcf1",
         color: "gray.800",
+        colorScheme: 'light',
       },
       // Brillo blanco reutilizable
       ".text-shiny-white": {

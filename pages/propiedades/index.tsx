@@ -24,13 +24,25 @@ import { SearchIcon } from "@chakra-ui/icons";
 import Link from "next/link";
 import PropertyCard from "../../components/PropertyCard";
 
-type FiltersState = { q: string; city: string; price: string; size: string; type?: string; operation?: '' | 'sale' | 'rental' };
+type FiltersState = {
+  q: string;
+  city: string;
+  price: string;
+  size: string;
+  type?: string;
+  operation?: '' | 'sale' | 'rental';
+  bedroomsMin?: number | '';
+  bathroomsMin?: number | '';
+  colony?: string;
+  areaMin?: number | '';
+  areaMax?: number | '';
+};
 
 export default function Propiedades() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allProperties, setAllProperties] = useState<any[]>([]);
-  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "", type: "", operation: '' });
+  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', colony: '', areaMin: '', areaMax: '' });
   const [qRaw, setQRaw] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   // Debounce más largo para filtros (suaviza la experiencia al teclear rápido)
@@ -143,12 +155,12 @@ export default function Propiedades() {
     if (!hasMore) return;
     if (loading || loadingMore) return;
     // No lookahead durante búsqueda/filtros activos
-    if ((qDebounced || '').trim() || filters.city || filters.price || filters.size || filters.type || filters.operation) return;
+    if ((qDebounced || '').trim() || filters.city || filters.price || filters.size || filters.type || filters.operation || filters.colony || filters.bedroomsMin || filters.bathroomsMin || filters.areaMin || filters.areaMax) return;
     if (lookaheadRef.current === page) return; // ya precargado para este page base
     lookaheadRef.current = page; // marca el base actual
     // precargar la siguiente página en background sin mostrar skeleton
     fetchPageSilent(page + 1).catch(() => {});
-  }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation]);
+  }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.areaMin, filters.areaMax]);
 
   async function fetchPage(nextBatch: number, limit = 18) {
     const map = new Map<string, any>();
@@ -246,6 +258,24 @@ export default function Propiedades() {
       const loc = p?.location;
       const str = typeof loc === "string" ? loc : [loc?.city, loc?.state, loc?.country, loc?.name].filter(Boolean).join(", ");
       if (str) set.add(str);
+    }
+    return Array.from(set).sort();
+  }, [allProperties]);
+
+  // Colonias/barrios a partir de la data disponible (EB: neighborhood/name; DB: primer segmento de locationText)
+  const colonyOptions = useMemo(() => {
+    const set = new Set<string>();
+    const add = (s?: string | null) => { if (s && s.trim()) set.add(s.trim()); };
+    for (const p of allProperties) {
+      const loc = p?.location;
+      if (loc && typeof loc === 'object') {
+        const o: any = loc;
+        add(o.neighborhood);
+        add(o.name);
+      } else if (typeof loc === 'string') {
+        const first = loc.split(',')[0]?.trim();
+        if (first && !/\d/.test(first) && first.length <= 48) add(first);
+      }
     }
     return Array.from(set).sort();
   }, [allProperties]);
@@ -532,6 +562,11 @@ export default function Propiedades() {
     const parsed = parseQuery(q);
     const city = norm(filters.city || "");
     const opFilterRaw = (filters.operation || '') as '' | 'sale' | 'rental';
+    const colony = norm(filters.colony || "");
+    const bedroomsMin = typeof filters.bedroomsMin === 'number' ? filters.bedroomsMin : (parseInt(String(filters.bedroomsMin || ''), 10) || 0);
+    const bathroomsMin = typeof filters.bathroomsMin === 'number' ? filters.bathroomsMin : (parseInt(String(filters.bathroomsMin || ''), 10) || 0);
+    const areaMin = typeof filters.areaMin === 'number' ? filters.areaMin : (parseFloat(String(filters.areaMin || '')) || undefined);
+    const areaMax = typeof filters.areaMax === 'number' ? filters.areaMax : (parseFloat(String(filters.areaMax || '')) || undefined);
     const [min, max] = (() => {
       switch (filters.price) {
         case "0-1000000":
@@ -618,6 +653,14 @@ export default function Propiedades() {
         if (!(typeof p?.parking_spaces === "number" && p.parking_spaces >= parsed.parking)) return false;
       }
 
+      // mínimos explícitos desde filtros avanzados
+      if (bedroomsMin > 0) {
+        if (!(typeof p?.bedrooms === 'number' && p.bedrooms >= bedroomsMin)) return false;
+      }
+      if (bathroomsMin > 0) {
+        if (!(typeof p?.bathrooms === 'number' && (p.bathrooms as number) >= bathroomsMin)) return false;
+      }
+
       // número suelto pequeño => al menos una amenidad >= n
       if (typeof parsed.amenityGuess === 'number') {
         const n = parsed.amenityGuess;
@@ -638,6 +681,11 @@ export default function Propiedades() {
         if (!loc.includes(city)) return false;
       }
 
+      // colonia/barrio explícito
+      if (colony) {
+        if (!loc.includes(colony)) return false;
+      }
+
       // rango de precio
       const amount = getPriceAmount(p);
       if (amount != null && (amount < min || amount > max)) return false;
@@ -645,6 +693,14 @@ export default function Propiedades() {
       // filtro de superficie desde el select
       const sqm = getSizeSqm(p);
       if (filters.size && sqm != null && (sqm < sMin || sqm > sMax)) return false;
+
+      // área mínima/máxima explícita (si el usuario la define, exigimos dato de m²)
+      if (typeof areaMin === 'number' && !Number.isNaN(areaMin)) {
+        if (!(typeof sqm === 'number' && sqm >= areaMin)) return false;
+      }
+      if (typeof areaMax === 'number' && !Number.isNaN(areaMax)) {
+        if (!(typeof sqm === 'number' && sqm <= areaMax)) return false;
+      }
 
       // tamaño por bucket (número en la búsqueda o "500 m2")
       if (typeof parsed.sizeBucketMin === 'number' && typeof parsed.sizeBucketMax === 'number') {
@@ -684,7 +740,7 @@ export default function Propiedades() {
     }
 
     return results;
-  }, [allProperties, filters.type, filters.city, filters.price, filters.size, filters.operation, qDebounced]);
+  }, [allProperties, filters.type, filters.city, filters.price, filters.size, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.areaMin, filters.areaMax, qDebounced]);
 
   // Modo búsqueda completa: cuando el usuario aplica cualquier filtro/consulta,
   // pre-cargamos páginas sucesivas hasta cubrir todo el catálogo available,
@@ -695,12 +751,12 @@ export default function Propiedades() {
   // Deshabilitar prefetch masivo durante búsqueda/filtros para evitar bloqueos
   useEffect(() => {
     setPrefetchAll(false);
-  }, [qDebounced, filters.city, filters.price, filters.size, filters.type]);
+  }, [qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.areaMin, filters.areaMax]);
 
   useEffect(() => {}, [prefetchAll, page, hasMore, loading, loadingMore, isPrefetching]);
 
   const clearFilters = () => {
-    setFilters({ q: "", city: "", price: "", size: "", type: "", operation: '' });
+    setFilters({ q: "", city: "", price: "", size: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', colony: '', areaMin: '', areaMax: '' });
     setQRaw(""); setQDebounced("");
   };
 
@@ -714,7 +770,7 @@ export default function Propiedades() {
           </Breadcrumb>
           <Heading mb={4} color="#0E3B30" textAlign="center">Catálogo de Propiedades</Heading>
 
-          <Wrap spacing={3} align="center" mb={4}>
+          <Wrap spacing={3} align="center" mb={2}>
             <WrapItem flex="1 1 260px" position='relative'>
               <InputGroup>
                 <InputLeftElement pointerEvents="none">
@@ -778,11 +834,20 @@ export default function Propiedades() {
                 <option value="1000+">1000+ m²</option>
               </Select>
             </WrapItem>
-            {/* Búsqueda en vivo (debounced). Sin botón Buscar */}
+            {/* Toggle Avanzadas */}
+            <AdvancedFiltersToggle
+              filters={filters}
+              setFilters={setFilters}
+              colonyOptions={colonyOptions}
+            />
+            {/* Búsqueda automática: solo mantener Limpiar fuera */}
             <WrapItem>
               <Button variant="ghost" onClick={clearFilters}>Limpiar</Button>
             </WrapItem>
           </Wrap>
+
+          {/* Separador visual sutil */}
+          <Box h="1" />
 
         {loading ? (
           <Box>
@@ -852,5 +917,92 @@ export default function Propiedades() {
       </Container>
       </Box>
     </Layout>
+  );
+}
+
+// Subcomponente: botón "Avanzadas" + panel desplegable
+import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
+import { Collapse } from "@chakra-ui/react";
+
+type AdvancedProps = {
+  filters: FiltersState;
+  setFilters: React.Dispatch<React.SetStateAction<FiltersState>>;
+  colonyOptions: string[];
+};
+
+function AdvancedFiltersToggle({ filters, setFilters, colonyOptions }: AdvancedProps) {
+  const [open, setOpen] = React.useState(false);
+  const [draft, setDraft] = React.useState({
+    bedroomsMin: filters.bedroomsMin || '',
+    bathroomsMin: filters.bathroomsMin || '',
+    colony: filters.colony || '',
+    areaMin: filters.areaMin || '',
+    areaMax: filters.areaMax || '',
+  });
+
+  React.useEffect(() => {
+    setDraft({
+      bedroomsMin: filters.bedroomsMin || '',
+      bathroomsMin: filters.bathroomsMin || '',
+      colony: filters.colony || '',
+      areaMin: filters.areaMin || '',
+      areaMax: filters.areaMax || '',
+    });
+  }, [filters.bedroomsMin, filters.bathroomsMin, filters.colony, filters.areaMin, filters.areaMax]);
+
+  const apply = () => {
+    setFilters((f) => ({
+      ...f,
+      bedroomsMin: draft.bedroomsMin === '' ? '' : Number(draft.bedroomsMin),
+      bathroomsMin: draft.bathroomsMin === '' ? '' : Number(draft.bathroomsMin),
+      colony: draft.colony || '',
+      areaMin: draft.areaMin === '' ? '' : Number(draft.areaMin),
+      areaMax: draft.areaMax === '' ? '' : Number(draft.areaMax),
+    }));
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <WrapItem>
+        <Button variant="link" colorScheme="green" onClick={() => setOpen((v) => !v)} rightIcon={open ? <ChevronUpIcon /> : <ChevronDownIcon />}>Avanzadas</Button>
+      </WrapItem>
+      <Collapse in={open} style={{ width: '100%' }}>
+        <Wrap spacing={3} align="center" mt={2}>
+          <WrapItem>
+            <Select bg="white" placeholder="Habitaciones" value={draft.bedroomsMin as any}
+              onChange={(e) => setDraft((d) => ({ ...d, bedroomsMin: (e.target.value ? Number(e.target.value) : '') as any }))}
+              minW="140px">
+              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
+            </Select>
+          </WrapItem>
+          <WrapItem>
+            <Select bg="white" placeholder="Baños" value={draft.bathroomsMin as any}
+              onChange={(e) => setDraft((d) => ({ ...d, bathroomsMin: (e.target.value ? Number(e.target.value) : '') as any }))}
+              minW="140px">
+              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
+            </Select>
+          </WrapItem>
+          <WrapItem>
+            <Select bg="white" placeholder="Colonia" value={draft.colony || ''} onChange={(e) => setDraft((d) => ({ ...d, colony: e.target.value }))} minW="160px">
+              {colonyOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
+            </Select>
+          </WrapItem>
+          <WrapItem>
+            <Input type="number" bg="white" placeholder="Min. área" value={String(draft.areaMin ?? '')}
+              onChange={(e) => setDraft((d) => ({ ...d, areaMin: e.target.value === '' ? '' : Number(e.target.value) }))}
+              minW="140px" />
+          </WrapItem>
+          <WrapItem>
+            <Input type="number" bg="white" placeholder="Máx. área" value={String(draft.areaMax ?? '')}
+              onChange={(e) => setDraft((d) => ({ ...d, areaMax: e.target.value === '' ? '' : Number(e.target.value) }))}
+              minW="140px" />
+          </WrapItem>
+          <WrapItem>
+            <Button colorScheme="green" onClick={apply}>Buscar</Button>
+          </WrapItem>
+        </Wrap>
+      </Collapse>
+    </>
   );
 }

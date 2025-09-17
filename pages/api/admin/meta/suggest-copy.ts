@@ -22,6 +22,17 @@ function pickPrice(ops?: any[]): string | null {
   return null;
 }
 
+function pickOperation(ops?: any[]): 'Venta' | 'Renta' | null {
+  if (!ops?.length) return null;
+  if (ops.find((o) => o?.type === 'sale')) return 'Venta';
+  if (ops.find((o) => o?.type === 'rental')) return 'Renta';
+  return null;
+}
+
+function ensureQueretaro(text: string): string {
+  return /quer[ée]taro/i.test(text) ? text : `${text} · Querétaro`;
+}
+
 function buildFallbackCopy(p: any) {
   let ops: any[] = [];
   try {
@@ -34,10 +45,28 @@ function buildFallbackCopy(p: any) {
     }
   } catch {}
   const price = pickPrice(ops);
-  const headline = limitText(p.title || `${p.propertyType || 'Propiedad'} en ${p.locationText || 'México'}`, 40);
-  const description = limitText([p.propertyType, p.locationText, price ? `Desde ${price}` : null].filter(Boolean).join(' · '), 60);
-  const primaryText = limitText(`${p.title || 'Propiedad destacada'} en ${p.locationText || 'México'}${price ? ` — ${price}` : ''}. Conoce más y agenda tu visita.`, 125);
+  const op = pickOperation(ops);
+  const title = p.title || `${p.propertyType || 'Propiedad'} en Querétaro`;
+  const headline = limitText(ensureQueretaro(title), 40);
+  const descParts = [p.propertyType, op, price].filter(Boolean) as string[];
+  const description = limitText(ensureQueretaro(descParts.join(' · ') || 'Propiedad en Querétaro'), 60);
+  const primaryText = limitText(ensureQueretaro(`${op ? op + ' · ' : ''}${price ? price + ' · ' : ''}${p.locationText || 'Querétaro'}`), 125);
   return { headline, description, primaryText };
+}
+
+// Simple in-memory cache with TTL to speed up repeated generations
+type CacheEntry = { expires: number; data: any };
+const CACHE = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function cacheGet(key: string) {
+  const hit = CACHE.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.expires) { CACHE.delete(key); return null; }
+  return hit.data;
+}
+function cacheSet(key: string, data: any) {
+  CACHE.set(key, { expires: Date.now() + CACHE_TTL_MS, data });
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -51,6 +80,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const props = await prisma.property.findMany({ where: { id: { in: propertyIds } } });
   if (!props.length) return res.status(404).json({ error: 'Propiedades no encontradas' });
+
+  // Cache key based on selection and mode
+  const cacheKey = `${adType}:${[...propertyIds].sort((a,b)=>a-b).join(',')}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return res.status(200).json(cached);
 
   const key = process.env.OPENAI_API_KEY;
   // If no key, build fallback deterministic copy
@@ -91,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const sys = {
     role: 'system',
-    content: 'Eres un copywriter para anuncios de Facebook/Instagram en español neutral. Responde SOLO en JSON. Titular <= 40, Descripción <= 60, PrimaryText <= 125. Enfatiza valor y ubicación, tono cordial, sin claims exagerados. No uses emojis.',
+    content: 'Eres un copywriter para anuncios de Facebook/Instagram en español neutral. Responde SOLO en JSON. Titular <= 40, Descripción <= 60, PrimaryText <= 125. Incluye SIEMPRE: tipo de operación (Venta/Renta), el precio y la mención de que es en Querétaro (si ya aparece en la ubicación, manténlo). Enfatiza valor y ubicación, tono cordial, sin claims exagerados. Sin emojis.',
   };
   const user = {
     role: 'user',
@@ -102,6 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         headlineMax: 40,
         descriptionMax: 60,
         primaryMax: 125,
+        mustInclude: ['operacion', 'precio', 'Querétaro']
       },
       output: adType === 'single'
         ? { schema: { headline: 'string', description: 'string', primaryText: 'string' } }
@@ -116,21 +151,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [sys, user],
-        temperature: 0.7,
+        temperature: 0.3,
         response_format: { type: 'json_object' },
       }),
     });
     const j = await r.json();
     const content = j?.choices?.[0]?.message?.content;
     const parsed = content ? JSON.parse(content) : null;
-    if (adType === 'single' && parsed?.headline) return res.status(200).json({ ok: true, type: 'single', copy: parsed });
-    if (adType === 'carousel' && parsed?.copies) return res.status(200).json({ ok: true, type: 'carousel', message: parsed.message || `Explora ${props.length} propiedades destacadas`, copies: parsed.copies });
+    if (adType === 'single' && parsed?.headline) {
+      const payload = { ok: true, type: 'single', copy: parsed } as const;
+      cacheSet(cacheKey, payload);
+      return res.status(200).json(payload);
+    }
+    if (adType === 'carousel' && parsed?.copies) {
+      const payload = { ok: true, type: 'carousel', message: parsed.message || `Explora ${props.length} propiedades destacadas en Querétaro`, copies: parsed.copies } as const;
+      cacheSet(cacheKey, payload);
+      return res.status(200).json(payload);
+    }
     // Fallback to deterministic
-    if (adType === 'single') return res.status(200).json({ ok: true, type: 'single', copy: buildFallbackCopy(props[0]) });
-    return res.status(200).json({ ok: true, type: 'carousel', message: `Explora ${props.length} propiedades destacadas`, copies: props.map((p) => ({ id: p.id, ...buildFallbackCopy(p) })) });
+    if (adType === 'single') {
+      const payload = { ok: true, type: 'single', copy: buildFallbackCopy(props[0]) } as const;
+      cacheSet(cacheKey, payload);
+      return res.status(200).json(payload);
+    }
+    const payload = { ok: true, type: 'carousel', message: `Explora ${props.length} propiedades destacadas en Querétaro`, copies: props.map((p) => ({ id: p.id, ...buildFallbackCopy(p) })) } as const;
+    cacheSet(cacheKey, payload);
+    return res.status(200).json(payload);
   } catch (e: any) {
-    if (adType === 'single') return res.status(200).json({ ok: true, type: 'single', copy: buildFallbackCopy(props[0]) });
-    return res.status(200).json({ ok: true, type: 'carousel', message: `Explora ${props.length} propiedades destacadas`, copies: props.map((p) => ({ id: p.id, ...buildFallbackCopy(p) })) });
+    if (adType === 'single') {
+      const payload = { ok: true, type: 'single', copy: buildFallbackCopy(props[0]) } as const;
+      cacheSet(cacheKey, payload);
+      return res.status(200).json(payload);
+    }
+    const payload = { ok: true, type: 'carousel', message: `Explora ${props.length} propiedades destacadas en Querétaro`, copies: props.map((p) => ({ id: p.id, ...buildFallbackCopy(p) })) } as const;
+    cacheSet(cacheKey, payload);
+    return res.status(200).json(payload);
   }
 }
-

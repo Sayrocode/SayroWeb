@@ -28,6 +28,7 @@ const publicLinks = [
   { name: "Inicio", href: "/" },
   { name: "Nosotros", href: "/#nosotros" },
   { name: "Servicios", href: "/#servicios" },
+  { name: "Catálogo", href: "/propiedades" },
   // Cambiamos contacto para apuntar a la sección del home
   { name: "Contacto", href: "/#contacto" },
   // Mantener orden según diseño de referencia

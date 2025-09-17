@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Button, IconButton, Stack, Tooltip } from '@chakra-ui/react';
+import { Box, IconButton, Stack, Tooltip } from '@chakra-ui/react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { FiMail } from 'react-icons/fi';
 import { CONTACT_EMAIL, waHref } from '../lib/site';
@@ -20,8 +20,9 @@ export default function ContactWidget() {
   }, []);
 
   return (
-    <Box position='fixed' right={{ base: 3, md: 4 }} bottom={{ base: 3, md: 4 }} zIndex={1000}>
-      <Stack spacing={2} align='end'>
+    <Box position='fixed' right={{ base: 3, md: 4 }} bottom={{ base: 3, md: 4 }} zIndex={1000}
+         bg='#013927' color='white' rounded='full' p={2} shadow='lg' border='1px solid' borderColor='whiteAlpha.300'>
+      <Stack spacing={1} align='end'>
         <Tooltip label='Escríbenos por WhatsApp'>
           <IconButton
             as='a'
@@ -32,16 +33,25 @@ export default function ContactWidget() {
             icon={<FaWhatsapp />}
             rounded='full'
             size='lg'
-            // Forzamos verde WhatsApp explícito para evitar overrides de tema
-            variant='solid'
-            bg='green.400'
+            variant='ghost'
             color='white'
-            _hover={{ bg: 'green.600' }}
-            _active={{ bg: 'green.700' }}
+            _hover={{ bg: 'whiteAlpha.200' }}
+            _active={{ bg: 'whiteAlpha.300' }}
           />
         </Tooltip>
         <Tooltip label='Contáctanos por email'>
-          <IconButton as='a' href={mailto} aria-label='Email' icon={<FiMail />} rounded='full' size='lg' />
+          <IconButton
+            as='a'
+            href={mailto}
+            aria-label='Email'
+            icon={<FiMail />}
+            rounded='full'
+            size='lg'
+            variant='ghost'
+            color='white'
+            _hover={{ bg: 'whiteAlpha.200' }}
+            _active={{ bg: 'whiteAlpha.300' }}
+          />
         </Tooltip>
       </Stack>
     </Box>
