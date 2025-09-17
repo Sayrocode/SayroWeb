@@ -32,6 +32,10 @@ const theme = extendTheme({
         color: "gray.800",
         colorScheme: 'light',
       },
+      // Forzar que todos los títulos usen la misma fuente del hero
+      'h1, h2, h3, h4, h5, h6, .chakra-heading': {
+        fontFamily: "'Binggo Wood', var(--font-cinzel), serif",
+      },
       // Brillo blanco reutilizable
       ".text-shiny-white": {
         textShadow:

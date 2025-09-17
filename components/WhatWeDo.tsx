@@ -194,10 +194,10 @@ export default function WhatWeDo({
                 mb={{ base: 8, md: 0 }}
               >
                 <Heading
-                  as="h2"
-                  fontFamily="heading"
+                  as="p"
+                  fontFamily="'Binggo Wood', heading"
                   fontWeight="700"
-                  fontSize={{ base: "1.5rem", md: "2rem" }}
+                  fontSize={{ base: "2rem", md: "3rem" }}
                   letterSpacing=".02em"
                   lineHeight={1.15}
                 >
@@ -216,10 +216,10 @@ export default function WhatWeDo({
                 w="full"
               >
                 <Heading
-                  as="h3"
-                  fontFamily="heading"
+                  as="p"
+                  fontFamily="'Binggo Wood', heading"
                   fontWeight="700"
-                  fontSize={{ base: "1.5rem", md: "2rem" }}
+                  fontSize={{ base: "2rem", md: "3rem" }}
                   letterSpacing=".02em"
                   lineHeight={1.15}
                 >

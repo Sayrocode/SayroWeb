@@ -165,9 +165,9 @@ export default function AboutSplitHeroParallax({
               <Box>
                 <Heading
                   as="h2" // semántico; si quieres conservar "p", cámbialo
-                  fontFamily="heading"
+                fontFamily="'Binggo Wood', heading"
                   fontWeight="700"
-                  fontSize={ipad ? { base: "3rem", md: "4.2rem" } : { base: "2.6rem", md: "3.8rem" }}
+                  fontSize={ipad ? { base: "4rem", md: "4.2rem" } : { base: "2.6rem", md: "3.8rem" }}
                   lineHeight="1.08"
                   letterSpacing=".02em"
                   mb={{ base: 3, md: 4 }}

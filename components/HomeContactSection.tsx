@@ -63,8 +63,9 @@ export default function HomeContactSection() {
             >
               <Heading
                 as="h2"
-                fontSize={{ base: "2xl", md: "4xl" }}
+                fontSize={{ base: "2xl", md: "5xl" }}
                 letterSpacing="wide"
+                fontFamily="'Binggo Wood', heading"
                 textTransform="uppercase"
                 mb={{ base: 5, md: 6 }}
               >

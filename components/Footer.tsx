@@ -77,6 +77,7 @@ function NavGroup({
         color="white"
         textTransform="uppercase"
         letterSpacing="widest"
+        fontFamily='heading'
       >
         {title}
       </Text>

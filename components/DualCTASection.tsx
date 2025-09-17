@@ -230,10 +230,13 @@ export default function DualCTASection({
         <Heading
           as="h2"
           textAlign="center"
-          fontWeight="600"
-          fontSize={{ base: "xl", md: "2xl" }}
+         fontFamily="'Binggo Wood', heading"
+          fontWeight="extrabold"
+          fontSize={{ base: "2xl", md: "3xl", lg: "4xl" }}
           color={titleColor}
           letterSpacing="wide"
+          textTransform="uppercase"
+
         >
           ANUNCIANTES Y ADQUIERENTES
         </Heading>

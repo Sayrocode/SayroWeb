@@ -77,7 +77,7 @@ function ServiceCard({ icon, title, desc, scale = 1 }: Service & { scale?: numbe
           <Icon as={icon} boxSize={Math.max(5, 5 * scale)} />
         </Box>
         <Box>
-          <Heading as="h3" size={scale > 1 ? 'lg' : 'md'} mb={2} letterSpacing="tight" textTransform="uppercase" color="white">
+          <Heading as="h3" size={scale > 1 ? 'lg' : 'md'} mb={2} letterSpacing="tight" textTransform="uppercase" fontFamily="'Binggo Wood', heading"color="white">
             {title}
           </Heading>
           <Text color={textColor} fontSize={scale > 1 ? 'md' : 'sm'}>{desc}</Text>
@@ -93,7 +93,7 @@ export default function ServicesGrid({ ipad = false, fullScreen = false, cardSca
   return (
     <Box as="section" py={{ base: ipad ? 14 : 10, md: ipad ? 18 : 14 }} bg={sectionBg} minH={fullScreen ? '100vh' : undefined} display={fullScreen ? 'flex' : undefined} alignItems={fullScreen ? 'center' : undefined}>
       <Container maxW="7xl">
-        <Heading id="servicios" as="h2" textAlign="center" fontWeight="600" fontSize={ipad ? { base: '2xl', md: '3xl' } : { base: 'xl', md: '2xl' }} color={titleColor} letterSpacing="wide" mb={{ base: 8, md: 10 }} scrollMarginTop={{ base: '56px', md: '64px' }}>
+        <Heading id="servicios" as="h2"  fontFamily="'Binggo Wood', heading" textAlign="center" fontWeight="600" fontSize={ipad ? { base: '2xl', md: '3xl' } : { base: 'xl', md: '4xl' }} color={titleColor} letterSpacing="wide" mb={{ base: 8, md: 10 }} scrollMarginTop={{ base: '56px', md: '64px' }}>
           NUESTROS SERVICIOS
         </Heading>
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>

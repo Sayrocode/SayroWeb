@@ -73,7 +73,7 @@ export default function PropertyContactPanel({ propertyTitle, propertyId }: Prop
 
   return (
     <Box bg={bgColor} borderRadius="md" p={6} color="white" position={{ base: 'static', lg: 'sticky' }} top={{ base: 'auto', lg: 6 }} boxShadow="lg">
-      <Text fontSize="lg" fontWeight="bold" textAlign="center" mb={3} textTransform="uppercase">Contacto</Text>
+      <Text fontSize="lg" fontWeight="bold" textAlign="center" mb={3} textTransform="uppercase" fontFamily='heading'>Contacto</Text>
 
       {/* CTAs superiores como en la imagen: Agenda una visita (switch) + WhatsApp */}
       <VStack spacing={2} mb={4} align="stretch">

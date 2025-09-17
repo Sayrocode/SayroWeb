@@ -281,7 +281,7 @@ export default function HomeFeaturedCarousel() {
 >
   <Heading
     as="h2"
-    fontFamily="heading"
+     fontFamily="'Binggo Wood', heading"
     fontWeight="700"
     letterSpacing="-0.015em"
     fontSize={{ base: "2.4rem", md: "3.2rem" }}
