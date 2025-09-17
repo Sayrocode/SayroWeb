@@ -29,15 +29,17 @@ import { keyframes } from "@emotion/react";
 import { FiMail, FiPhone, FiMapPin, FiClock, FiArrowRight } from "react-icons/fi";
 import { FaWhatsapp, FaFacebook, FaInstagram } from "react-icons/fa";
 import Layout from "components/Layout";
-import { WA_PHONE, CONTACT_EMAIL, waHref } from "../lib/site";
+import { waHref } from "../lib/site";
 
 const GREEN = "#0E3B30";
 const GREEN_DARK = "#0B2B23";
 
-// ✅ Ajusta tus datos
-const WHATSAPP_NUMBER = WA_PHONE; // centralizado
-const EMAIL_TO = CONTACT_EMAIL;
-const ADDRESS = "Querétaro, Qro., México";
+// Datos de contacto (display/links)
+const PHONE_DISPLAY = "(442) 213-30-30";
+const PHONE_DIGITS = "524422133030"; // tel:/WhatsApp con código de país
+const EMAIL_TO = "info@sayro.com";
+const ADDRESS_LINE1 = "Diligencias, Querétaro 76020";
+const ADDRESS_LINE2 = "Av. Circunvalación 11-5";
 const HOURS = "Lun–Vie 9:00–18:00";
 
 /* ========= Animación igual que /servicios ========= */
@@ -111,20 +113,25 @@ export default function ContactoPage() {
     setLoading(true);
     try {
       const fd = new FormData(e.currentTarget);
-      // TODO: envía a tu endpoint real
-      await new Promise((r) => setTimeout(r, 700));
-      toast({
-        title: "Mensaje enviado",
-        description: "Gracias por escribirnos. Te contactaremos pronto.",
-        status: "success",
+      const payload = {
+        source: 'website',
+        name: String(fd.get('nombre') || ''),
+        email: String(fd.get('email') || ''),
+        phone: String(fd.get('telefono') || ''),
+        message: String(fd.get('mensaje') || ''),
+        pagePath: '/contacto',
+      };
+      const qs = typeof window !== 'undefined' ? (window.location.search || '') : '';
+      const r = await fetch(`/api/leads${qs}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-pathname': '/contacto' },
+        body: JSON.stringify(payload),
       });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      toast({ title: 'Mensaje enviado', description: 'Gracias por escribirnos. Te contactaremos pronto.', status: 'success' });
       e.currentTarget.reset();
     } catch (err: any) {
-      toast({
-        title: "No se pudo enviar",
-        description: err?.message || "Inténtalo nuevamente.",
-        status: "error",
-      });
+      toast({ title: 'No se pudo enviar', description: err?.message || 'Inténtalo nuevamente.', status: 'error' });
     } finally {
       setLoading(false);
     }
@@ -164,12 +171,15 @@ export default function ContactoPage() {
 
                 <HStack align="flex-start" spacing={4} mb={3}>
                   <Icon as={FiMapPin} mt="1" boxSize={{ base: 5, md: 6 }} />
-                  <Text wordBreak="break-word">{ADDRESS}</Text>
+                  <Box>
+                    <Text wordBreak="break-word">{ADDRESS_LINE1}</Text>
+                    <Text wordBreak="break-word">{ADDRESS_LINE2}</Text>
+                  </Box>
                 </HStack>
                 <HStack align="flex-start" spacing={4} mb={3}>
                   <Icon as={FiPhone} mt="1" boxSize={{ base: 5, md: 6 }} />
-                  <Link href={`tel:+${WHATSAPP_NUMBER}`} _hover={{ textDecoration: "underline" }} wordBreak="break-word">
-                    +{WHATSAPP_NUMBER}
+                  <Link href={`tel:+${PHONE_DIGITS}`} _hover={{ textDecoration: "underline" }} wordBreak="break-word">
+                    {PHONE_DISPLAY}
                   </Link>
                 </HStack>
                 <HStack align="flex-start" spacing={4} mb={3}>

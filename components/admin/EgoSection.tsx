@@ -175,6 +175,11 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
               </SimpleGrid>
             </Box>
           )}
+          {!egoEnd && !egoLoading && !pendingMore && (
+            <Box textAlign='center' mt={6}>
+              <Button onClick={() => setEgoSize(egoSize + 1)} variant='outline'>Cargar más</Button>
+            </Box>
+          )}
         </>
       )}
     </>

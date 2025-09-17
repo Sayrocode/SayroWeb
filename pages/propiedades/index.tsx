@@ -218,14 +218,27 @@ export default function Propiedades() {
   // Track scroll direction; don't trigger heavy work while scrolling up
   const lastYRef = useRef(0);
   const scrollingDownRef = useRef(true);
+  const [showScrollCTA, setShowScrollCTA] = useState(false);
+  const ctaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY || 0;
       scrollingDownRef.current = y >= lastYRef.current;
       lastYRef.current = y;
+      // Mostrar CTA mientras hay scroll y el usuario ya bajó suficiente
+      if (y > 300) {
+        setShowScrollCTA(true);
+        if (ctaTimerRef.current) clearTimeout(ctaTimerRef.current);
+        ctaTimerRef.current = setTimeout(() => setShowScrollCTA(false), 1400);
+      } else {
+        setShowScrollCTA(false);
+      }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (ctaTimerRef.current) clearTimeout(ctaTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -916,13 +929,22 @@ export default function Propiedades() {
         )}
       </Container>
       </Box>
+
+      {/* CTA flotante mientras se hace scroll */}
+      <SlideFade in={showScrollCTA} offsetY="24px" style={{ pointerEvents: 'none' }}>
+        <Box position="fixed" left="50%" transform="translateX(-50%)" bottom={{ base: 24, md: 10 }} zIndex={40}>
+          <Button as={Link} href="/contacto" bg="#0E3B30" _hover={{ bg: "#0B2B23" }} color="white" size="lg" px={8} py={6} rounded="full" shadow="xl" fontWeight="semibold" letterSpacing="wide" style={{ pointerEvents: 'auto' }}>
+            ¿No encontraste lo que buscabas?
+          </Button>
+        </Box>
+      </SlideFade>
     </Layout>
   );
 }
 
 // Subcomponente: botón "Avanzadas" + panel desplegable
 import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
-import { Collapse } from "@chakra-ui/react";
+import { Collapse, SlideFade } from "@chakra-ui/react";
 
 type AdvancedProps = {
   filters: FiltersState;
