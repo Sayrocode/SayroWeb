@@ -14,6 +14,7 @@ import Link from 'next/link';
 const AddPropertyModal = dynamic(() => import('../../components/admin/AddPropertyModal'), { ssr: false });
 const CampaignModalContent = dynamic(() => import('../../components/admin/CampaignModalContent'), { ssr: false, loading: () => <Box p={4}>Cargando…</Box> });
 import PropertyCard from '../../components/admin/PropertyCard';
+import VirtualGrid from '../../components/admin/VirtualGrid';
 
 type Props = {
   username: string;
@@ -140,6 +141,14 @@ export default function AdminHome({ username }: Props) {
   }, [size, qDebounced, isLoadingMore, isReachingEnd, setSize]);
   React.useEffect(() => { if (!isLoadingMore) setLookahead(false); }, [isLoadingMore]);
   const [campaignMode, setCampaignMode] = React.useState(false);
+  React.useEffect(() => {
+    try {
+      document.body.classList.toggle('campaign-mode', campaignMode);
+    } catch {}
+    return () => {
+      try { document.body.classList.remove('campaign-mode'); } catch {}
+    };
+  }, [campaignMode]);
   const [selected, setSelected] = React.useState<number[]>([]);
   const selectedSet = React.useMemo(() => new Set(selected), [selected]);
   const onToggleSelect = React.useCallback((id: number) => {
@@ -563,8 +572,7 @@ export default function AdminHome({ username }: Props) {
     const dict = new Map<number, any>((items || []).map((p: any) => [p.id, p]));
     return selected.map((id) => dict.get(id)).filter(Boolean);
   }, [selected, items]);
-  const FacebookSinglePreview = dynamic(() => import('../../components/admin/FacebookSinglePreview'), { ssr: false, loading: () => <Box>Generando vista previa…</Box> });
-  const FacebookCarouselPreview = dynamic(() => import('../../components/admin/FacebookCarouselPreview'), { ssr: false, loading: () => <Box>Generando vista previa…</Box> });
+  // Previews are now loaded inside CampaignModalContent via dynamic import
 
   // Eliminamos OpenAI: no usar generateCopy()
   const generateCopyNative = async () => {
@@ -679,28 +687,35 @@ export default function AdminHome({ username }: Props) {
           </Wrap>
         </Stack>
 
-        <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={{ base: 4, md: 6 }}>
-          {(isInitial && aggregated.length === 0)
-            ? Array.from({ length: 6 }).map((_, i) => (
-                <Box key={i} borderWidth="1px" rounded="none" overflow="hidden" bg="white" p={0}>
-                  <Skeleton height="180px" />
-                  <Box p={3}>
-                    <Skeleton height="20px" mb={2} />
-                    <Skeleton height="16px" width="60%" />
-                  </Box>
+        {(isInitial && aggregated.length === 0) ? (
+          <Box>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Box key={i} borderWidth="1px" rounded="none" overflow="hidden" bg="white" p={0} mb={4}>
+                <Skeleton height="180px" />
+                <Box p={3}>
+                  <Skeleton height="20px" mb={2} />
+                  <Skeleton height="16px" width="60%" />
                 </Box>
-              ))
-            : advancedFiltered.map((p: any) => (
-                <PropertyCard
-                  key={p.id}
-                  property={p}
-                  campaignMode={campaignMode}
-                  isSelected={selectedSet.has(p.id)}
-                  onToggleSelect={onToggleSelect}
-                  onDelete={onDelete}
-                />
-              ))}
-        </SimpleGrid>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <VirtualGrid
+            items={advancedFiltered}
+            itemKey={(p: any) => p.id}
+            rowHeight={360}
+            gap={24}
+            overscanRows={2}
+            renderItem={(p: any) => (
+              <PropertyCard
+                property={p}
+                isSelected={selectedSet.has(p.id)}
+                onToggleSelect={onToggleSelect}
+                onDelete={onDelete}
+              />
+            )}
+          />
+        )}
 
         {/* Sentinel para cargar más */}
         <Box ref={loaderRef} h="1px" />

@@ -3,6 +3,7 @@ import Head from "next/head";
 import type { AppProps } from "next/app";
 import theme from "../theme";
 import "../styles/fonts.css";
+import "../styles/admin.css";
 import Script from "next/script";
 import { FB_PIXEL_ID } from "../lib/fbpixel";
 import type { NextWebVitalsMetric } from 'next/app';

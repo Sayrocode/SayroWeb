@@ -20,7 +20,6 @@ import { FiMoreVertical, FiExternalLink, FiCopy, FiTrash2, FiEdit2, FiMaximize }
 
 export type PropertyCardProps = {
   property: any;
-  campaignMode: boolean;
   isSelected: boolean;
   onToggleSelect: (id: number) => void;
   onDelete: (id: number) => void;
@@ -46,39 +45,45 @@ function getSizeSqmAdmin(p: any): number | null {
   return null;
 }
 
-function InnerCard({ property: p, campaignMode, isSelected, onToggleSelect, onDelete }: PropertyCardProps) {
+function isCampaignMode(): boolean {
+  if (typeof document === 'undefined') return false;
+  try { return document.body.classList.contains('campaign-mode'); } catch { return false; }
+}
+
+function InnerCard({ property: p, isSelected, onToggleSelect, onDelete }: PropertyCardProps) {
   const onTopClick = React.useCallback(
     (e: React.MouseEvent) => {
-      if (campaignMode) {
+      if (isCampaignMode()) {
         e.preventDefault();
         onToggleSelect(p.id);
       }
     },
-    [campaignMode, onToggleSelect, p.id]
+    [onToggleSelect, p.id]
   );
 
   const onEditClick = React.useCallback(
     (e: React.MouseEvent) => {
-      if (campaignMode) {
+      if (isCampaignMode()) {
         e.preventDefault();
         e.stopPropagation();
       }
     },
-    [campaignMode]
+    []
   );
 
   const sqm = getSizeSqmAdmin(p);
 
   return (
     <Box
+      className="pc-card"
       borderWidth="1px"
       rounded="none"
       overflow="hidden"
-      bg={campaignMode && isSelected ? 'green.50' : '#fffcf1'}
-      borderColor={campaignMode && isSelected ? 'green.400' : undefined}
+      bg={isSelected ? 'green.50' : '#fffcf1'}
+      borderColor={isSelected ? 'green.400' : undefined}
       _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
       transition="all 0.15s ease"
-      cursor={campaignMode ? 'pointer' : 'default'}
+      cursor={isCampaignMode() ? 'pointer' : 'default'}
       onClick={onTopClick}
     >
       <Box position="relative">
@@ -107,20 +112,19 @@ function InnerCard({ property: p, campaignMode, isSelected, onToggleSelect, onDe
             />
           </Box>
         </AspectRatio>
-        {campaignMode && (
-          <Checkbox
-            isChecked={isSelected}
-            onChange={() => onToggleSelect(p.id)}
-            position="absolute"
-            top="2"
-            left="2"
-            bg="white"
-            px={2}
-            py={1}
-            rounded="md"
-            shadow="sm"
-          />
-        )}
+        <Checkbox
+          className="pc-check"
+          isChecked={isSelected}
+          onChange={() => onToggleSelect(p.id)}
+          position="absolute"
+          top="2"
+          left="2"
+          bg="white"
+          px={2}
+          py={1}
+          rounded="md"
+          shadow="sm"
+        />
         <Menu placement="bottom-end" isLazy>
           <MenuButton
             as={IconButton}
@@ -163,8 +167,8 @@ function InnerCard({ property: p, campaignMode, isSelected, onToggleSelect, onDe
           {p.publicId && <Badge variant="subtle" rounded="full">ID {p.publicId}</Badge>}
         </HStack>
         <HStack mt={3} spacing={2}>
-          <Button as={Link} href={`/admin/properties/${p.id}`} size="sm" colorScheme="blue" leftIcon={<FiEdit2 />} isDisabled={campaignMode} onClick={onEditClick}>Editar</Button>
-          <Button size="sm" variant="outline" colorScheme="red" leftIcon={<FiTrash2 />} isDisabled={campaignMode} onClick={(e) => { if (!campaignMode) onDelete(p.id); else { e.preventDefault(); e.stopPropagation(); } }}>Eliminar</Button>
+          <Button as={Link} href={`/admin/properties/${p.id}`} size="sm" colorScheme="blue" leftIcon={<FiEdit2 />} onClick={onEditClick}>Editar</Button>
+          <Button size="sm" variant="outline" colorScheme="red" leftIcon={<FiTrash2 />} onClick={(e) => { if (isCampaignMode()) { e.preventDefault(); e.stopPropagation(); } else { onDelete(p.id); } }}>Eliminar</Button>
         </HStack>
       </Box>
     </Box>
@@ -172,4 +176,3 @@ function InnerCard({ property: p, campaignMode, isSelected, onToggleSelect, onDe
 }
 
 export default React.memo(InnerCard);
-
