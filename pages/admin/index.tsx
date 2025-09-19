@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic';
 import useSWRInfinite from 'swr/infinite';
 import Link from 'next/link';
 const AddPropertyModal = dynamic(() => import('../../components/admin/AddPropertyModal'), { ssr: false });
+const CampaignModalContent = dynamic(() => import('../../components/admin/CampaignModalContent'), { ssr: false, loading: () => <Box p={4}>Cargando…</Box> });
 import PropertyCard from '../../components/admin/PropertyCard';
 
 type Props = {
@@ -736,119 +737,20 @@ export default function AdminHome({ username }: Props) {
           </Flex>
         )}
 
-        <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} size='full' scrollBehavior='inside' isLazy lazyBehavior='unmount' autoFocus={false}>
+        {isOpen && (
+        <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} size='full' scrollBehavior='inside' autoFocus={false}>
           <ModalOverlay />
           <ModalContent rounded='0' h='100vh'>
             <ModalHeader>Crear anuncio en Meta</ModalHeader>
             <ModalBody>
-              <Stack spacing={4}>
-                <RadioGroup value={adType} onChange={(v: any) => setAdType(v)}>
-                  <Stack direction='row'>
-                    <Radio value='single' isDisabled={selected.length !== 1}>Single</Radio>
-                    <Radio value='carousel'>Carrusel</Radio>
-                  </Stack>
-                </RadioGroup>
-                <HStack>
-                  <Text w="140px">Presupuesto diario (MXN)</Text>
-                  <NumberInput value={budget} min={50} onChange={(_, v) => setBudget(Number.isFinite(v) ? v : 150)}>
-                    <NumberInputField />
-                  </NumberInput>
-                </HStack>
-                <HStack>
-                  <Text w="140px">Duración (días)</Text>
-                  <NumberInput value={days} min={1} max={30} onChange={(_, v) => setDays(Number.isFinite(v) ? v : 7)}>
-                    <NumberInputField />
-                  </NumberInput>
-                </HStack>
-                {adType === 'single' ? (
-                  <Stack spacing={3}>
-                    <HStack>
-                      <Text w='140px'>Titular</Text>
-                      <Input value={copyHeadline} onChange={(e) => setCopyHeadline(e.target.value)} placeholder='Hasta 40 caracteres' />
-                    </HStack>
-                    <HStack>
-                      <Text w='140px'>Descripción</Text>
-                      <Input value={copyDesc} onChange={(e) => setCopyDesc(e.target.value)} placeholder='Hasta 60 caracteres' />
-                    </HStack>
-                    <HStack>
-                      <Text w='140px'>Texto principal</Text>
-                      <Input value={copyPrimary} onChange={(e) => setCopyPrimary(e.target.value)} placeholder='Hasta 125 caracteres' />
-                    </HStack>
-                    <HStack align='start'>
-                      <Text w='140px' pt={2}>Descripción base</Text>
-                      <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='Opcional: cuéntale al modelo nativo qué destacar (amenidades, zona, tono, etc.)' rows={3} />
-                    </HStack>
-                    <HStack>
-                      <Button onClick={generateCopyNative} isLoading={nativeLoading} colorScheme='green' variant='solid'>Generar (Modelo Nativo)</Button>
-                    </HStack>
-                    {nativeOptions.length > 0 && (
-                      <HStack align='center'>
-                        <Text w='140px'>Elegir opción</Text>
-                        <Select value={nativeChoice} onChange={(e) => { const i = parseInt(e.target.value, 10) || 0; setNativeChoice(i); const c = nativeOptions[i] || nativeOptions[0]; setCopyHeadline(c.headline||''); setCopyDesc(c.description||''); setCopyPrimary(c.primaryText||''); }} maxW='240px'>
-                          {nativeOptions.map((_, i) => (<option key={i} value={i}>Opción {i+1}</option>))}
-                        </Select>
-                      </HStack>
-                    )}
-                    <HStack>
-                      <Text fontSize='sm' color='gray.600'>OpenAI: copy sobrio (sin emojis). Modelo Nativo: copy con emojis y tono más comercial.</Text>
-                    </HStack>
-                    <HStack>
-                      <Button onClick={requestPreview} isLoading={previewLoading} colorScheme='blue' variant='outline'>Vista previa</Button>
-                      <Text fontSize='sm' color='gray.600'>Ve cómo se vería en el feed.</Text>
-                    </HStack>
-                    {preview && preview.link_data && (
-                      <Box pt={2}><FacebookSinglePreview spec={preview} /></Box>
-                    )}
-                  </Stack>
-                ) : (
-                  <Stack spacing={3}>
-                    <HStack>
-                      <Text w='140px'>Mensaje carrusel</Text>
-                      <Input value={carouselMsg} onChange={(e) => setCarouselMsg(e.target.value)} placeholder='Texto breve para el carrusel' />
-                    </HStack>
-                    <HStack align='start'>
-                      <Text w='140px' pt={2}>Descripción base</Text>
-                      <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='Opcional: idea general para titular cada tarjeta del carrusel' rows={2} />
-                    </HStack>
-                    <Button onClick={generateCopyNative} isLoading={nativeLoading} colorScheme='green' variant='solid' alignSelf='start'>Generar (Modelo Nativo)</Button>
-                    {Object.keys(carouselCopies).length > 0 && (
-                      <Box borderWidth='1px' rounded='md' p={3}>
-                        <Text fontWeight='medium' mb={2}>Elegir opción por propiedad:</Text>
-                        <Stack spacing={2} maxH='260px' overflow='auto'>
-                          {Object.entries(carouselOptions).map(([pid, opts]) => (
-                            <HStack key={pid} spacing={3}>
-                              <Text minW='64px'>#{pid}</Text>
-                              <Select size='sm' value={(carouselChoice as any)[pid] ?? 0} onChange={(e) => {
-                                const i = parseInt(e.target.value, 10) || 0;
-                                setCarouselChoice((c) => ({ ...c, [pid]: i }));
-                                const option = opts[i] || opts[0];
-                                setCarouselCopies((prev) => ({ ...prev, [Number(pid)]: { headline: option.headline, description: option.description } }));
-                              }} maxW='260px'>
-                                {opts.map((o, i) => (<option key={i} value={i}>{`Opción ${i+1}: ${o.headline.slice(0,36)}`}</option>))}
-                              </Select>
-                            </HStack>
-                          ))}
-                        </Stack>
-                      </Box>
-                    )}
-                    <HStack>
-                      <Button onClick={requestPreview} isLoading={previewLoading} colorScheme='blue' variant='outline'>Vista previa</Button>
-                      <Text fontSize='sm' color='gray.600'>Muestra el carrusel como en Facebook.</Text>
-                    </HStack>
-                    {preview && preview.carousel_data && (
-                      <Box pt={2}><FacebookCarouselPreview spec={preview} /></Box>
-                    )}
-                  </Stack>
-                )}
-                <Text fontSize='sm' color='gray.600'>El anuncio se crea en estado PAUSED para que lo revises y publiques desde Meta Ads Manager.</Text>
-              </Stack>
+              <CampaignModalContent selected={selected} onClose={() => setIsOpen(false)} />
             </ModalBody>
             <ModalFooter>
               <Button mr={3} onClick={() => setIsOpen(false)}>Cancelar</Button>
-              <Button colorScheme='purple' onClick={createCampaign}>Crear</Button>
             </ModalFooter>
           </ModalContent>
         </Modal>
+        )}
       </Container>
       <AddPropertyModal isOpen={addOpen} onClose={() => setAddOpen(false)} onCreated={() => { setSize(1); mutate(); }} />
       </Box>
