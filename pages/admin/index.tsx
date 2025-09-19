@@ -151,6 +151,10 @@ export default function AdminHome({ username }: Props) {
   const [genLoading, setGenLoading] = React.useState(false);
   const [nativeLoading, setNativeLoading] = React.useState(false);
   const [nativeBase, setNativeBase] = React.useState('');
+  const [nativeOptions, setNativeOptions] = React.useState<Array<{headline: string, description: string, primaryText: string}>>([]);
+  const [nativeChoice, setNativeChoice] = React.useState<number>(0);
+  const [carouselOptions, setCarouselOptions] = React.useState<Record<number, Array<{headline: string, description: string}>>>({});
+  const [carouselChoice, setCarouselChoice] = React.useState<Record<number, number>>({});
   const [egoLoading, setEgoLoading] = React.useState(false);
   const [imgLoading, setImgLoading] = React.useState(false);
   // Carousel
@@ -556,40 +560,34 @@ export default function AdminHome({ username }: Props) {
   const FacebookSinglePreview = dynamic(() => import('../../components/admin/FacebookSinglePreview'), { ssr: false, loading: () => <Box>Generando vista previa…</Box> });
   const FacebookCarouselPreview = dynamic(() => import('../../components/admin/FacebookCarouselPreview'), { ssr: false, loading: () => <Box>Generando vista previa…</Box> });
 
-  const generateCopy = async () => {
-    setGenLoading(true);
-    const r = await fetch('/api/admin/meta/suggest-copy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyIds: selected, adType }) });
-    const j = await r.json();
-    setGenLoading(false);
-    if (j?.type === 'single' && j.copy) {
-      setCopyHeadline(j.copy.headline || '');
-      setCopyDesc(j.copy.description || '');
-      setCopyPrimary(j.copy.primaryText || '');
-    } else if (j?.type === 'carousel') {
-      setCarouselMsg(j.message || 'Explora propiedades destacadas');
-      const dict: Record<number, {headline: string, description: string}> = {};
-      (j.copies || []).forEach((c: any) => { if (c?.id) dict[c.id] = { headline: c.headline || '', description: c.description || '' }; });
-      setCarouselCopies(dict);
-    } else {
-      toast({ title: 'No se pudo generar', status: 'warning', duration: 2000 });
-    }
-  };
+  // Eliminamos OpenAI: no usar generateCopy()
   const generateCopyNative = async () => {
     setNativeLoading(true);
-    const r = await fetch('/api/admin/meta/suggest-copy-native', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyIds: selected, adType, baseDescription: nativeBase }) });
+    const r = await fetch('/api/admin/meta/suggest-copy-native?count=5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyIds: selected, adType, baseDescription: nativeBase }) });
     const j = await r.json();
     setNativeLoading(false);
-    if (j?.type === 'single' && j.copy) {
-      setCopyHeadline(j.copy.headline || '');
-      setCopyDesc(j.copy.description || '');
-      setCopyPrimary(j.copy.primaryText || '');
-      toast({ title: 'Copy generado (modelo nativo)', status: 'success', duration: 1500 });
-    } else if (j?.type === 'carousel') {
-      setCarouselMsg(j.message || 'Explora propiedades destacadas');
-      const dict: Record<number, {headline: string, description: string}> = {};
-      (j.copies || []).forEach((c: any) => { if (c?.id) dict[c.id] = { headline: c.headline || '', description: c.description || '' }; });
-      setCarouselCopies(dict);
-      toast({ title: 'Títulos generados (modelo nativo)', status: 'success', duration: 1500 });
+    if (j?.type === 'single' && Array.isArray(j.options)) {
+      setNativeOptions(j.options);
+      setNativeChoice(0);
+      const c = j.options[0] || { headline: '', description: '', primaryText: '' };
+      setCopyHeadline(c.headline || '');
+      setCopyDesc(c.description || '');
+      setCopyPrimary(c.primaryText || '');
+      toast({ title: 'Se generaron 5 opciones (nativo)', status: 'success', duration: 1500 });
+    } else if (j?.type === 'carousel' && Array.isArray(j.options)) {
+      const dict: Record<number, Array<{headline: string, description: string}>> = {};
+      const chosen: Record<number, {headline: string, description: string}> = {};
+      const choiceIdx: Record<number, number> = {};
+      (j.options || []).forEach((entry: any) => {
+        dict[entry.id] = entry.options || [];
+        choiceIdx[entry.id] = 0;
+        const c = (entry.options || [])[0] || { headline: '', description: '' };
+        chosen[entry.id] = c;
+      });
+      setCarouselOptions(dict);
+      setCarouselChoice(choiceIdx);
+      setCarouselCopies(chosen);
+      toast({ title: '5 opciones por propiedad (nativo)', status: 'success', duration: 1500 });
     } else {
       toast({ title: 'No se pudo generar', status: 'warning', duration: 2000 });
     }
@@ -861,9 +859,16 @@ export default function AdminHome({ username }: Props) {
                       <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='Opcional: cuéntale al modelo nativo qué destacar (amenidades, zona, tono, etc.)' rows={3} />
                     </HStack>
                     <HStack>
-                      <Button onClick={generateCopy} isLoading={genLoading} colorScheme='purple'>Generar con OpenAI</Button>
                       <Button onClick={generateCopyNative} isLoading={nativeLoading} colorScheme='green' variant='solid'>Generar (Modelo Nativo)</Button>
                     </HStack>
+                    {nativeOptions.length > 0 && (
+                      <HStack align='center'>
+                        <Text w='140px'>Elegir opción</Text>
+                        <Select value={nativeChoice} onChange={(e) => { const i = parseInt(e.target.value, 10) || 0; setNativeChoice(i); const c = nativeOptions[i] || nativeOptions[0]; setCopyHeadline(c.headline||''); setCopyDesc(c.description||''); setCopyPrimary(c.primaryText||''); }} maxW='240px'>
+                          {nativeOptions.map((_, i) => (<option key={i} value={i}>Opción {i+1}</option>))}
+                        </Select>
+                      </HStack>
+                    )}
                     <HStack>
                       <Text fontSize='sm' color='gray.600'>OpenAI: copy sobrio (sin emojis). Modelo Nativo: copy con emojis y tono más comercial.</Text>
                     </HStack>
@@ -885,14 +890,23 @@ export default function AdminHome({ username }: Props) {
                       <Text w='140px' pt={2}>Descripción base</Text>
                       <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='Opcional: idea general para titular cada tarjeta del carrusel' rows={2} />
                     </HStack>
-                    <Button onClick={generateCopy} isLoading={genLoading} colorScheme='purple' alignSelf='start'>Generar con OpenAI</Button>
                     <Button onClick={generateCopyNative} isLoading={nativeLoading} colorScheme='green' variant='solid' alignSelf='start'>Generar (Modelo Nativo)</Button>
                     {Object.keys(carouselCopies).length > 0 && (
                       <Box borderWidth='1px' rounded='md' p={3}>
-                        <Text fontWeight='medium' mb={2}>Títulos sugeridos por tarjeta:</Text>
-                        <Stack spacing={1} maxH='180px' overflow='auto'>
-                          {Object.entries(carouselCopies).slice(0, 10).map(([pid, v]) => (
-                            <Text key={pid} fontSize='sm'>#{pid}: {v.headline} — {v.description}</Text>
+                        <Text fontWeight='medium' mb={2}>Elegir opción por propiedad:</Text>
+                        <Stack spacing={2} maxH='260px' overflow='auto'>
+                          {Object.entries(carouselOptions).map(([pid, opts]) => (
+                            <HStack key={pid} spacing={3}>
+                              <Text minW='64px'>#{pid}</Text>
+                              <Select size='sm' value={(carouselChoice as any)[pid] ?? 0} onChange={(e) => {
+                                const i = parseInt(e.target.value, 10) || 0;
+                                setCarouselChoice((c) => ({ ...c, [pid]: i }));
+                                const option = opts[i] || opts[0];
+                                setCarouselCopies((prev) => ({ ...prev, [Number(pid)]: { headline: option.headline, description: option.description } }));
+                              }} maxW='260px'>
+                                {opts.map((o, i) => (<option key={i} value={i}>{`Opción ${i+1}: ${o.headline.slice(0,36)}`}</option>))}
+                              </Select>
+                            </HStack>
                           ))}
                         </Stack>
                       </Box>

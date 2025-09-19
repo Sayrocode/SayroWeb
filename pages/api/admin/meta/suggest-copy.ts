@@ -33,12 +33,21 @@ function ensureQueretaro(text: string): string {
   return /quer[ée]taro/i.test(text) ? text : `${text} · Querétaro`;
 }
 
+function firstSentence(text?: string | null): string | null {
+  if (!text) return null;
+  const clean = String(text).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  if (!clean) return null;
+  const m = clean.match(/^[^.!?\n]{10,200}[.!?]/);
+  return (m ? m[0] : clean.slice(0, 180)).trim();
+}
+
 function buildFallbackCopy(p: any) {
   let ops: any[] = [];
   try {
     if (p.ebDetailJson) {
       const j = JSON.parse(p.ebDetailJson);
       if (Array.isArray(j?.operations)) ops = j.operations;
+      if (!p.description && j?.description) p.description = j.description;
     } else if (p.operationsJson) {
       const j = JSON.parse(p.operationsJson);
       if (Array.isArray(j)) ops = j;
@@ -48,9 +57,11 @@ function buildFallbackCopy(p: any) {
   const op = pickOperation(ops);
   const title = p.title || `${p.propertyType || 'Propiedad'} en Querétaro`;
   const headline = limitText(ensureQueretaro(title), 40);
-  const descParts = [p.propertyType, op, price].filter(Boolean) as string[];
-  const description = limitText(ensureQueretaro(descParts.join(' · ') || 'Propiedad en Querétaro'), 60);
-  const primaryText = limitText(ensureQueretaro(`${op ? op + ' · ' : ''}${price ? price + ' · ' : ''}${p.locationText || 'Querétaro'}`), 125);
+  const descFromDetail = firstSentence(p.description);
+  // Si hay descripción larga del inmueble, úsala como base de la descripción del anuncio
+  const description = limitText(ensureQueretaro(descFromDetail || [p.propertyType, op, price].filter(Boolean).join(' · ') || 'Propiedad en Querétaro'), 60);
+  const primaryPieces = [op || undefined, price || undefined, p.locationText || undefined, descFromDetail || undefined].filter(Boolean) as string[];
+  const primaryText = limitText(ensureQueretaro(primaryPieces.join(' · ')), 125);
   return { headline, description, primaryText };
 }
 
@@ -86,9 +97,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const cached = cacheGet(cacheKey);
   if (cached) return res.status(200).json(cached);
 
+  const engine = String((req.query?.engine as string) || '').toLowerCase();
   const key = process.env.OPENAI_API_KEY;
-  // If no key, build fallback deterministic copy
-  if (!key) {
+  // If no key or engine=native, build fallback deterministic copy (modelo nativo en servidor)
+  if (!key || engine === 'native') {
     if (adType === 'single') {
       const p = props[0];
       return res.status(200).json({ ok: true, type: 'single', copy: buildFallbackCopy(p) });
