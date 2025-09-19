@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic';
 import useSWRInfinite from 'swr/infinite';
 import Link from 'next/link';
 const AddPropertyModal = dynamic(() => import('../../components/admin/AddPropertyModal'), { ssr: false });
+import PropertyCard from '../../components/admin/PropertyCard';
 
 type Props = {
   username: string;
@@ -139,6 +140,10 @@ export default function AdminHome({ username }: Props) {
   React.useEffect(() => { if (!isLoadingMore) setLookahead(false); }, [isLoadingMore]);
   const [campaignMode, setCampaignMode] = React.useState(false);
   const [selected, setSelected] = React.useState<number[]>([]);
+  const selectedSet = React.useMemo(() => new Set(selected), [selected]);
+  const onToggleSelect = React.useCallback((id: number) => {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
   const [isOpen, setIsOpen] = React.useState(false);
   const [adType, setAdType] = React.useState<'single'|'carousel'>('single');
   const [budget, setBudget] = React.useState(150);
@@ -674,111 +679,26 @@ export default function AdminHome({ username }: Props) {
         </Stack>
 
         <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={{ base: 4, md: 6 }}>
-          {(isInitial && aggregated.length === 0) ? Array.from({ length: 6 }).map((_, i) => (
-            <Box key={i} borderWidth="1px" rounded="none" overflow="hidden" bg="white" p={0}>
-              <Skeleton height="180px" />
-              <Box p={3}>
-                <Skeleton height="20px" mb={2} />
-                <Skeleton height="16px" width="60%" />
-              </Box>
-            </Box>
-          )) : advancedFiltered.map((p: any) => (
-            <Box
-              key={p.id}
-              borderWidth="1px"
-              rounded="none"
-              overflow="hidden"
-              bg={campaignMode && selected.includes(p.id) ? 'green.50' : '#fffcf1'}
-              borderColor={campaignMode && selected.includes(p.id) ? 'green.400' : undefined}
-              _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
-              transition="all 0.15s ease"
-              cursor={campaignMode ? 'pointer' : 'default'}
-              onClick={(e) => { if (campaignMode) { e.preventDefault(); toggleSelect(p.id); } }}
-            >
-              <Box position="relative">
-                <AspectRatio ratio={16/9}>
-                  <Box
-                    as={Link}
-                    href={`/admin/properties/${p.id}`}
-                    display="block"
-                    overflow="hidden"
-                    onClick={(e: any) => { if (campaignMode) { e.preventDefault(); e.stopPropagation(); toggleSelect(p.id); } }}
-                  >
-                    <Image
-                      src={p.coverUrl || '/image3.jpg'}
-                      alt={p.title}
-                      w="100%"
-                      h="100%"
-                      objectFit="cover"
-                      cursor="pointer"
-                      style={{ transform: `scale(${Number.isFinite(p?.coverZoom) && p.coverZoom ? p.coverZoom : 1})`, transformOrigin: 'center', transition: 'transform 0.2s ease' }}
-                    />
+          {(isInitial && aggregated.length === 0)
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <Box key={i} borderWidth="1px" rounded="none" overflow="hidden" bg="white" p={0}>
+                  <Skeleton height="180px" />
+                  <Box p={3}>
+                    <Skeleton height="20px" mb={2} />
+                    <Skeleton height="16px" width="60%" />
                   </Box>
-                </AspectRatio>
-                {campaignMode && (
-                  <Checkbox
-                    isChecked={selected.includes(p.id)}
-                    onChange={() => toggleSelect(p.id)}
-                    position="absolute"
-                    top="2"
-                    left="2"
-                    bg="white"
-                    px={2}
-                    py={1}
-                    rounded="md"
-                    shadow="sm"
-                  />
-                )}
-                <Menu placement="bottom-end" isLazy>
-                  <MenuButton
-                    as={IconButton}
-                    aria-label="Acciones"
-                    icon={<FiMoreVertical />}
-                    size="sm"
-                    variant="solid"
-                    position="absolute"
-                    top="2"
-                    right="2"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  />
-                  <MenuList>
-                    <MenuItem as={Link} href={`/admin/properties/${p.id}`} icon={<FiEdit2 />}>Editar</MenuItem>
-                    <MenuItem as={Link} href={`/propiedades/${encodeURIComponent(p.publicId)}`} target="_blank" icon={<FiExternalLink />}>Ver público</MenuItem>
-                    <MenuItem icon={<FiCopy />} onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/propiedades/${p.publicId}`); }}>Copiar enlace público</MenuItem>
-                    <MenuItem icon={<FiTrash2 />} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(p.id); }}>
-                      Eliminar
-                    </MenuItem>
-                  </MenuList>
-                </Menu>
-              </Box>
-              <Box p={3}>
-                <Box
-                  as={Link}
-                  href={`/admin/properties/${p.id}`}
-                  _hover={{ textDecoration: 'none' }}
-                  onClick={(e: any) => { if (campaignMode) { e.preventDefault(); e.stopPropagation(); toggleSelect(p.id); } }}
-                >
-                  <Text fontWeight="bold" noOfLines={1} cursor="pointer">{p.title}</Text>
                 </Box>
-                <HStack mt={2} spacing={2} color="gray.600" wrap="wrap">
-                  {p.propertyType && <Badge colorScheme="green" variant="subtle" rounded="full">{p.propertyType}</Badge>}
-                  {p.status && <Badge variant="outline" rounded="full">{p.status}</Badge>}
-                  {p.price && <Text fontWeight="semibold" color="green.700">{p.price}</Text>}
-                  {(() => { const sqm = getSizeSqmAdmin(p); return typeof sqm === 'number' ? (
-                    <HStack spacing={1}>
-                      <Icon as={FiMaximize} />
-                      <Text>{new Intl.NumberFormat('es-MX').format(sqm)} m²</Text>
-                    </HStack>
-                  ) : null; })()}
-                  {p.publicId && <Badge variant="subtle" rounded="full">ID {p.publicId}</Badge>}
-                </HStack>
-                <HStack mt={3} spacing={2}>
-                  <Button as={Link} href={`/admin/properties/${p.id}`} size="sm" colorScheme="blue" leftIcon={<FiEdit2 />} isDisabled={campaignMode} onClick={(e) => { if (campaignMode) { e.preventDefault(); e.stopPropagation(); } }}>Editar</Button>
-                  <Button size="sm" variant="outline" colorScheme="red" leftIcon={<FiTrash2 />} isDisabled={campaignMode} onClick={(e) => { if (campaignMode) { e.preventDefault(); e.stopPropagation(); } else { onDelete(p.id); } }}>Eliminar</Button>
-                </HStack>
-              </Box>
-            </Box>
-          ))}
+              ))
+            : advancedFiltered.map((p: any) => (
+                <PropertyCard
+                  key={p.id}
+                  property={p}
+                  campaignMode={campaignMode}
+                  isSelected={selectedSet.has(p.id)}
+                  onToggleSelect={onToggleSelect}
+                  onDelete={onDelete}
+                />
+              ))}
         </SimpleGrid>
 
         {/* Sentinel para cargar más */}
@@ -816,7 +736,7 @@ export default function AdminHome({ username }: Props) {
           </Flex>
         )}
 
-        <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} size='full' scrollBehavior='inside'>
+        <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} size='full' scrollBehavior='inside' isLazy lazyBehavior='unmount' autoFocus={false}>
           <ModalOverlay />
           <ModalContent rounded='0' h='100vh'>
             <ModalHeader>Crear anuncio en Meta</ModalHeader>
