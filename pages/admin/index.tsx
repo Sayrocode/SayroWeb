@@ -3,7 +3,7 @@ import React from 'react';
 import { getIronSession } from 'iron-session';
 import Layout from '../../components/Layout';
 import { sessionOptions, AppSession } from '../../lib/session';
-import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast, Wrap, WrapItem, Breadcrumb, BreadcrumbItem, Select, BreadcrumbLink, Icon } from '@chakra-ui/react';
+import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast, Wrap, WrapItem, Breadcrumb, BreadcrumbItem, Select, BreadcrumbLink, Icon, Textarea } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2, FiMaximize } from 'react-icons/fi';
 import { useRouter } from 'next/router';
@@ -44,6 +44,8 @@ export default function AdminHome({ username }: Props) {
 
   const [operation, setOperation] = React.useState<string>(''); // 'sale' | 'rental'
   const [status, setStatus] = React.useState<string>(''); // 'available' or free text
+  const [bedroomsEq, setBedroomsEq] = React.useState<string>('');
+  const [bathroomsEq, setBathroomsEq] = React.useState<string>('');
 
   const PAGE_SIZE = 30;
   const getKey = (index: number) => `/api/admin/properties?take=${PAGE_SIZE}&page=${index + 1}`
@@ -51,7 +53,9 @@ export default function AdminHome({ username }: Props) {
     + `${type ? `&type=${encodeURIComponent(type)}` : ''}`
     + `${city ? `&city=${encodeURIComponent(city)}` : ''}`
     + `${operation ? `&operation=${encodeURIComponent(operation)}` : ''}`
-    + `${status ? `&status=${encodeURIComponent(status)}` : ''}`;
+    + `${status ? `&status=${encodeURIComponent(status)}` : ''}`
+    + `${bedroomsEq ? `&bedrooms=${encodeURIComponent(bedroomsEq)}` : ''}`
+    + `${bathroomsEq ? `&bathrooms=${encodeURIComponent(bathroomsEq)}` : ''}`;
   const { data, mutate, size, setSize, isLoading } = useSWRInfinite(
     getKey,
     fetcher,
@@ -68,7 +72,7 @@ export default function AdminHome({ username }: Props) {
   const [lookahead, setLookahead] = React.useState(false);
   const prefetchGuard = React.useRef<number>(0);
   // Reset pagination when search or filters change
-  React.useEffect(() => { setSize(1); }, [qDebounced, type, city, setSize]);
+  React.useEffect(() => { setSize(1); }, [qDebounced, type, city, bedroomsEq, bathroomsEq, setSize]);
   // Reset when op/status change
   React.useEffect(() => { setSize(1); }, [operation, status, setSize]);
   // Avoid re-creating observer and stale closures: use refs
@@ -145,6 +149,8 @@ export default function AdminHome({ username }: Props) {
   const [copyDesc, setCopyDesc] = React.useState('');
   const [copyPrimary, setCopyPrimary] = React.useState('');
   const [genLoading, setGenLoading] = React.useState(false);
+  const [nativeLoading, setNativeLoading] = React.useState(false);
+  const [nativeBase, setNativeBase] = React.useState('');
   const [egoLoading, setEgoLoading] = React.useState(false);
   const [imgLoading, setImgLoading] = React.useState(false);
   // Carousel
@@ -221,6 +227,7 @@ export default function AdminHome({ username }: Props) {
   type ParsedQuery = {
     terms: string[];
     typeHints: string[];
+    operation?: '' | 'sale' | 'rental';
     bedrooms?: number;
     bathrooms?: number;
     parking?: number;
@@ -242,11 +249,21 @@ export default function AdminHome({ username }: Props) {
     const maybeType = (w: string) => {
       const w2 = norm(w);
       if (["casa", "casas"].includes(w2)) typeHints.push("casa");
-      if (["departamento", "dep", "depa", "deptos", "departamentos"].includes(w2)) typeHints.push("departamento");
-      if (["terreno", "lote", "predio", "parcela"].includes(w2)) typeHints.push("terreno");
-      if (["oficina", "local", "bodega", "nave"].includes(w2)) typeHints.push(w2);
+      if (["departamento", "departamentos", "depa", "deptos", "depas"].includes(w2)) typeHints.push("departamento");
+      if (["terreno", "terrenos", "lote", "lotes", "predio", "predios", "parcela", "parcelas"].includes(w2)) typeHints.push("terreno");
+      if (["oficina", "oficinas"].includes(w2)) typeHints.push("oficina");
+      if (["local", "locales"].includes(w2)) typeHints.push("local");
+      if (["bodega", "bodegas"].includes(w2)) typeHints.push("bodega");
+      if (["loft", "lofts"].includes(w2)) typeHints.push("loft");
+      if (["penthouse", "ph"].includes(w2)) typeHints.push("penthouse");
     };
     tokens.forEach(maybeType);
+
+    // Detectar operación por texto libre
+    let op: '' | 'sale' | 'rental' = '';
+    const allText = ` ${q} `;
+    if (/\b(venta|vender|compra|comprar|sale|sell|purchase)\b/.test(allText)) op = 'sale';
+    if (/\b(renta|rent|rental|alquiler|arrendamiento|lease|leased?)\b/.test(allText)) op = op || 'rental';
 
     // Amenities
     let bedrooms: number | undefined;
@@ -307,7 +324,7 @@ export default function AdminHome({ username }: Props) {
         }
       }
     }
-    return { terms: tokens, typeHints, bedrooms, bathrooms, parking, sizeMin, sizeRangeMin, sizeRangeMax, sizeBucketMin, sizeBucketMax, sizeGuess, amenityGuess, impliedLandBySize, place };
+    return { terms: tokens, typeHints, operation: op, bedrooms, bathrooms, parking, sizeMin, sizeRangeMin, sizeRangeMax, sizeBucketMin, sizeBucketMax, sizeGuess, amenityGuess, impliedLandBySize, place };
   }
 
   function getSizeSqmAdmin(p: any): number | null {
@@ -329,6 +346,12 @@ export default function AdminHome({ username }: Props) {
     const sMax = Infinity;
 
     return filtered.filter((p: any) => {
+      // operación (venta/renta): usar filtro explícito o lo detectado en el texto
+      const opFilter = (operation as ''|'sale'|'rental') || (parsed.operation as ''|'sale'|'rental');
+      if (opFilter) {
+        const kind = (p as any).opKind as ('' | 'sale' | 'rental') || '';
+        if (kind !== opFilter) return false;
+      }
       const title = norm(p.title || '');
       const id = norm(String(p.publicId || ''));
       const loc = norm(String(p.locationText || ''));
@@ -386,6 +409,17 @@ export default function AdminHome({ username }: Props) {
       }
 
       return true;
+    }).sort((a: any, b: any) => {
+      // Ordenar por cercanía al tamaño buscado si aplica; los sin dato al final
+      if (typeof parsed.sizeGuess === 'number') {
+        const guess = parsed.sizeGuess;
+        const sa = getSizeSqmAdmin(a);
+        const sb = getSizeSqmAdmin(b);
+        const da = typeof sa === 'number' ? Math.abs(sa - guess) : Number.POSITIVE_INFINITY;
+        const db = typeof sb === 'number' ? Math.abs(sb - guess) : Number.POSITIVE_INFINITY;
+        return da - db;
+      }
+      return 0;
     });
   }, [filtered, qDebounced, type, city, range]);
 
@@ -540,6 +574,26 @@ export default function AdminHome({ username }: Props) {
       toast({ title: 'No se pudo generar', status: 'warning', duration: 2000 });
     }
   };
+  const generateCopyNative = async () => {
+    setNativeLoading(true);
+    const r = await fetch('/api/admin/meta/suggest-copy-native', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyIds: selected, adType, baseDescription: nativeBase }) });
+    const j = await r.json();
+    setNativeLoading(false);
+    if (j?.type === 'single' && j.copy) {
+      setCopyHeadline(j.copy.headline || '');
+      setCopyDesc(j.copy.description || '');
+      setCopyPrimary(j.copy.primaryText || '');
+      toast({ title: 'Copy generado (modelo nativo)', status: 'success', duration: 1500 });
+    } else if (j?.type === 'carousel') {
+      setCarouselMsg(j.message || 'Explora propiedades destacadas');
+      const dict: Record<number, {headline: string, description: string}> = {};
+      (j.copies || []).forEach((c: any) => { if (c?.id) dict[c.id] = { headline: c.headline || '', description: c.description || '' }; });
+      setCarouselCopies(dict);
+      toast({ title: 'Títulos generados (modelo nativo)', status: 'success', duration: 1500 });
+    } else {
+      toast({ title: 'No se pudo generar', status: 'warning', duration: 2000 });
+    }
+  };
   return (
     <Layout title="Admin">
       <Box bg="#F7F4EC">
@@ -584,6 +638,16 @@ export default function AdminHome({ username }: Props) {
             <WrapItem>
               <Select bg='white' placeholder='Tipo' value={type} onChange={(e) => setType(e.target.value)} minW='140px'>
                 {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+              </Select>
+            </WrapItem>
+            <WrapItem>
+              <Select bg='white' placeholder='Habitaciones' value={bedroomsEq} onChange={(e) => setBedroomsEq(e.target.value)} minW='140px'>
+                {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
+              </Select>
+            </WrapItem>
+            <WrapItem>
+              <Select bg='white' placeholder='Baños' value={bathroomsEq} onChange={(e) => setBathroomsEq(e.target.value)} minW='140px'>
+                {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
               </Select>
             </WrapItem>
             <WrapItem>
@@ -792,9 +856,16 @@ export default function AdminHome({ username }: Props) {
                       <Text w='140px'>Texto principal</Text>
                       <Input value={copyPrimary} onChange={(e) => setCopyPrimary(e.target.value)} placeholder='Hasta 125 caracteres' />
                     </HStack>
+                    <HStack align='start'>
+                      <Text w='140px' pt={2}>Descripción base</Text>
+                      <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='Opcional: cuéntale al modelo nativo qué destacar (amenidades, zona, tono, etc.)' rows={3} />
+                    </HStack>
                     <HStack>
                       <Button onClick={generateCopy} isLoading={genLoading} colorScheme='purple'>Generar con OpenAI</Button>
-                      <Text fontSize='sm' color='gray.600'>Usa detalles de la propiedad para proponer copy.</Text>
+                      <Button onClick={generateCopyNative} isLoading={nativeLoading} colorScheme='green' variant='solid'>Generar (Modelo Nativo)</Button>
+                    </HStack>
+                    <HStack>
+                      <Text fontSize='sm' color='gray.600'>OpenAI: copy sobrio (sin emojis). Modelo Nativo: copy con emojis y tono más comercial.</Text>
                     </HStack>
                     <HStack>
                       <Button onClick={requestPreview} isLoading={previewLoading} colorScheme='blue' variant='outline'>Vista previa</Button>
@@ -810,7 +881,12 @@ export default function AdminHome({ username }: Props) {
                       <Text w='140px'>Mensaje carrusel</Text>
                       <Input value={carouselMsg} onChange={(e) => setCarouselMsg(e.target.value)} placeholder='Texto breve para el carrusel' />
                     </HStack>
+                    <HStack align='start'>
+                      <Text w='140px' pt={2}>Descripción base</Text>
+                      <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='Opcional: idea general para titular cada tarjeta del carrusel' rows={2} />
+                    </HStack>
                     <Button onClick={generateCopy} isLoading={genLoading} colorScheme='purple' alignSelf='start'>Generar con OpenAI</Button>
+                    <Button onClick={generateCopyNative} isLoading={nativeLoading} colorScheme='green' variant='solid' alignSelf='start'>Generar (Modelo Nativo)</Button>
                     {Object.keys(carouselCopies).length > 0 && (
                       <Box borderWidth='1px' rounded='md' p={3}>
                         <Text fontWeight='medium' mb={2}>Títulos sugeridos por tarjeta:</Text>

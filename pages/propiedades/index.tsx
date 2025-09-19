@@ -95,12 +95,11 @@ export default function Propiedades() {
   const dbTotalPagesRef = useRef<number | null>(null);
 
   function computeHasMore(): boolean {
-    if (!ebDoneRef.current) {
-      const total = ebTotalPagesRef.current;
-      return total == null || ebPageRef.current < total;
-    }
-    const totalDb = dbTotalPagesRef.current;
-    return totalDb == null || dbPageRef.current < totalDb;
+    const ebTotal = ebTotalPagesRef.current;
+    const ebMore = !ebDoneRef.current && (ebTotal == null || ebPageRef.current < ebTotal);
+    const dbTotal = dbTotalPagesRef.current;
+    const dbMore = dbTotal == null || dbPageRef.current < dbTotal;
+    return ebMore || dbMore;
   }
 
   async function fetchPageSilent(nextBatch: number, limit = 18) {
@@ -114,10 +113,15 @@ export default function Propiedades() {
         return [ 'available', 'disponible', 'active', 'activa', 'published', 'publicada', 'en venta', 'en renta' ].includes(t);
       };
 
-      if (!ebDoneRef.current) {
-        const target = ebPageRef.current + 1;
-        const ebRes = await fetch(`/api/easybroker/properties?limit=${limit}&page=${target}`);
-        const ebJson = ebRes.ok ? await ebRes.json() : { content: [], pagination: { total_pages: ebPageRef.current } };
+      const ebTarget = !ebDoneRef.current ? ebPageRef.current + 1 : null;
+      const dbTarget = dbPageRef.current + 1;
+
+      const [ebJson, dbJson] = await Promise.all([
+        ebTarget ? fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: ebPageRef.current } })) : Promise.resolve(null),
+        fetch(`/api/properties?limit=${limit}&page=${dbTarget}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
+      ]);
+
+      if (ebJson) {
         const ebList = Array.isArray(ebJson.content) ? ebJson.content : [];
         for (const p of ebList) {
           const id = String(p?.public_id || ''); if (!id) continue;
@@ -125,21 +129,20 @@ export default function Propiedades() {
           if (!isEbId && !isPublicable(p?.status)) continue;
           if (!map.has(id)) map.set(id, p);
         }
-        const total = parseInt(String(ebJson?.pagination?.total_pages ?? '')) || (ebList.length < limit ? target : target + 1);
+        const total = parseInt(String(ebJson?.pagination?.total_pages ?? '')) || (ebList.length < limit ? (ebTarget as number) : (ebTarget as number) + 1);
         ebTotalPagesRef.current = total;
-        ebPageRef.current = target;
+        ebPageRef.current = ebTarget as number;
         if (!ebList.length || ebPageRef.current >= total) ebDoneRef.current = true;
-      } else {
-        const target = dbPageRef.current + 1;
-        const dbRes = await fetch(`/api/properties?limit=${limit}&page=${target}`);
-        const dbJson = dbRes.ok ? await dbRes.json() : { content: [], pagination: { total_pages: dbPageRef.current } };
+      }
+
+      if (dbJson) {
         const dbList = Array.isArray(dbJson.content) ? dbJson.content : [];
         for (const p of dbList) {
           const id = String(p?.public_id || ''); if (!id) continue; if (!isPublicable(p?.status)) continue; if (!map.has(id)) map.set(id, p);
         }
-        const totalDb = parseInt(String(dbJson?.pagination?.total_pages ?? '')) || (dbList.length < limit ? target : target + 1);
+        const totalDb = parseInt(String(dbJson?.pagination?.total_pages ?? '')) || (dbList.length < limit ? dbTarget : dbTarget + 1);
         dbTotalPagesRef.current = totalDb;
-        dbPageRef.current = target;
+        dbPageRef.current = dbTarget;
       }
 
       const merged = Array.from(map.values());
@@ -175,10 +178,15 @@ export default function Propiedades() {
       ].includes(t);
     };
 
-    if (!ebDoneRef.current) {
-      const target = ebPageRef.current + 1;
-      const ebRes = await fetch(`/api/easybroker/properties?limit=${limit}&page=${target}`);
-      const ebJson = ebRes.ok ? await ebRes.json() : { content: [], pagination: { total_pages: ebPageRef.current } };
+    const ebTarget = !ebDoneRef.current ? ebPageRef.current + 1 : null;
+    const dbTarget = dbPageRef.current + 1;
+
+    const [ebJson, dbJson] = await Promise.all([
+      ebTarget ? fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: ebPageRef.current } })) : Promise.resolve(null),
+      fetch(`/api/properties?limit=${limit}&page=${dbTarget}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
+    ]);
+
+    if (ebJson) {
       const ebList = Array.isArray(ebJson.content) ? ebJson.content : [];
       for (const p of ebList) {
         const id = String(p?.public_id || ""); if (!id) continue;
@@ -186,21 +194,20 @@ export default function Propiedades() {
         if (!isEbId && !isPublicable(p?.status)) continue;
         if (!map.has(id)) map.set(id, p);
       }
-      const total = parseInt(String(ebJson?.pagination?.total_pages ?? '')) || (ebList.length < limit ? target : target + 1);
+      const total = parseInt(String(ebJson?.pagination?.total_pages ?? '')) || (ebList.length < limit ? (ebTarget as number) : (ebTarget as number) + 1);
       ebTotalPagesRef.current = total;
-      ebPageRef.current = target;
+      ebPageRef.current = ebTarget as number;
       if (!ebList.length || ebPageRef.current >= total) ebDoneRef.current = true;
-    } else {
-      const target = dbPageRef.current + 1;
-      const dbRes = await fetch(`/api/properties?limit=${limit}&page=${target}`);
-      const dbJson = dbRes.ok ? await dbRes.json() : { content: [], pagination: { total_pages: dbPageRef.current } };
+    }
+
+    if (dbJson) {
       const dbList = Array.isArray(dbJson.content) ? dbJson.content : [];
       for (const p of dbList) {
         const id = String(p?.public_id || ""); if (!id) continue; if (!isPublicable(p?.status)) continue; if (!map.has(id)) map.set(id, p);
       }
-      const totalDb = parseInt(String(dbJson?.pagination?.total_pages ?? '')) || (dbList.length < limit ? target : target + 1);
+      const totalDb = parseInt(String(dbJson?.pagination?.total_pages ?? '')) || (dbList.length < limit ? dbTarget : dbTarget + 1);
       dbTotalPagesRef.current = totalDb;
-      dbPageRef.current = target;
+      dbPageRef.current = dbTarget;
     }
     const merged = Array.from(map.values());
     setAllProperties(reorderByPriority(merged));
@@ -263,7 +270,7 @@ export default function Propiedades() {
     }, { root: null, rootMargin: '0px 0px 800px 0px', threshold: 0 });
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [loading, hasMore, allProperties.length]);
 
   const cityOptions = useMemo(() => {
     const set = new Set<string>();
@@ -310,10 +317,26 @@ export default function Propiedades() {
     return Array.from(set);
   }, [allProperties]);
 
+  // Normalización de tipos (unifica variantes en etiquetas canónicas)
+  function normalizeType(raw?: string | null): string {
+    const s = String(raw || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const has = (w: string) => s.includes(w);
+    if (has('casa')) return 'Casa';
+    if (has('depart') || has('depa') || has('loft') || has('studio')) return has('loft') ? 'Loft' : 'Departamento';
+    if (has('terreno') || has('lote') || has('predio') || has('parcela')) return 'Terreno';
+    if (has('oficina') || has('despacho')) return 'Oficina';
+    if (has('local') || has('comercial')) return 'Local';
+    if (has('bodega')) return 'Bodega';
+    if (has('nave')) return 'Nave';
+    if (has('penthouse') || s === 'ph' || has('pent house') || has('ph ')) return 'Penthouse';
+    // fallback: capitalizar primer letra
+    return (String(raw || '').trim() || 'Otro').replace(/^[a-z]/, (c) => c.toUpperCase());
+  }
+
   const typeOptions = useMemo(() => {
     const set = new Set<string>();
     for (const p of allProperties) {
-      const t = String(p?.property_type || "").trim();
+      const t = normalizeType((p as any)?.property_type);
       if (t) set.add(t);
     }
     return Array.from(set).sort();
@@ -622,14 +645,28 @@ export default function Propiedades() {
       const loc = norm(getLocationString(p));
       const typeText = norm(String(p?.property_type || ""));
 
-      // filtro por tipo proveniente de la home (?type=...) o del select visual
-      const typeSelect = norm(String(filters.type || ""));
-      if (typeParam || typeSelect) {
-        const tokens = TYPE_HINTS[typeParam] || [typeParam];
-        const okParam = tokens.filter(Boolean).some((t) => typeText.includes(t));
-        const okSelect = typeSelect ? typeText.includes(typeSelect) : true;
-        const ok = (tokens.length ? okParam : true) && okSelect;
-        if (!ok) return false;
+      // filtro por tipo: usar etiqueta canónica tanto para param (?type=...) como para select
+      const selectCanon = String(filters.type || '').trim();
+      const urlCanon = (() => {
+        if (!typeParam) return '';
+        const tokens = TYPE_HINTS[typeParam] || [];
+        // Mapear tokens a una etiqueta canónica aproximada
+        if (tokens.some((t) => ['casa'].includes(t))) return 'Casa';
+        if (tokens.some((t) => ['departamento','depa','dept'].includes(t))) return 'Departamento';
+        if (tokens.some((t) => ['terreno','lote','predio','parcela'].includes(t))) return 'Terreno';
+        if (tokens.some((t) => ['oficina','despacho'].includes(t))) return 'Oficina';
+        if (tokens.some((t) => ['local','comercial'].includes(t))) return 'Local';
+        if (tokens.some((t) => ['bodega'].includes(t))) return 'Bodega';
+        if (tokens.some((t) => ['nave','industrial'].includes(t))) return 'Nave';
+        if (tokens.some((t) => ['loft'].includes(t))) return 'Loft';
+        if (tokens.some((t) => ['penthouse','ph'].includes(t))) return 'Penthouse';
+        return '';
+      })();
+      if (selectCanon || urlCanon) {
+        const canon = normalizeType((p as any)?.property_type);
+        const okSelect = selectCanon ? canon === selectCanon : true;
+        const okParam = urlCanon ? canon === urlCanon : true;
+        if (!(okSelect && okParam)) return false;
       }
 
       // consulta libre: si hay q sin señales estructuradas, exige coincidencia textual
@@ -667,11 +704,13 @@ export default function Propiedades() {
       }
 
       // mínimos explícitos desde filtros avanzados
+      // Filtros exactos: habitaciones y baños
       if (bedroomsMin > 0) {
-        if (!(typeof p?.bedrooms === 'number' && p.bedrooms >= bedroomsMin)) return false;
+        if (!(typeof p?.bedrooms === 'number' && p.bedrooms === bedroomsMin)) return false;
       }
       if (bathroomsMin > 0) {
-        if (!(typeof p?.bathrooms === 'number' && (p.bathrooms as number) >= bathroomsMin)) return false;
+        const bInt = typeof p?.bathrooms === 'number' ? Math.floor(p.bathrooms as number) : null;
+        if (!(typeof bInt === 'number' && bInt === bathroomsMin)) return false;
       }
 
       // número suelto pequeño => al menos una amenidad >= n
@@ -768,10 +807,42 @@ export default function Propiedades() {
 
   useEffect(() => {}, [prefetchAll, page, hasMore, loading, loadingMore, isPrefetching]);
 
-  const clearFilters = () => {
+  // Reinicia paginación/estado y recarga desde la primera página (modo normal)
+  const resetListing = React.useCallback(async () => {
+    try {
+      // Reset paginación/flags
+      ebPageRef.current = 0; ebTotalPagesRef.current = null; ebDoneRef.current = false;
+      dbPageRef.current = 0; dbTotalPagesRef.current = null;
+      lookaheadRef.current = 0; isLookaheadRef.current = false;
+      // Reset items y página
+      setAllProperties([]);
+      setPage(1);
+      setHasMore(true);
+      setLoading(true);
+      await fetchPage(1);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const clearFilters = async () => {
     setFilters({ q: "", city: "", price: "", size: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', colony: '', areaMin: '', areaMax: '' });
     setQRaw(""); setQDebounced("");
+    // Limpiar query de tipo en la URL para evitar filtro residual
+    try { await router.replace({ pathname: '/propiedades', query: {} }, undefined, { shallow: true }); } catch {}
+    await resetListing();
   };
+
+  // Al limpiar el searchbox (qDebounced vacío) y no hay filtros activos, restablecer listado normal
+  React.useEffect(() => {
+    const noFilters = !(filters.city || filters.price || filters.size || filters.type || filters.operation || filters.colony || filters.bedroomsMin || filters.bathroomsMin || filters.areaMin || filters.areaMax);
+    if ((qDebounced || '').trim() === '' && noFilters) {
+      // Evita rehacer si ya hay items cargados
+      if (allProperties.length === 0) {
+        resetListing().catch(() => {});
+      }
+    }
+  }, [qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.areaMin, filters.areaMax, allProperties.length, resetListing]);
 
   return (
     <Layout title="Propiedades">
@@ -889,16 +960,8 @@ export default function Propiedades() {
             <Text mb={3} color="gray.600">
               {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
             </Text>
-            <SimpleGrid columns={[1, 2, 3]} spacing={6}>
-              {filtered.map((p, i) => (
-                <PropertyCard
-                  key={p.public_id}
-                  property={p}
-                  priority={i < 3}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                />
-              ))}
-            </SimpleGrid>
+            {/* Virtualización simple por ventanas para catálogos grandes */}
+            <VirtualizedGrid items={filtered} estimateRowHeight={360} gap={24} />
             {/* Sentinel para infinito: altura mayor para intersección más confiable */}
             <Box ref={loaderRef} h="32px" />
             {/* Fallback manual si el observer falla por cualquier razón */}
@@ -939,6 +1002,79 @@ export default function Propiedades() {
         </Box>
       </SlideFade>
     </Layout>
+  );
+}
+
+// Componente: grid virtualizado simple con padding arriba/abajo
+function VirtualizedGrid({ items, estimateRowHeight = 360, gap = 24 }: { items: any[]; estimateRowHeight?: number; gap?: number }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [cols, setCols] = useState(3);
+  const [start, setStart] = useState(0);
+  const [end, setEnd] = useState(0);
+  const [topPad, setTopPad] = useState(0);
+  const [bottomPad, setBottomPad] = useState(0);
+
+  // Resolver columnas según width (acorde a SimpleGrid columns={[1,2,3]})
+  const resolveCols = () => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    if (w < 640) return 1;
+    if (w < 1024) return 2;
+    return 3;
+  };
+
+  useEffect(() => {
+    const onResize = () => setCols(resolveCols());
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const viewportH = window.innerHeight || 0;
+      const rowH = estimateRowHeight + gap;
+      const firstRowTop = rect.top + window.scrollY; // posición del inicio del grid
+      const scrollY = window.scrollY;
+      const offset = Math.max(0, scrollY - firstRowTop);
+      const startRow = Math.floor(offset / rowH);
+      const visibleRows = Math.ceil(viewportH / rowH) + 2; // overscan 2 filas
+      const totalRows = Math.ceil(items.length / Math.max(cols, 1));
+      const s = Math.max(0, Math.min(items.length, startRow * cols));
+      const e = Math.max(s, Math.min(items.length, (startRow + visibleRows) * cols));
+      setStart(s);
+      setEnd(e);
+      setTopPad(Math.max(0, startRow * rowH));
+      const rowsAfter = Math.max(0, totalRows - Math.ceil(e / Math.max(cols, 1)));
+      setBottomPad(rowsAfter * rowH);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); };
+  }, [items.length, cols, estimateRowHeight, gap]);
+
+  // Si pocos elementos, no virtualizar
+  const useVirtual = items.length >= 60;
+  const slice = useVirtual ? items.slice(start, end) : items;
+
+  return (
+    <Box ref={containerRef}>
+      {useVirtual && <Box style={{ height: `${topPad}px` }} />}
+      <SimpleGrid columns={[1, 2, 3]} spacing={6}>
+        {slice.map((p: any, i: number) => (
+          <PropertyCard
+            key={p.public_id}
+            property={p}
+            priority={i < 3}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+        ))}
+      </SimpleGrid>
+      {useVirtual && <Box style={{ height: `${bottomPad}px` }} />}
+    </Box>
   );
 }
 
@@ -995,14 +1131,14 @@ function AdvancedFiltersToggle({ filters, setFilters, colonyOptions }: AdvancedP
             <Select bg="white" placeholder="Habitaciones" value={draft.bedroomsMin as any}
               onChange={(e) => setDraft((d) => ({ ...d, bedroomsMin: (e.target.value ? Number(e.target.value) : '') as any }))}
               minW="140px">
-              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
+              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}</option>))}
             </Select>
           </WrapItem>
           <WrapItem>
             <Select bg="white" placeholder="Baños" value={draft.bathroomsMin as any}
               onChange={(e) => setDraft((d) => ({ ...d, bathroomsMin: (e.target.value ? Number(e.target.value) : '') as any }))}
               minW="140px">
-              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
+              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}</option>))}
             </Select>
           </WrapItem>
           <WrapItem>

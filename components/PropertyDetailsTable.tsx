@@ -38,24 +38,41 @@ interface PropertyDetailsTableProps {
 export default function PropertyDetailsTable({ property }: PropertyDetailsTableProps) {
   // Función para extraer información de ubicación
   const getLocationInfo = () => {
-    const loc = property.location;
-    if (typeof loc === "string") {
-      // Si es string, intentar parsear
-      const parts = loc.split(",").map(p => p.trim());
-      return {
-        state: parts[parts.length - 1] || "",
-        municipality: parts[parts.length - 2] || "",
-        neighborhood: parts[parts.length - 3] || "",
-      };
+    const loc = property.location as any;
+    // Helper: parse "Colonia, Ciudad, Estado[, País]"
+    const parseFromName = (name: string) => {
+      const parts = String(name || '')
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const n = parts.length;
+      const state = n >= 2 ? parts[n - 1] : '';
+      const municipality = n >= 2 ? parts[n - 2] : '';
+      const neighborhood = n >= 3 ? parts[0] : '';
+      return { state, municipality, neighborhood };
+    };
+
+    if (typeof loc === 'string') {
+      return parseFromName(loc);
     }
-    if (typeof loc === "object" && loc !== null) {
-      return {
-        state: loc.state || loc.estado || "",
-        municipality: loc.municipality || loc.municipio || loc.city || loc.ciudad || "",
-        neighborhood: loc.neighborhood || loc.colonia || loc.name || "",
-      };
+    if (loc && typeof loc === 'object') {
+      let state = loc.state || loc.estado || '';
+      let municipality = loc.municipality || loc.municipio || loc.city || loc.ciudad || '';
+      let neighborhood = loc.neighborhood || loc.colonia || '';
+      // Si faltan campos y name viene con todo junto, dividirlo
+      if ((!state || !municipality) && typeof loc.name === 'string' && loc.name) {
+        const parsed = parseFromName(loc.name);
+        state = state || parsed.state;
+        municipality = municipality || parsed.municipality;
+        neighborhood = neighborhood || parsed.neighborhood || '';
+      } else if (!neighborhood && typeof loc.name === 'string') {
+        // Si sólo falta colonia, usar el primer segmento del name
+        const first = String(loc.name).split(',')[0]?.trim();
+        if (first && first !== state && first !== municipality) neighborhood = first;
+      }
+      return { state, municipality, neighborhood };
     }
-    return { state: "", municipality: "", neighborhood: "" };
+    return { state: '', municipality: '', neighborhood: '' };
   };
 
   // Función para obtener el precio

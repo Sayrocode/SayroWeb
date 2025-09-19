@@ -57,6 +57,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const city = String(req.query.city || '').trim();
     const operation = String(req.query.operation || '').trim().toLowerCase(); // 'sale' | 'rental'
     const status = String(req.query.status || '').trim();
+    const bedroomsParam = parseInt(String(req.query.bedrooms ?? ''), 10);
+    const bathroomsParam = parseInt(String(req.query.bathrooms ?? ''), 10);
 
     const where: any = {};
     if (q) {
@@ -69,6 +71,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (type) where.propertyType = type;
     if (city) where.locationText = { contains: city, mode: 'insensitive' };
+    // Bedrooms exact (igual a n)
+    if (Number.isFinite(bedroomsParam) && bedroomsParam > 0) {
+      where.bedrooms = bedroomsParam;
+    }
+    // Bathrooms exact como entero: n <= bathrooms < n+1
+    if (Number.isFinite(bathroomsParam) && bathroomsParam > 0) {
+      where.AND = (where.AND || []).concat([{ bathrooms: { gte: bathroomsParam, lt: bathroomsParam + 1 } }]);
+    }
     // status filter (supports synonyms for "available")
     if (status) {
       const allowedBase = [
@@ -131,10 +141,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch {}
 
       let numericPrice: number | null = null;
+      let opKind: '' | 'sale' | 'rental' = '';
       const formattedPrice = (() => {
         if (!operations.length) return null;
         const sale = operations.find((o) => o?.type === 'sale');
         const rental = operations.find((o) => o?.type === 'rental');
+        if (sale) opKind = 'sale';
+        else if (rental) opKind = 'rental';
         const ch = sale || rental || operations[0];
         const amt = typeof ch?.amount === 'number' ? ch.amount : (
           Array.isArray(ch?.prices) ? ch.prices?.[0]?.amount : undefined
@@ -166,6 +179,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         constructionSize: p.constructionSize,
         price: formattedPrice,
         priceAmount: numericPrice,
+        opKind,
         updatedAt: p.updatedAt,
       };
     });

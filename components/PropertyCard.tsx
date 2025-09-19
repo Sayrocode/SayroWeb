@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Box,
   Stack,
@@ -62,7 +63,7 @@ function getLocationText(loc: unknown): string {
   return [o.name, o.neighborhood, o.municipality || o.delegation, o.city, o.state, o.country].filter(Boolean).join(", ");
 }
 
-export default function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" }: Props) {
+function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" }: Props) {
   const rawImg = property.title_image_full || property.title_image_thumb || "";
   const isAbs = typeof rawImg === 'string' && /^https?:\/\//i.test(rawImg);
   const img = (typeof rawImg === 'string' && (rawImg.startsWith("/") || isAbs)) ? rawImg : "/image3.jpg";
@@ -99,8 +100,6 @@ export default function PropertyCard({ property, priority = false, sizes = "(max
             fill
             sizes={sizes}
             priority={priority}
-            placeholder="blur"
-            blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTAwJScgaGVpZ2h0PSc1NiUnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc+PHJlY3Qgd2lkdGg9JzEwMCUnIGhlaWdodD0nMTAwJScgZmlsbD0nI0VBRUVFMCcvPjwvc3ZnPg=="
             style={{ objectFit: 'cover', transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.2s ease' }}
           />
         </Box>
@@ -171,3 +170,19 @@ export default function PropertyCard({ property, priority = false, sizes = "(max
     </LinkBox>
   );
 }
+// Evitar renders innecesarios cuando la propiedad no cambia
+export default React.memo(PropertyCard, (prev, next) => {
+  const a = prev.property as any;
+  const b = next.property as any;
+  if (prev.priority !== next.priority) return false;
+  if (prev.sizes !== next.sizes) return false;
+  const keys = [
+    'public_id','title','title_image_full','title_image_thumb','property_type','bedrooms','bathrooms','parking_spaces','lot_size','construction_size','cover_zoom'
+  ];
+  for (const k of keys) { if (a?.[k] !== b?.[k]) return false; }
+  // location string compare (cheap form)
+  if (typeof a?.location === 'string' || typeof b?.location === 'string') {
+    if (String(a?.location || '') !== String(b?.location || '')) return false;
+  }
+  return true;
+});

@@ -46,10 +46,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         referrer: (req.headers.referer as string) || null,
       },
     });
+    // Si el ID de propiedad es de EasyBroker (EB-...), también enviar a EasyBroker
+    try {
+      const ebId = String(body.propertyPublicId || '').toUpperCase().trim();
+      const apiKey = process.env.EASYBROKER_API_KEY;
+      if (ebId.startsWith('EB-') && apiKey) {
+        const url = 'https://api.easybroker.com/v1/contact_requests';
+        const origin = (req.headers.host || '').replace(/^https?:\/\//, '');
+        const site = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_BASE_URL || origin || 'website';
+        const payload = {
+          name: body.name || undefined,
+          phone: body.phone || undefined,
+          email: body.email || undefined,
+          property_id: ebId,
+          message: body.message || undefined,
+          source: String(site).replace(/^https?:\/\//, '').replace(/\/$/, ''),
+        } as any;
+        // No bloquear la respuesta del usuario si EB tarda: timeout suave
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 5000);
+        try {
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: {
+              accept: 'application/json',
+              'content-type': 'application/json',
+              'X-Authorization': apiKey,
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+          clearTimeout(tid);
+          // Loguear, pero no fallar el flujo si EB responde error
+          if (!r.ok) {
+            const text = await r.text().catch(() => '');
+            console.warn('EasyBroker lead push failed', r.status, text);
+          }
+        } catch (e) {
+          console.warn('EasyBroker lead push error', (e as any)?.message || e);
+        }
+      }
+    } catch (e) {
+      // No interrumpir la respuesta al cliente
+      console.warn('EB side-push skipped', (e as any)?.message || e);
+    }
+
     return res.status(201).json({ ok: true, id: lead.id });
   } catch (e: any) {
     console.error('Lead create error', e);
     return res.status(500).json({ ok: false, error: 'cannot_create', message: e?.message || String(e) });
   }
 }
-
