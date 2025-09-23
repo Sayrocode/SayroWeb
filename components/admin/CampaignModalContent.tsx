@@ -59,6 +59,13 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
   const [genTopP, setGenTopP] = React.useState<number>(1.0);
   const [openaiLoading, setOpenaiLoading] = React.useState(false);
 
+  // UI styles (Binggo Wood headings, centered, square buttons)
+  const containerProps = { maxW: '800px', mx: 'auto', w: '100%' } as const;
+  const labelW = '220px';
+  const commonInputProps = { rounded: '0', borderColor: 'black' } as const;
+  const primaryBtnProps = { bg: '#013927', color: 'white', _hover: { bg: '#013927' }, rounded: '0' } as const;
+  const outlineBtnProps = { bg: 'transparent', color: 'black', border: '1px solid black', rounded: '0', _hover: { bg: 'blackAlpha.50' } } as const;
+
   const limit = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n));
 
   const generateWithOpenAI = async () => {
@@ -233,10 +240,10 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
   };
 
   return (
-    <Box>
-      <Stack spacing={4}>
+    <Box fontFamily="'Binggo Wood', heading" textAlign='center'>
+      <Stack spacing={6} align='center' {...containerProps}>
         <HStack>
-          <Text w='140px'>Tipo de anuncio</Text>
+          <Text w={labelW}>Tipo de anuncio</Text>
           <RadioGroup onChange={(v) => setAdType(v as any)} value={adType}>
             <HStack>
               <Radio value='single'>Single</Radio>
@@ -245,55 +252,55 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
           </RadioGroup>
         </HStack>
         <HStack>
-          <Text w='140px'>Idioma</Text>
-          <Select value={genLocale} onChange={(e) => setGenLocale(e.target.value as any)} maxW='220px'>
+          <Text w={labelW}>Idioma</Text>
+          <Select value={genLocale} onChange={(e) => setGenLocale(e.target.value as any)} maxW='220px' {...commonInputProps}>
             <option value='es'>ES (Español)</option>
             <option value='en'>EN (English)</option>
           </Select>
         </HStack>
         <HStack>
-          <Text w='140px'>Modelo</Text>
-          <Select value={genModel} onChange={(e) => setGenModel(e.target.value as any)} maxW='220px'>
+          <Text w={labelW}>Modelo</Text>
+          <Select value={genModel} onChange={(e) => setGenModel(e.target.value as any)} maxW='220px' {...commonInputProps}>
             <option value='gpt-4o-mini'>gpt-4o-mini</option>
             <option value='gpt-4.1-mini'>gpt-4.1-mini</option>
           </Select>
         </HStack>
         <HStack>
-          <Text w='140px'>Creatividad</Text>
+          <Text w={labelW}>Creatividad</Text>
           <NumberInput value={genTemp} min={0} max={2} step={0.1} onChange={(_, n) => setGenTemp(Number.isFinite(n) ? Number(n.toFixed(2)) : 0.7)} maxW='200px'>
-            <NumberInputField />
+            <NumberInputField rounded='0' borderColor='black' />
           </NumberInput>
           <Text w='80px' textAlign='right'>top_p</Text>
           <NumberInput value={genTopP} min={0} max={1} step={0.05} onChange={(_, n) => setGenTopP(Number.isFinite(n) ? Number(n.toFixed(2)) : 1.0)} maxW='140px'>
-            <NumberInputField />
+            <NumberInputField rounded='0' borderColor='black' />
           </NumberInput>
         </HStack>
         <HStack>
-          <Text w='140px'>Presupuesto diario</Text>
+          <Text w={labelW}>Presupuesto por día</Text>
           <NumberInput value={budget} min={50} max={100000} onChange={(_, n) => setBudget(Number.isFinite(n) ? n : 0)} maxW='200px'>
-            <NumberInputField />
+            <NumberInputField rounded='0' borderColor='black' />
           </NumberInput>
         </HStack>
         <HStack>
-          <Text w='140px'>Duración (días)</Text>
+          <Text w={labelW}>Duración (días)</Text>
           <NumberInput value={days} min={1} max={90} onChange={(_, n) => setDays(Number.isFinite(n) ? n : 1)} maxW='200px'>
-            <NumberInputField />
+            <NumberInputField rounded='0' borderColor='black' />
           </NumberInput>
         </HStack>
 
         {adType === 'single' ? (
-          <Stack spacing={3}>
+          <Stack spacing={3} w='100%'>
             <HStack align='start'>
-              <Text w='140px' pt={2}>Descripción base</Text>
-              <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='Opcional: base para generar copy' rows={2} />
+              <Text w={labelW} pt={2}>Descripción</Text>
+              <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='' rows={1} {...commonInputProps} />
             </HStack>
             <HStack>
-              <Button onClick={generateWithOpenAI} isLoading={openaiLoading} colorScheme='purple'>Generar contenido</Button>
+              <Button onClick={generateWithOpenAI} isLoading={openaiLoading} {...primaryBtnProps}>Generar Contenido</Button>
             </HStack>
             {nativeOptions.length > 0 && (
               <Stack spacing={2}>
                 <HStack align='center'>
-                  <Text w='140px'>Elegir opción</Text>
+                  <Text w={labelW}>Elegir opción</Text>
                   <Select value={String(nativeChoice)} onChange={(e) => {
                     const i = parseInt(e.target.value, 10) || 0;
                     setNativeChoice(i);
@@ -301,7 +308,7 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
                     setCopyHeadline(c.headline || '');
                     setCopyDesc(c.description || '');
                     setCopyPrimary(c.primaryText || '');
-                  }} maxW='240px'>
+                  }} maxW='240px' {...commonInputProps}>
                     {nativeOptions.map((_, i) => (<option key={i} value={i}>{`Opción ${i+1}`}</option>))}
                   </Select>
                 </HStack>
@@ -314,37 +321,33 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
               </Stack>
             )}
             <HStack>
-              <Text w='140px'>Headline</Text>
-              <Input value={copyHeadline} onChange={(e) => setCopyHeadline(e.target.value)} placeholder='Encabezado' />
+              <Text w={labelW}>Descripción</Text>
+              <Input value={copyDesc} onChange={(e) => setCopyDesc(e.target.value)} placeholder='' {...commonInputProps} />
             </HStack>
             <HStack>
-              <Text w='140px'>Descripción</Text>
-              <Input value={copyDesc} onChange={(e) => setCopyDesc(e.target.value)} placeholder='Descripción breve' />
+              <Text w={labelW}>Texto principal</Text>
+              <Textarea value={copyPrimary} onChange={(e) => setCopyPrimary(e.target.value)} placeholder='' rows={3} {...commonInputProps} />
             </HStack>
             <HStack>
-              <Text w='140px'>Texto principal</Text>
-              <Textarea value={copyPrimary} onChange={(e) => setCopyPrimary(e.target.value)} placeholder='Texto del anuncio' rows={3} />
-            </HStack>
-            <HStack>
-              <Button onClick={requestPreview} isLoading={previewLoading} colorScheme='blue' variant='outline'>Vista previa</Button>
-              <Button onClick={createCampaign} colorScheme='purple'>Crear</Button>
+              <Button onClick={requestPreview} isLoading={previewLoading} {...outlineBtnProps}>Vista previa</Button>
+              <Button onClick={createCampaign} {...primaryBtnProps}>Crear</Button>
             </HStack>
             {preview && preview.link_data && (
               <Box pt={2}><FacebookSinglePreview spec={preview} /></Box>
             )}
           </Stack>
         ) : (
-          <Stack spacing={3}>
+          <Stack spacing={3} w='100%'>
             <HStack>
-              <Text w='140px'>Mensaje carrusel</Text>
-              <Input value={carouselMsg} onChange={(e) => setCarouselMsg(e.target.value)} placeholder='Texto breve para el carrusel' />
+              <Text w={labelW}>Mensaje carrusel</Text>
+              <Input value={carouselMsg} onChange={(e) => setCarouselMsg(e.target.value)} placeholder='' {...commonInputProps} />
             </HStack>
             <HStack align='start'>
-              <Text w='140px' pt={2}>Descripción base</Text>
-              <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='Opcional: idea general para titular cada tarjeta' rows={2} />
+              <Text w={labelW} pt={2}>Texto principal</Text>
+              <Textarea value={nativeBase} onChange={(e) => setNativeBase(e.target.value)} placeholder='' rows={2} {...commonInputProps} />
             </HStack>
             <HStack>
-              <Button onClick={generateWithOpenAI} isLoading={openaiLoading} colorScheme='purple'>Generar contenido</Button>
+              <Button onClick={generateWithOpenAI} isLoading={openaiLoading} {...primaryBtnProps}>Generar Contenido</Button>
             </HStack>
             {Object.keys(carouselCopies).length > 0 && (
               <Box borderWidth='1px' rounded='md' p={3}>
@@ -376,7 +379,7 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
                                   setCarouselChoice((c) => ({ ...c, [pid]: i }));
                                   const option = opts[i] || opts[0];
                                   setCarouselCopies((prev) => ({ ...prev, [id]: { headline: option.headline, description: option.description } }));
-                                }} maxW='260px'>
+                                }} maxW='260px' rounded='0' borderColor='black'>
                                   {opts.map((o, i) => (<option key={i} value={i}>{`Opción ${i+1}: ${o.headline.slice(0,48)}`}</option>))}
                                 </Select>
                               </Box>
@@ -385,11 +388,11 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
                             <Stack spacing={2}>
                               <HStack>
                                 <Text w='120px'>Título</Text>
-                                <Input value={chosen.headline || ''} onChange={(e) => setCarouselCopies((prev) => ({ ...prev, [id]: { ...prev[id], headline: e.target.value } }))} />
+                                <Input value={chosen.headline || ''} onChange={(e) => setCarouselCopies((prev) => ({ ...prev, [id]: { ...prev[id], headline: e.target.value } }))} rounded='0' borderColor='black' />
                               </HStack>
                               <HStack align='start'>
                                 <Text w='120px' pt={2}>Descripción</Text>
-                                <Textarea value={chosen.description || ''} onChange={(e) => setCarouselCopies((prev) => ({ ...prev, [id]: { ...prev[id], description: e.target.value } }))} rows={2} />
+                                <Textarea value={chosen.description || ''} onChange={(e) => setCarouselCopies((prev) => ({ ...prev, [id]: { ...prev[id], description: e.target.value } }))} rows={2} rounded='0' borderColor='black' />
                               </HStack>
                             </Stack>
                           </Box>
