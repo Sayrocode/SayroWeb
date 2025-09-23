@@ -756,12 +756,12 @@ export default function AdminHome({ username }: Props) {
         <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} size='full' scrollBehavior='inside' autoFocus={false}>
           <ModalOverlay />
           <ModalContent rounded='0' h='100vh'>
-            <ModalHeader>Crear anuncio en Meta</ModalHeader>
+            <ModalHeader textAlign='center' fontFamily="'Binggo Wood', heading" fontWeight='bold' textTransform='uppercase'>Crear campaña en Meta</ModalHeader>
             <ModalBody>
               <CampaignModalContent selected={selected} selectedItems={selectedItems} onClose={() => setIsOpen(false)} />
             </ModalBody>
             <ModalFooter>
-              <Button mr={3} onClick={() => setIsOpen(false)}>Cancelar</Button>
+              <Button mr={3} onClick={() => setIsOpen(false)} bg='transparent' border='1px solid black' rounded='0' _hover={{ bg: 'blackAlpha.50' }}>Cancelar</Button>
             </ModalFooter>
           </ModalContent>
         </Modal>
