@@ -18,6 +18,8 @@ import {
   Button,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
+import { useRouter } from "next/router";
+import { navStart } from "../lib/nav";
 import {
   FiFacebook,
   FiInstagram,
@@ -29,13 +31,14 @@ import {
 } from "react-icons/fi";
 
 /** Item de link con punto verde y hover sutil */
-function NavLinkItem({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLinkItem({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: (e: any) => void }) {
   return (
     <HStack as="li" spacing={3} align="center">
       <Box boxSize="2.5" bg="brand.100" rounded="full" flexShrink={0} />
       <Link
         as={NextLink}
         href={href}
+        onClick={onClick}
         fontSize="sm"
         color="white"
         _hover={{ color: "brand.100", transform: "translateX(2px)" }}
@@ -113,6 +116,58 @@ export default function Footer() {
   const iconSize = useBreakpointValue({ base: 4, md: 5 });
   const dividerWidth = useBreakpointValue({ base: "140px", md: "220px" });
   const isMobile = useBreakpointValue({ base: true, md: false });
+  const router = useRouter();
+
+  function prewarmContactoAssets() {
+    if (typeof window === 'undefined') return;
+    try { import('components/HomeContactSection'); } catch {}
+    try {
+      ['/contactohero.jpg?v=1', '/director.jpg'].forEach((src) => {
+        const img = new window.Image();
+        (img as any).decoding = 'async';
+        (img as any).loading = 'eager';
+        img.src = src;
+      });
+    } catch {}
+  }
+
+  function handleNavClick(e: React.MouseEvent, href: string) {
+    // Igual que en Navbar: tratamos anclas de la home como scroll suave
+    if (!href.startsWith('/#')) {
+      const same = (href === router.asPath) || (href === router.pathname);
+      if (!same) navStart();
+      return;
+    }
+    if (href === '/#contacto') prewarmContactoAssets();
+    const id = href.slice(2);
+    if (router.pathname !== '/') {
+      e.preventDefault();
+      navStart();
+      router.push(`/#${id}`);
+      return;
+    }
+    e.preventDefault();
+    try {
+      const url = new URL(window.location.href);
+      url.hash = id;
+      window.history.replaceState(null, '', url.toString());
+    } catch {}
+    let attempts = 0;
+    const tryScroll = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        const md = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 48em)').matches;
+        const headerOffset = md ? 64 : 56;
+        const y = el.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - headerOffset;
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {}
+        try { window.scrollTo({ top: y, behavior: 'smooth' }); } catch {}
+      } else if (attempts < 8) {
+        attempts += 1;
+        requestAnimationFrame(tryScroll);
+      }
+    };
+    tryScroll();
+  }
 
   return (
     <Box bg="#013927" color="white">
@@ -133,10 +188,10 @@ export default function Footer() {
             minW={{ lg: "60%" }}
           >
             <NavGroup title="Secciones" collapsible={!!isMobile} defaultOpen={!isMobile}>
-              <NavLinkItem href="/">Inicio</NavLinkItem>
-              <NavLinkItem href="/nosotros">Nosotros</NavLinkItem>
-              <NavLinkItem href="/servicios">Servicios</NavLinkItem>
-              <NavLinkItem href="/contacto">Contacto</NavLinkItem>
+              <NavLinkItem href="/" onClick={(e) => handleNavClick(e as any, "/")}>Inicio</NavLinkItem>
+              <NavLinkItem href="/#nosotros" onClick={(e) => handleNavClick(e as any, "/#nosotros")}>Nosotros</NavLinkItem>
+              <NavLinkItem href="/#servicios" onClick={(e) => handleNavClick(e as any, "/#servicios")}>Servicios</NavLinkItem>
+              <NavLinkItem href="/#contacto" onClick={(e) => handleNavClick(e as any, "/#contacto")}>Contacto</NavLinkItem>
             </NavGroup>
 
             <NavGroup title="Propiedades" withDivider collapsible={!!isMobile} defaultOpen={!isMobile}>
@@ -144,7 +199,7 @@ export default function Footer() {
             </NavGroup>
 
             <NavGroup title="Soporte" withDivider collapsible={!!isMobile} defaultOpen={!isMobile}>
-              <NavLinkItem href="/preguntas-frecuentes">Preguntas frecuentes</NavLinkItem>
+              
               <NavLinkItem href="/aviso-de-privacidad">Aviso de Privacidad</NavLinkItem>
               <NavLinkItem href="/terminos">Términos y Condiciones</NavLinkItem>
             </NavGroup>
