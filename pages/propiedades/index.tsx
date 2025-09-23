@@ -302,15 +302,8 @@ export default function Propiedades() {
     return () => io.disconnect();
   }, [loading, hasMore, allProperties.length]);
 
-  const cityOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of allProperties) {
-      const loc = p?.location;
-      const str = typeof loc === "string" ? loc : [loc?.city, loc?.state, loc?.country, loc?.name].filter(Boolean).join(", ");
-      if (str) set.add(str);
-    }
-    return Array.from(set).sort();
-  }, [allProperties]);
+  // Opciones de municipio (lista completa de Querétaro)
+  // Nota: se define después de las utilidades de municipios para evitar el TDZ.
 
   // Colonias/barrios a partir de la data disponible (EB: neighborhood/name; DB: primer segmento de locationText)
   const colonyOptions = useMemo(() => {
@@ -438,6 +431,79 @@ export default function Propiedades() {
       .toLowerCase()
       .trim();
   }
+
+  // Municipios del estado de Querétaro (canónicos)
+  const QRO_MUNICIPALITIES = React.useMemo(() => [
+    'Amealco de Bonfil',
+    'Arroyo Seco',
+    'Cadereyta de Montes',
+    'Colón',
+    'Corregidora',
+    'Ezequiel Montes',
+    'Huimilpan',
+    'Jalpan de Serra',
+    'Landa de Matamoros',
+    'El Marqués',
+    'Pedro Escobedo',
+    'Peñamiller',
+    'Pinal de Amoles',
+    'Querétaro',
+    'San Joaquín',
+    'San Juan del Río',
+    'Tequisquiapan',
+    'Tolimán',
+  ], []);
+
+  // Mapa de sinónimos normalizados -> nombre canónico
+  const MUNICIPIO_SYNONYMS = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    const add = (canon: string, ...syns: string[]) => { syns.forEach((s) => { map[norm(s)] = canon; }); map[norm(canon)] = canon; };
+    add('Querétaro', 'Santiago de Querétaro', 'Queretaro');
+    add('El Marqués', 'El Marques', 'Marques');
+    add('San Juan del Río', 'San Juan del Rio');
+    add('Tolimán', 'Toliman');
+    add('Peñamiller', 'Penamiller');
+    add('Colón', 'Colon');
+    add('San Joaquín', 'San Joaquin');
+    // Resto coinciden con su canónico
+    QRO_MUNICIPALITIES.forEach((m) => { map[norm(m)] = m; });
+    return map;
+  }, [QRO_MUNICIPALITIES]);
+
+  function canonicalMunicipio(raw?: string | null): string | null {
+    if (!raw) return null;
+    let s = String(raw);
+    s = s.replace(/\bmunicipio de\b\s*/i, '');
+    // Quitar prefijo "Nuevo " si está presente; algunos orígenes lo agregan erróneamente
+    s = s.replace(/^\s*nuevo\s+/i, '');
+    const n = norm(s);
+    // Intento directo por sinónimo
+    if (MUNICIPIO_SYNONYMS[n]) return MUNICIPIO_SYNONYMS[n];
+    // Búsqueda por inclusión dentro del texto normalizado
+    for (const k of Object.keys(MUNICIPIO_SYNONYMS)) {
+      if (k && (n.includes(k) || n.includes(`nuevo ${k}`))) return MUNICIPIO_SYNONYMS[k];
+    }
+    return null;
+  }
+
+  function extractMunicipioFromProperty(p: any): string | null {
+    const loc = p?.location;
+    if (loc && typeof loc === 'object') {
+      const o: any = loc;
+      const candidates = [o.municipality, o.delegation, o.city, o.name, o.neighborhood];
+      for (const c of candidates) {
+        const canon = canonicalMunicipio(c);
+        if (canon && QRO_MUNICIPALITIES.includes(canon)) return canon;
+      }
+    }
+    const str = getLocationString(p);
+    const canon = canonicalMunicipio(str);
+    if (canon && QRO_MUNICIPALITIES.includes(canon)) return canon;
+    return null;
+  }
+
+  // Opciones de municipio (lista completa de Querétaro)
+  const municipalityOptions = useMemo(() => QRO_MUNICIPALITIES.slice(), [QRO_MUNICIPALITIES]);
 
   function getLocationString(p: any): string {
     const loc = p?.location;
@@ -626,7 +692,7 @@ export default function Propiedades() {
   const filtered = useMemo(() => {
     const q = (qDebounced || "").trim();
     const parsed = parseQuery(q);
-    const city = norm(filters.city || "");
+    const selectedMunicipio = canonicalMunicipio(filters.city || '') || '';
     const opFilterRaw = (filters.operation || '') as '' | 'sale' | 'rental';
     const colony = norm(filters.colony || "");
     const bedroomsMin = typeof filters.bedroomsMin === 'number' ? filters.bedroomsMin : (parseInt(String(filters.bedroomsMin || ''), 10) || 0);
@@ -738,9 +804,11 @@ export default function Propiedades() {
         if (placeNorm && !loc.includes(placeNorm)) return false;
       }
 
-      // ciudad exacta si se eligió del select
-      if (city) {
-        if (!loc.includes(city)) return false;
+      // municipio exacto si se eligió del select
+      if (selectedMunicipio) {
+        const propMun = extractMunicipioFromProperty(p);
+        if (!propMun) return false;
+        if (norm(propMun) !== norm(selectedMunicipio)) return false;
       }
 
       // colonia/barrio explícito
@@ -886,7 +954,7 @@ export default function Propiedades() {
                 </InputLeftElement>
                 <Input
                   bg="white"
-                  placeholder="Buscar por título, ciudad o tipo"
+                  placeholder="Buscar por título, municipio o tipo"
                   value={qRaw}
                   onChange={(e) => { const v = e.target.value; setQRaw(v); }}
                   onFocus={() => { if (sug.length) setSugOpen(true); }}
@@ -917,8 +985,8 @@ export default function Propiedades() {
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg="white" placeholder="Ciudad" value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} minW="140px">
-                {cityOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
+              <Select bg="white" placeholder="Municipio" value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} minW="160px">
+                {municipalityOptions.map((m) => (<option key={m} value={m}>{m}</option>))}
               </Select>
             </WrapItem>
             <WrapItem>
