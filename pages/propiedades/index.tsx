@@ -761,6 +761,7 @@ export default function Propiedades() {
       if (typeof lotMax === 'number' && typeof lot === 'number' && lot > lotMax) return false;
 
       // tamaño por bucket (número en la búsqueda o "500 m2")
+      const sqm = getSizeSqm(p);
       if (typeof parsed.sizeBucketMin === 'number' && typeof parsed.sizeBucketMax === 'number') {
         if (typeof sqm === 'number') {
           if (sqm < parsed.sizeBucketMin || sqm > parsed.sizeBucketMax) return false;
