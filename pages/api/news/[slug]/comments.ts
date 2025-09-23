@@ -74,6 +74,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!anonId) return res.status(400).json({ error: 'missing_anon_id' });
       if (!body) return res.status(400).json({ error: 'empty_content' });
       if (body.length > 800) return res.status(400).json({ error: 'too_long' });
+
+      // Limits:
+      // - Max 3 comments per anonId per news
+      // - Max 15 unique anon users per news; if already at 15, only allow if anonId is already part of the set
+      const [byUserCount, distinctUsers] = await Promise.all([
+        prisma.newsComment.count({ where: { newsId: news.id, anonId } }),
+        prisma.newsComment.findMany({ where: { newsId: news.id }, select: { anonId: true }, distinct: ['anonId'] }),
+      ]);
+      if (byUserCount >= 3) {
+        return res.status(429).json({ error: 'limit_per_user' });
+      }
+      const uniqueSet = new Set(distinctUsers.map((r) => r.anonId));
+      if (uniqueSet.size >= 15 && !uniqueSet.has(anonId)) {
+        return res.status(429).json({ error: 'limit_total_unique' });
+      }
       const name = String(displayName || '').trim().slice(0, 40) || null;
       const created = await prisma.newsComment.create({ data: { newsId: news.id, anonId, displayName: name, content: body, ip, userAgent: ua } });
       console.log('[news/comments][POST] created', { id: created.id, newsId: news.id });
