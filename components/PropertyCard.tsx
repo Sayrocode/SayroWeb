@@ -12,6 +12,7 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
+import { navStart } from "../lib/nav";
 import { FiMapPin, FiHome, FiDroplet, FiMaximize } from "react-icons/fi";
 import Image from 'next/image';
 
@@ -80,10 +81,13 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
   const lotSize = typeof property.lot_size === "number" ? property.lot_size : undefined;
   //
 
+  const href = `/propiedades/${encodeURIComponent(property.public_id)}`;
+
   return (
     <LinkBox
       as="article"
       role="group"
+      position="relative"
       borderWidth="1px"
       borderColor={border}
       rounded="none"
@@ -92,6 +96,9 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
       transition="all .25s ease"
       _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
     >
+      {/* Full-card clickable overlay */}
+      <LinkOverlay as={NextLink} href={href} onClick={() => navStart()} position="absolute" inset={0} zIndex={1} aria-label={property.title || `Propiedad ${property.public_id}`} />
+
       <AspectRatio ratio={16 / 9}>
         <Box position="relative" w="100%" h="100%">
           <Image
@@ -117,17 +124,19 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
           </Badge>
         </HStack>
 
-        <LinkOverlay as={NextLink} href={`/propiedades/${property.public_id}`}>
-          <Text
-            as="h3"
-            fontWeight="bold"
-            fontSize="lg"
-            noOfLines={2}
-            _groupHover={{ color: titleColorHover }}
-          >
-            {property.title || "Propiedad"}
-          </Text>
-        </LinkOverlay>
+        <Text
+          as={NextLink}
+          href={href}
+          onClick={() => navStart()}
+          fontWeight="bold"
+          fontSize="lg"
+          noOfLines={2}
+          _hover={{ color: titleColorHover, textDecoration: 'none' }}
+          position='relative'
+          zIndex={2}
+        >
+          {property.title || "Propiedad"}
+        </Text>
 
         {locationText && (
           <HStack spacing={2} color="gray.600" fontSize="sm">
