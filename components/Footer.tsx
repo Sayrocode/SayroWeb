@@ -270,31 +270,7 @@ export default function Footer() {
             color="whiteAlpha.900"
             textAlign={{ base: "center", md: "left" }}
           >
-            <Wrap spacing={{ base: 2, md: 3 }} justify={{ base: "center", md: "flex-start" }}>
-              <WrapItem>
-                <Link as={NextLink} href="/terminos" _hover={{ color: "brand.100" }}>
-                  Términos y Condiciones
-                </Link>
-              </WrapItem>
-              <WrapItem>•</WrapItem>
-              <WrapItem>
-                <Link as={NextLink} href="/aviso-de-privacidad" _hover={{ color: "brand.100" }}>
-                  Política de privacidad
-                </Link>
-              </WrapItem>
-              <WrapItem>•</WrapItem>
-              <WrapItem>
-                <Link as={NextLink} href="/cookies" _hover={{ color: "brand.100" }}>
-                  Política de Cookies
-                </Link>
-              </WrapItem>
-              <WrapItem>•</WrapItem>
-              <WrapItem>
-                <Link as={NextLink} href="/datos" _hover={{ color: "brand.100" }}>
-                  Gestionar datos
-                </Link>
-              </WrapItem>
-            </Wrap>
+            
 
             <Text>
               © {new Date().getFullYear()} Sayro Bienes Raíces — Sitio desarrollado por Sayro
