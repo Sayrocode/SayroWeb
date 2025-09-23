@@ -117,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!Number.isFinite(top_p)) top_p = 1.0;
 
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
+  if (!key) return res.status(200).json({ ok: false, error: 'error por falta de pago en el modelo' });
 
   // Resolve descriptions for each property
   const items: { id: string; description: string }[] = [];
@@ -228,11 +228,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     outItems.sort((a, b) => (order.get(a.id)! - order.get(b.id)!));
 
     if (!outItems.length) {
-      return res.status(502).json({ error: 'openai_empty', missing, latency_ms, usage, raw: j });
+      return res.status(200).json({ ok: false, error: 'error en sayro ai', missing, latency_ms, usage });
     }
 
     return res.status(200).json({ ok: true, items: outItems, missing, latency_ms, usage, model, locale, temperature, top_p });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'openai_error' });
+    return res.status(200).json({ ok: false, error: 'error en sayro ai' });
   }
 }
