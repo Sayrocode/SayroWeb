@@ -52,7 +52,7 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
   // Preview
   const [preview, setPreview] = React.useState<any | null>(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
-  // OpenAI generation options
+  // AI generation options
   const [genLocale, setGenLocale] = React.useState<'es'|'en'>('es');
   const [genModel, setGenModel] = React.useState<'gpt-4o-mini'|'gpt-4.1-mini'>('gpt-4o-mini');
   const [genTemp, setGenTemp] = React.useState<number>(0.7);
@@ -115,7 +115,7 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
       if ((result?.missing || []).length) {
         toast({ title: 'Algunas propiedades sin descripción', description: `IDs: ${(result.missing || []).join(', ')}`, status: 'warning', duration: 3500 });
       }
-      toast({ title: 'Se generaron 5 opciones por propiedad (OpenAI)', status: 'success', duration: 1500 });
+      toast({ title: 'Se generaron 5 opciones por propiedad', status: 'success', duration: 1500 });
     } catch (e: any) {
       toast({ title: 'Error generando contenido', description: e?.message || String(e), status: 'error', duration: 2500 });
     } finally {
@@ -289,7 +289,6 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
             </HStack>
             <HStack>
               <Button onClick={generateWithOpenAI} isLoading={openaiLoading} colorScheme='purple'>Generar contenido</Button>
-              <Button onClick={generateCopyNative} isLoading={nativeLoading} colorScheme='gray' variant='outline'>Generar (Nativo)</Button>
             </HStack>
             {nativeOptions.length > 0 && (
               <Stack spacing={2}>
@@ -346,7 +345,6 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
             </HStack>
             <HStack>
               <Button onClick={generateWithOpenAI} isLoading={openaiLoading} colorScheme='purple'>Generar contenido</Button>
-              <Button onClick={generateCopyNative} isLoading={nativeLoading} colorScheme='gray' variant='outline' alignSelf='start'>Generar (Nativo)</Button>
             </HStack>
             {Object.keys(carouselCopies).length > 0 && (
               <Box borderWidth='1px' rounded='md' p={3}>
