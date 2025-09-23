@@ -3,7 +3,7 @@ import { prisma } from '../../../../lib/prisma';
 
 function getAnonId(req: NextApiRequest) {
   const h = (req.headers['x-anon-id'] as string) || '';
-  if (h && typeof h === 'string ') return h.slice(0, 80);
+  if (h && typeof h === 'string') return h.slice(0, 80);
   // try cookie as fallback
   const cookie = req.headers.cookie || '';
   const m = /(?:^|; )anon_id=([^;]+)/.exec(cookie);
