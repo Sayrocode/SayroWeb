@@ -119,9 +119,41 @@ model News {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  comments    NewsComment[]
+  likes       NewsLike[]
+
   @@index([slug])
   @@index([publishedAt])
   @@index([createdAt])
+}
+
+// Anonymous comments for News
+model NewsComment {
+  id          Int       @id @default(autoincrement())
+  news        News      @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  newsId      Int
+  anonId      String    // anonymous device/user id (stored client-side)
+  displayName String?
+  content     String
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([newsId])
+}
+
+// Anonymous likes for News
+model NewsLike {
+  id        Int       @id @default(autoincrement())
+  news      News      @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  newsId    Int
+  anonId    String    // anonymous device/user id (stored client-side)
+  ip        String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  @@index([newsId])
+  @@unique([newsId, anonId])
 }
 
 // Contacts scraped from EgoRealEstate (/egocore/contacts)
