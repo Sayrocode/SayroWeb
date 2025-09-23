@@ -15,7 +15,6 @@ import {
   ListItem,
   ListIcon,
   Link,
-  
 } from "@chakra-ui/react";
 import { FiShield, FiLock, FiCheckCircle, FiInfo, FiMail } from "react-icons/fi";
 
