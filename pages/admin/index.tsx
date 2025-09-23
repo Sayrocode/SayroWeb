@@ -758,7 +758,7 @@ export default function AdminHome({ username }: Props) {
           <ModalContent rounded='0' h='100vh'>
             <ModalHeader>Crear anuncio en Meta</ModalHeader>
             <ModalBody>
-              <CampaignModalContent selected={selected} onClose={() => setIsOpen(false)} />
+              <CampaignModalContent selected={selected} selectedItems={selectedItems} onClose={() => setIsOpen(false)} />
             </ModalBody>
             <ModalFooter>
               <Button mr={3} onClick={() => setIsOpen(false)}>Cancelar</Button>

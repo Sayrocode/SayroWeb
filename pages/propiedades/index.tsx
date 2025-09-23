@@ -852,7 +852,7 @@ export default function Propiedades() {
             <BreadcrumbItem><BreadcrumbLink as={Link} href="/">Inicio</BreadcrumbLink></BreadcrumbItem>
             <BreadcrumbItem isCurrentPage><BreadcrumbLink href="#">Propiedades</BreadcrumbLink></BreadcrumbItem>
           </Breadcrumb>
-          <Heading mb={4} color="#0E3B30" textAlign="center" fontFamily="'Binggo Wood', heading">Catálogo de Propiedades</Heading>
+          <Heading  fontFamily="'Binggo Wood', heading" mb={4} color="#0E3B30" textAlign="center">Catálogo de Propiedades</Heading>
 
           <Wrap spacing={3} align="center" mb={2}>
             <WrapItem flex="1 1 260px" position='relative'>

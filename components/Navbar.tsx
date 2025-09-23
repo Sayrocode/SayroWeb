@@ -32,7 +32,7 @@ const publicLinks = [
   // Cambiamos contacto para apuntar a la sección del home
   { name: "Contacto", href: "/#contacto" },
   // Mantener orden según diseño de referencia
-  { name: "Noticias", href: "/#noticias" },
+  { name: "Noticias", href: "/noticias" },
 ];
 
 export default function Navbar() {
@@ -45,6 +45,7 @@ export default function Navbar() {
   const adminLinks = [
     { name: "Propiedades", href: "/admin" },
     { name: "Leads", href: "/admin/leads" },
+    { name: "Noticias", href: "/admin/noticias" },
   ];
   const links = isAdmin ? adminLinks : publicLinks;
   const [overHero, setOverHero] = useState(true);
