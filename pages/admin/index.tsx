@@ -574,7 +574,7 @@ export default function AdminHome({ username }: Props) {
   }, [selected, items]);
   // Previews are now loaded inside CampaignModalContent via dynamic import
 
-  // Eliminamos OpenAI: no usar generateCopy()
+  // No usar generateCopy()
   const generateCopyNative = async () => {
     setNativeLoading(true);
     const r = await fetch('/api/admin/meta/suggest-copy-native?count=5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyIds: selected, adType, baseDescription: nativeBase }) });
