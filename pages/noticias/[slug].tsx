@@ -100,7 +100,14 @@ export default function NewsDetail({ item }: Props) {
       const body = { content: content.trim(), displayName: displayName.trim() || undefined };
       const r = await fetch(`/api/news/${encodeURIComponent(slug)}/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-anon-id': anonId }, body: JSON.stringify(body) });
       if (r.ok) {
+        const json = await r.json();
+        const created = json?.item;
+        // Optimistic update: inserta el nuevo comentario al inicio sin esperar revalidación
+        mutateComments((curr: any) => ({ items: [created, ...((curr?.items) || [])] }), false);
+        // Limpia los campos
+        setDisplayName('');
         setContent('');
+        // Revalida en segundo plano para asegurar consistencia
         mutateComments();
       }
     } finally {
