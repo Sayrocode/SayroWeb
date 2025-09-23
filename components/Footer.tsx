@@ -141,8 +141,6 @@ export default function Footer() {
 
             <NavGroup title="Propiedades" withDivider collapsible={!!isMobile} defaultOpen={!isMobile}>
               <NavLinkItem href="/propiedades">Ver todas</NavLinkItem>
-              <NavLinkItem href="/propiedades?operacion=venta">Venta</NavLinkItem>
-              <NavLinkItem href="/propiedades?operacion=renta">Renta</NavLinkItem>
             </NavGroup>
 
             <NavGroup title="Soporte" withDivider collapsible={!!isMobile} defaultOpen={!isMobile}>
