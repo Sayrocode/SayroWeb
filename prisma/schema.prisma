@@ -1,4 +1,6 @@
-// Copiado desde el proyecto raíz para generación del cliente Prisma en Vercel
+// Prisma schema for EasyBroker properties storage
+// Using SQLite for local/dev. You can switch provider/url later.
+
 generator client {
   provider = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
@@ -24,13 +26,16 @@ model Property {
   constructionSize   Float?
   brokerName         String?
   locationText       String?
-  operationsJson     String?
-  propertyImagesJson String?
-  ebDetailJson       String?
+  operationsJson     String? // JSON string
+  propertyImagesJson String? // JSON string
+  ebDetailJson       String? // JSON string with full EB detail
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   media      MediaObject[]
   leads      Lead[]
+
   @@index([publicId])
   @@index([propertyType])
   @@index([status])
@@ -44,6 +49,7 @@ model User {
   lastLoginAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
   @@index([username])
 }
 
@@ -58,51 +64,84 @@ model MediaObject {
   propertyId Int?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+
   @@index([propertyId])
 }
 
 model Lead {
   id               Int       @id @default(autoincrement())
-  source           String
+  source           String    // 'meta' | 'website' | 'easybroker' (guardamos EB solo si sincronizas)
   name             String?
   email            String?
   phone            String?
   message          String?
+
+  // A qué propiedad está asociado el lead
   property         Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   propertyId       Int?
   propertyPublicId String?
-  campaignId       String?
-  adsetId          String?
-  adId             String?
-  fbclid           String?
+
+  // Tracking/atribución
+  campaignId       String?   // Meta campaign_id
+  adsetId          String?   // Meta adset_id
+  adId             String?   // Meta ad_id
+  fbclid           String?   // Facebook Click ID
+
+  // UTM params
   utm_source       String?
   utm_medium       String?
   utm_campaign     String?
   utm_content      String?
   utm_term         String?
+
+  // Contexto de navegación
   pagePath         String?
   referrer         String?
+
   createdAt        DateTime  @default(now())
+
   @@index([source])
   @@index([propertyId])
   @@index([utm_source, utm_campaign])
 }
 
+// News/Blog posts for public site
+model News {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  title       String
+  excerpt     String?
+  coverUrl    String?
+  content     String
+  tagsJson    String?   // JSON array of keywords/tags
+  publishedAt DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([publishedAt])
+  @@index([createdAt])
+}
+
+// Contacts scraped from EgoRealEstate (/egocore/contacts)
 model EgoContact {
   id            Int       @id @default(autoincrement())
-  personId      String?   @unique
+  personId      String?   @unique // numeric id in /egocore/person/:id
   name          String?
   role          String?
   phone         String?
   email         String?
-  createdText   String?
-  createdAtEgo  DateTime?
-  responsible   String?
-  rawJson       String?
+  createdText   String?   // raw text e.g., "28 ago."
+  createdAtEgo  DateTime? // parsed if possible
+  responsible   String?   // Responsabilidad de X
+
+  rawJson       String?   // JSON blob with extras for debugging
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
   @@index([personId])
   @@index([email])
   @@index([phone])
 }
-
