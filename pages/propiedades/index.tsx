@@ -19,30 +19,35 @@ import {
   Input,
   Select,
   Button,
+  Collapse,
+  SlideFade,
 } from "@chakra-ui/react";
-import { SearchIcon } from "@chakra-ui/icons";
+import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import Link from "next/link";
 import PropertyCard from "../../components/PropertyCard";
 
 type FiltersState = {
   q: string;
   city: string;
-  price: string;
-  size: string;
   type?: string;
   operation?: '' | 'sale' | 'rental';
   bedroomsMin?: number | '';
   bathroomsMin?: number | '';
+  parkingMin?: number | '';
   colony?: string;
-  areaMin?: number | '';
-  areaMax?: number | '';
+  constructionMin?: number | '';
+  constructionMax?: number | '';
+  lotMin?: number | '';
+  lotMax?: number | '';
+  priceMin?: number | '';
+  priceMax?: number | '';
 };
 
 export default function Propiedades() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allProperties, setAllProperties] = useState<any[]>([]);
-  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", price: "", size: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', colony: '', areaMin: '', areaMax: '' });
+  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', parkingMin: '', colony: '', constructionMin: '', constructionMax: '', lotMin: '', lotMax: '', priceMin: '', priceMax: '' });
   const [qRaw, setQRaw] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   // Debounce más largo para filtros (suaviza la experiencia al teclear rápido)
@@ -116,10 +121,22 @@ export default function Propiedades() {
       const ebTarget = !ebDoneRef.current ? ebPageRef.current + 1 : null;
       const dbTarget = dbPageRef.current + 1;
 
-      const [ebJson, dbJson] = await Promise.all([
-        ebTarget ? fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: ebPageRef.current } })) : Promise.resolve(null),
-        fetch(`/api/properties?limit=${limit}&page=${dbTarget}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
-      ]);
+    const sp = new URLSearchParams();
+    if (filters.operation) sp.set('operation_type', filters.operation);
+    if (typeof filters.priceMin === 'number') sp.set('min_price', String(filters.priceMin));
+    if (typeof filters.priceMax === 'number') sp.set('max_price', String(filters.priceMax));
+    if (typeof filters.bedroomsMin === 'number') sp.set('min_bedrooms', String(filters.bedroomsMin));
+    if (typeof filters.bathroomsMin === 'number') sp.set('min_bathrooms', String(filters.bathroomsMin));
+    if (typeof filters.parkingMin === 'number') sp.set('min_parking_spaces', String(filters.parkingMin));
+    if (typeof filters.constructionMin === 'number') sp.set('min_construction_size', String(filters.constructionMin));
+    if (typeof filters.constructionMax === 'number') sp.set('max_construction_size', String(filters.constructionMax));
+    if (typeof filters.lotMin === 'number') sp.set('min_lot_size', String(filters.lotMin));
+    if (typeof filters.lotMax === 'number') sp.set('max_lot_size', String(filters.lotMax));
+    if (qDebounced.trim()) sp.set('q', qDebounced.trim());
+    const [ebJson, dbJson] = await Promise.all([
+      ebTarget ? fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: ebPageRef.current } })) : Promise.resolve(null),
+      fetch(`/api/properties?limit=${limit}&page=${dbTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
+    ]);
 
       if (ebJson) {
         const ebList = Array.isArray(ebJson.content) ? ebJson.content : [];
@@ -158,12 +175,13 @@ export default function Propiedades() {
     if (!hasMore) return;
     if (loading || loadingMore) return;
     // No lookahead durante búsqueda/filtros activos
-    if ((qDebounced || '').trim() || filters.city || filters.price || filters.size || filters.type || filters.operation || filters.colony || filters.bedroomsMin || filters.bathroomsMin || filters.areaMin || filters.areaMax) return;
+    const hasActive = Boolean((qDebounced || '').trim() || filters.city || filters.type || filters.operation || filters.colony || filters.bedroomsMin || filters.bathroomsMin || filters.parkingMin || filters.constructionMin || filters.constructionMax || filters.lotMin || filters.lotMax || filters.priceMin || filters.priceMax);
+    if (hasActive) return;
     if (lookaheadRef.current === page) return; // ya precargado para este page base
     lookaheadRef.current = page; // marca el base actual
     // precargar la siguiente página en background sin mostrar skeleton
     fetchPageSilent(page + 1).catch(() => {});
-  }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.areaMin, filters.areaMax]);
+  }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax]);
 
   async function fetchPage(nextBatch: number, limit = 18) {
     const map = new Map<string, any>();
@@ -181,9 +199,21 @@ export default function Propiedades() {
     const ebTarget = !ebDoneRef.current ? ebPageRef.current + 1 : null;
     const dbTarget = dbPageRef.current + 1;
 
+    const sp = new URLSearchParams();
+    if (filters.operation) sp.set('operation_type', filters.operation);
+    if (typeof filters.priceMin === 'number') sp.set('min_price', String(filters.priceMin));
+    if (typeof filters.priceMax === 'number') sp.set('max_price', String(filters.priceMax));
+    if (typeof filters.bedroomsMin === 'number') sp.set('min_bedrooms', String(filters.bedroomsMin));
+    if (typeof filters.bathroomsMin === 'number') sp.set('min_bathrooms', String(filters.bathroomsMin));
+    if (typeof filters.parkingMin === 'number') sp.set('min_parking_spaces', String(filters.parkingMin));
+    if (typeof filters.constructionMin === 'number') sp.set('min_construction_size', String(filters.constructionMin));
+    if (typeof filters.constructionMax === 'number') sp.set('max_construction_size', String(filters.constructionMax));
+    if (typeof filters.lotMin === 'number') sp.set('min_lot_size', String(filters.lotMin));
+    if (typeof filters.lotMax === 'number') sp.set('max_lot_size', String(filters.lotMax));
+    if (qDebounced.trim()) sp.set('q', qDebounced.trim());
     const [ebJson, dbJson] = await Promise.all([
-      ebTarget ? fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: ebPageRef.current } })) : Promise.resolve(null),
-      fetch(`/api/properties?limit=${limit}&page=${dbTarget}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
+      ebTarget ? fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: ebPageRef.current } })) : Promise.resolve(null),
+      fetch(`/api/properties?limit=${limit}&page=${dbTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
     ]);
 
     if (ebJson) {
@@ -601,35 +631,12 @@ export default function Propiedades() {
     const colony = norm(filters.colony || "");
     const bedroomsMin = typeof filters.bedroomsMin === 'number' ? filters.bedroomsMin : (parseInt(String(filters.bedroomsMin || ''), 10) || 0);
     const bathroomsMin = typeof filters.bathroomsMin === 'number' ? filters.bathroomsMin : (parseInt(String(filters.bathroomsMin || ''), 10) || 0);
-    const areaMin = typeof filters.areaMin === 'number' ? filters.areaMin : (parseFloat(String(filters.areaMin || '')) || undefined);
-    const areaMax = typeof filters.areaMax === 'number' ? filters.areaMax : (parseFloat(String(filters.areaMax || '')) || undefined);
-    const [min, max] = (() => {
-      switch (filters.price) {
-        case "0-1000000":
-          return [0, 1_000_000];
-        case "1000000-3000000":
-          return [1_000_000, 3_000_000];
-        case "3000000+":
-          return [3_000_000, Infinity];
-        default:
-          return [0, Infinity];
-      }
-    })();
-
-    const [sMin, sMax] = (() => {
-      switch (filters.size) {
-        case "20-200":
-          return [20, 200];
-        case "200-500":
-          return [200, 500];
-        case "500-1000":
-          return [500, 1000];
-        case "1000+":
-          return [1000, Infinity];
-        default:
-          return [0, Infinity];
-      }
-    })();
+    const min = typeof filters.priceMin === 'number' ? filters.priceMin : 0;
+    const max = typeof filters.priceMax === 'number' ? filters.priceMax : Infinity;
+    const consMin = typeof filters.constructionMin === 'number' ? filters.constructionMin : undefined;
+    const consMax = typeof filters.constructionMax === 'number' ? filters.constructionMax : undefined;
+    const lotMin = typeof filters.lotMin === 'number' ? filters.lotMin : undefined;
+    const lotMax = typeof filters.lotMax === 'number' ? filters.lotMax : undefined;
 
     const results = allProperties.filter((p) => {
       // operación (venta/renta): usar filtro explícito o lo detectado en el texto
@@ -706,11 +713,14 @@ export default function Propiedades() {
       // mínimos explícitos desde filtros avanzados
       // Filtros exactos: habitaciones y baños
       if (bedroomsMin > 0) {
-        if (!(typeof p?.bedrooms === 'number' && p.bedrooms === bedroomsMin)) return false;
+        if (!(typeof p?.bedrooms === 'number' && p.bedrooms >= bedroomsMin)) return false;
       }
       if (bathroomsMin > 0) {
-        const bInt = typeof p?.bathrooms === 'number' ? Math.floor(p.bathrooms as number) : null;
-        if (!(typeof bInt === 'number' && bInt === bathroomsMin)) return false;
+        const bVal = typeof p?.bathrooms === 'number' ? Math.floor(p.bathrooms as number) : null;
+        if (!(typeof bVal === 'number' && bVal >= bathroomsMin)) return false;
+      }
+      if (typeof filters.parkingMin === 'number' && filters.parkingMin > 0) {
+        if (!(typeof p?.parking_spaces === 'number' && p.parking_spaces >= (filters.parkingMin as number))) return false;
       }
 
       // número suelto pequeño => al menos una amenidad >= n
@@ -742,17 +752,13 @@ export default function Propiedades() {
       const amount = getPriceAmount(p);
       if (amount != null && (amount < min || amount > max)) return false;
 
-      // filtro de superficie desde el select
-      const sqm = getSizeSqm(p);
-      if (filters.size && sqm != null && (sqm < sMin || sqm > sMax)) return false;
-
-      // área mínima/máxima explícita (si el usuario la define, exigimos dato de m²)
-      if (typeof areaMin === 'number' && !Number.isNaN(areaMin)) {
-        if (!(typeof sqm === 'number' && sqm >= areaMin)) return false;
-      }
-      if (typeof areaMax === 'number' && !Number.isNaN(areaMax)) {
-        if (!(typeof sqm === 'number' && sqm <= areaMax)) return false;
-      }
+      // tamaños: aplicar por construcción y/o terreno si se especifica
+      const cons = typeof p?.construction_size === 'number' ? (p.construction_size as number) : undefined;
+      const lot = typeof p?.lot_size === 'number' ? (p.lot_size as number) : undefined;
+      if (typeof consMin === 'number' && typeof cons === 'number' && cons < consMin) return false;
+      if (typeof consMax === 'number' && typeof cons === 'number' && cons > consMax) return false;
+      if (typeof lotMin === 'number' && typeof lot === 'number' && lot < lotMin) return false;
+      if (typeof lotMax === 'number' && typeof lot === 'number' && lot > lotMax) return false;
 
       // tamaño por bucket (número en la búsqueda o "500 m2")
       if (typeof parsed.sizeBucketMin === 'number' && typeof parsed.sizeBucketMax === 'number') {
@@ -792,7 +798,24 @@ export default function Propiedades() {
     }
 
     return results;
-  }, [allProperties, filters.type, filters.city, filters.price, filters.size, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.areaMin, filters.areaMax, qDebounced]);
+  }, [allProperties, filters.type, filters.city, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, qDebounced]);
+
+  // Sincronizar filtros ↔ URL (consulta compartible)
+  useEffect(() => {
+    const q: Record<string, any> = {};
+    if (filters.operation) q.operation_type = filters.operation;
+    if (typeof filters.priceMin === 'number') q.min_price = filters.priceMin;
+    if (typeof filters.priceMax === 'number') q.max_price = filters.priceMax;
+    if (typeof filters.bedroomsMin === 'number') q.min_bedrooms = filters.bedroomsMin;
+    if (typeof filters.bathroomsMin === 'number') q.min_bathrooms = filters.bathroomsMin;
+    if (typeof filters.parkingMin === 'number') q.min_parking_spaces = filters.parkingMin;
+    if (typeof filters.constructionMin === 'number') q.min_construction_size = filters.constructionMin;
+    if (typeof filters.constructionMax === 'number') q.max_construction_size = filters.constructionMax;
+    if (typeof filters.lotMin === 'number') q.min_lot_size = filters.lotMin;
+    if (typeof filters.lotMax === 'number') q.max_lot_size = filters.lotMax;
+    if ((qDebounced || '').trim()) q.q = qDebounced.trim();
+    try { router.replace({ pathname: '/propiedades', query: q }, undefined, { shallow: true }); } catch {}
+  }, [router, qDebounced, filters.operation, filters.priceMin, filters.priceMax, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax]);
 
   // Modo búsqueda completa: cuando el usuario aplica cualquier filtro/consulta,
   // pre-cargamos páginas sucesivas hasta cubrir todo el catálogo available,
@@ -803,7 +826,7 @@ export default function Propiedades() {
   // Deshabilitar prefetch masivo durante búsqueda/filtros para evitar bloqueos
   useEffect(() => {
     setPrefetchAll(false);
-  }, [qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.areaMin, filters.areaMax]);
+  }, [qDebounced, filters.city, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax]);
 
   useEffect(() => {}, [prefetchAll, page, hasMore, loading, loadingMore, isPrefetching]);
 
@@ -826,7 +849,7 @@ export default function Propiedades() {
   }, []);
 
   const clearFilters = async () => {
-    setFilters({ q: "", city: "", price: "", size: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', colony: '', areaMin: '', areaMax: '' });
+    setFilters({ q: "", city: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', parkingMin: '', colony: '', constructionMin: '', constructionMax: '', lotMin: '', lotMax: '', priceMin: '', priceMax: '' });
     setQRaw(""); setQDebounced("");
     // Limpiar query de tipo en la URL para evitar filtro residual
     try { await router.replace({ pathname: '/propiedades', query: {} }, undefined, { shallow: true }); } catch {}
@@ -835,14 +858,14 @@ export default function Propiedades() {
 
   // Al limpiar el searchbox (qDebounced vacío) y no hay filtros activos, restablecer listado normal
   React.useEffect(() => {
-    const noFilters = !(filters.city || filters.price || filters.size || filters.type || filters.operation || filters.colony || filters.bedroomsMin || filters.bathroomsMin || filters.areaMin || filters.areaMax);
+    const noFilters = !(filters.city || filters.type || filters.operation || filters.colony || filters.bedroomsMin || filters.bathroomsMin || filters.parkingMin || filters.constructionMin || filters.constructionMax || filters.lotMin || filters.lotMax || filters.priceMin || filters.priceMax);
     if ((qDebounced || '').trim() === '' && noFilters) {
       // Evita rehacer si ya hay items cargados
       if (allProperties.length === 0) {
         resetListing().catch(() => {});
       }
     }
-  }, [qDebounced, filters.city, filters.price, filters.size, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.areaMin, filters.areaMax, allProperties.length, resetListing]);
+  }, [qDebounced, filters.city, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, allProperties.length, resetListing]);
 
   return (
     <Layout title="Propiedades">
@@ -904,19 +927,12 @@ export default function Propiedades() {
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg="white" placeholder="Rango precio" value={filters.price} onChange={(e) => setFilters((f) => ({ ...f, price: e.target.value }))} minW="160px">
-                <option value="0-1000000">&lt; $1M</option>
-                <option value="1000000-3000000">$1M - $3M</option>
-                <option value="3000000+">$3M+</option>
-              </Select>
+              <Input bg="white" type="number" placeholder="Precio mín." value={String(filters.priceMin ?? '')}
+                onChange={(e) => setFilters((f) => ({ ...f, priceMin: e.target.value === '' ? '' : Number(e.target.value) }))} minW="140px" />
             </WrapItem>
             <WrapItem>
-              <Select bg="white" placeholder="Tamaño" value={filters.size} onChange={(e) => setFilters((f) => ({ ...f, size: e.target.value }))} minW="140px">
-                <option value="20-200">20 - 200 m²</option>
-                <option value="200-500">200 - 500 m²</option>
-                <option value="500-1000">500 - 1000 m²</option>
-                <option value="1000+">1000+ m²</option>
-              </Select>
+              <Input bg="white" type="number" placeholder="Precio máx." value={String(filters.priceMax ?? '')}
+                onChange={(e) => setFilters((f) => ({ ...f, priceMax: e.target.value === '' ? '' : Number(e.target.value) }))} minW="140px" />
             </WrapItem>
             {/* Toggle Avanzadas */}
             <AdvancedFiltersToggle
@@ -1079,8 +1095,6 @@ function VirtualizedGrid({ items, estimateRowHeight = 360, gap = 24 }: { items: 
 }
 
 // Subcomponente: botón "Avanzadas" + panel desplegable
-import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
-import { Collapse, SlideFade } from "@chakra-ui/react";
 
 type AdvancedProps = {
   filters: FiltersState;
@@ -1093,29 +1107,38 @@ function AdvancedFiltersToggle({ filters, setFilters, colonyOptions }: AdvancedP
   const [draft, setDraft] = React.useState({
     bedroomsMin: filters.bedroomsMin || '',
     bathroomsMin: filters.bathroomsMin || '',
+    parkingMin: filters.parkingMin || '',
     colony: filters.colony || '',
-    areaMin: filters.areaMin || '',
-    areaMax: filters.areaMax || '',
+    constructionMin: filters.constructionMin || '',
+    constructionMax: filters.constructionMax || '',
+    lotMin: filters.lotMin || '',
+    lotMax: filters.lotMax || '',
   });
 
   React.useEffect(() => {
     setDraft({
       bedroomsMin: filters.bedroomsMin || '',
       bathroomsMin: filters.bathroomsMin || '',
+      parkingMin: filters.parkingMin || '',
       colony: filters.colony || '',
-      areaMin: filters.areaMin || '',
-      areaMax: filters.areaMax || '',
+      constructionMin: filters.constructionMin || '',
+      constructionMax: filters.constructionMax || '',
+      lotMin: filters.lotMin || '',
+      lotMax: filters.lotMax || '',
     });
-  }, [filters.bedroomsMin, filters.bathroomsMin, filters.colony, filters.areaMin, filters.areaMax]);
+  }, [filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.colony, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax]);
 
   const apply = () => {
     setFilters((f) => ({
       ...f,
       bedroomsMin: draft.bedroomsMin === '' ? '' : Number(draft.bedroomsMin),
       bathroomsMin: draft.bathroomsMin === '' ? '' : Number(draft.bathroomsMin),
+      parkingMin: draft.parkingMin === '' ? '' : Number(draft.parkingMin),
       colony: draft.colony || '',
-      areaMin: draft.areaMin === '' ? '' : Number(draft.areaMin),
-      areaMax: draft.areaMax === '' ? '' : Number(draft.areaMax),
+      constructionMin: draft.constructionMin === '' ? '' : Number(draft.constructionMin),
+      constructionMax: draft.constructionMax === '' ? '' : Number(draft.constructionMax),
+      lotMin: draft.lotMin === '' ? '' : Number(draft.lotMin),
+      lotMax: draft.lotMax === '' ? '' : Number(draft.lotMax),
     }));
     setOpen(false);
   };
@@ -1142,19 +1165,36 @@ function AdvancedFiltersToggle({ filters, setFilters, colonyOptions }: AdvancedP
             </Select>
           </WrapItem>
           <WrapItem>
+            <Select bg="white" placeholder="Estacionamientos" value={draft.parkingMin as any}
+              onChange={(e) => setDraft((d) => ({ ...d, parkingMin: (e.target.value ? Number(e.target.value) : '') as any }))}
+              minW="160px">
+              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
+            </Select>
+          </WrapItem>
+          <WrapItem>
             <Select bg="white" placeholder="Colonia" value={draft.colony || ''} onChange={(e) => setDraft((d) => ({ ...d, colony: e.target.value }))} minW="160px">
               {colonyOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
             </Select>
           </WrapItem>
           <WrapItem>
-            <Input type="number" bg="white" placeholder="Min. área" value={String(draft.areaMin ?? '')}
-              onChange={(e) => setDraft((d) => ({ ...d, areaMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-              minW="140px" />
+            <Input type="number" bg="white" placeholder="Min. construcción (m²)" value={String(draft.constructionMin ?? '')}
+              onChange={(e) => setDraft((d) => ({ ...d, constructionMin: e.target.value === '' ? '' : Number(e.target.value) }))}
+              minW="220px" />
           </WrapItem>
           <WrapItem>
-            <Input type="number" bg="white" placeholder="Máx. área" value={String(draft.areaMax ?? '')}
-              onChange={(e) => setDraft((d) => ({ ...d, areaMax: e.target.value === '' ? '' : Number(e.target.value) }))}
-              minW="140px" />
+            <Input type="number" bg="white" placeholder="Máx. construcción (m²)" value={String(draft.constructionMax ?? '')}
+              onChange={(e) => setDraft((d) => ({ ...d, constructionMax: e.target.value === '' ? '' : Number(e.target.value) }))}
+              minW="220px" />
+          </WrapItem>
+          <WrapItem>
+            <Input type="number" bg="white" placeholder="Min. terreno (m²)" value={String(draft.lotMin ?? '')}
+              onChange={(e) => setDraft((d) => ({ ...d, lotMin: e.target.value === '' ? '' : Number(e.target.value) }))}
+              minW="220px" />
+          </WrapItem>
+          <WrapItem>
+            <Input type="number" bg="white" placeholder="Máx. terreno (m²)" value={String(draft.lotMax ?? '')}
+              onChange={(e) => setDraft((d) => ({ ...d, lotMax: e.target.value === '' ? '' : Number(e.target.value) }))}
+              minW="220px" />
           </WrapItem>
           <WrapItem>
             <Button colorScheme="green" onClick={apply}>Buscar</Button>

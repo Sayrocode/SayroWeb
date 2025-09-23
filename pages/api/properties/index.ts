@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../lib/prisma';
+import { parseFiltersFromQuery, hasPriceInRange } from '../../../lib/filters/propertyFilters';
 
 function isPublicable(status?: string | null): boolean {
   if (!status) return false;
@@ -38,6 +39,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const page = Math.max(1, parseInt(String(req.query.page ?? '1')) || 1);
   const skip = (page - 1) * limit;
 
+  const f = parseFiltersFromQuery(req.query as any);
+
   const baseStatuses = [
     'available','disponible','active','activa','published','publicada','en venta','en renta',
   ];
@@ -47,6 +50,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ...baseStatuses.map((s) => s.toUpperCase()),
   ]));
   const where: any = { status: { in: allowedStatuses } };
+  // operation_type (sale/rental) from JSON blobs
+  if (f.operation_type) {
+    const needle = `\"type\":\"${f.operation_type}\"`;
+    where.OR = [
+      { ebDetailJson: { contains: needle } },
+      { operationsJson: { contains: needle } },
+    ];
+  }
+  // Bedrooms/bathrooms/parking minimums
+  if (typeof f.min_bedrooms === 'number') where.bedrooms = { gte: f.min_bedrooms };
+  if (typeof f.min_bathrooms === 'number') where.bathrooms = { gte: f.min_bathrooms } as any;
+  if (typeof f.min_parking_spaces === 'number') where.parkingSpaces = { gte: f.min_parking_spaces };
+  // Sizes
+  if (typeof f.min_construction_size === 'number' || typeof f.max_construction_size === 'number') {
+    where.constructionSize = {
+      ...(typeof f.min_construction_size === 'number' ? { gte: f.min_construction_size } : {}),
+      ...(typeof f.max_construction_size === 'number' ? { lte: f.max_construction_size } : {}),
+    } as any;
+  }
+  if (typeof f.min_lot_size === 'number' || typeof f.max_lot_size === 'number') {
+    where.lotSize = {
+      ...(typeof f.min_lot_size === 'number' ? { gte: f.min_lot_size } : {}),
+      ...(typeof f.max_lot_size === 'number' ? { lte: f.max_lot_size } : {}),
+    } as any;
+  }
+  // Updated time window
+  if (f.updated_after || f.updated_before) {
+    where.updatedAt = {
+      ...(f.updated_after ? { gte: new Date(f.updated_after) } : {}),
+      ...(f.updated_before ? { lte: new Date(f.updated_before) } : {}),
+    } as any;
+  }
+  // Statuses multi-select
+  if (f.statuses && f.statuses.length) where.status = { in: f.statuses };
+  // Types multi-select
+  if (f.property_types && f.property_types.length) where.propertyType = { in: f.property_types };
+  // Locations basic contains
+  if (f.locations && f.locations.length) {
+    where.AND = (where.AND || []).concat(f.locations.map((s) => ({ locationText: { contains: s, mode: 'insensitive' } })));
+  }
+  // Free text across title/location/type
+  if (f.q && f.q.trim().length >= 2) {
+    const q = f.q.trim();
+    where.OR = (where.OR || []).concat([
+      { title: { contains: q, mode: 'insensitive' } },
+      { locationText: { contains: q, mode: 'insensitive' } },
+      { propertyType: { contains: q, mode: 'insensitive' } },
+    ]);
+  }
 
   // Count only publicable
   const [rows, totalCount] = await Promise.all([
@@ -61,7 +113,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   ]);
 
   // Map to EB-like list response
-  const items = rows
+  let items = rows
     .map((p) => {
       const firstMedia = Array.isArray((p as any).media) && (p as any).media.length ? (p as any).media[0] as any : null;
       const url = firstMedia?.key ? `/api/admin/images/${encodeURIComponent(firstMedia.key)}` : '/image3.jpg';
@@ -92,6 +144,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cover_zoom: coverZoom,
       };
     });
+
+  // In-memory refinement for price range and features (not easily expressible in SQL here)
+  if (typeof f.min_price === 'number' || typeof f.max_price === 'number') {
+    items = items.filter((it) => hasPriceInRange(it.operations || [], f.min_price, f.max_price));
+  }
+  if (f.features && f.features.length) {
+    items = items.filter((it) => {
+      // naive: look inside ebDetailJson on original row for feature names
+      const row = rows.find((r) => r.publicId === it.public_id);
+      const blob = row?.ebDetailJson || row?.operationsJson || '';
+      const s = String(blob || '').toLowerCase();
+      return (f.features || []).every((feat) => s.includes(String(feat).toLowerCase()));
+    });
+  }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / limit));
   res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
