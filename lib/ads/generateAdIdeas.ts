@@ -27,15 +27,14 @@ export type GenerateResponse = {
 } | { ok: false; error: string };
 
 export async function generateAdIdeas(params: GenerateParams): Promise<GenerateResponse> {
-  const r = await fetch('/api/admin/meta/generate-ad-ideas', {
+  const r = await fetch('/api/admin/gen-content', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
   const j = await r.json();
-  if (!r.ok || !j?.ok) return { ok: false, error: j?.error || 'generation_failed' } as any;
+  if (!r.ok || !j?.ok) return { ok: false, error: j?.detail || j?.error || 'generation_failed' } as any;
   return j;
 }
 
 export default generateAdIdeas;
-
