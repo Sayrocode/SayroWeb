@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '../../../../../lib/prisma';
+import { prisma } from '../../../../lib/prisma';
 import { requireAdmin, methodNotAllowed } from '../_utils';
-import { readMetaEnv, getBaseUrlFromReq } from '../../../../../lib/meta';
+import { readMetaEnv, getBaseUrlFromReq } from '../../../../lib/meta';
 
 type Body = {
   message: string;
