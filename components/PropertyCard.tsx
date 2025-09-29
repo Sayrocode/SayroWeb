@@ -1,17 +1,7 @@
 import React from 'react';
-import {
-  Box,
-  Stack,
-  Text,
-  Badge,
-  HStack,
-  Icon,
-  LinkBox,
-  LinkOverlay,
-  AspectRatio,
-  useColorModeValue,
-} from "@chakra-ui/react";
+import { Box, Stack, Text, Badge, HStack, Icon, LinkBox, AspectRatio, useColorModeValue } from "@chakra-ui/react";
 import NextLink from "next/link";
+import { useRouter } from "next/router";
 import { navStart } from "../lib/nav";
 import { FiMapPin, FiHome, FiDroplet, FiMaximize } from "react-icons/fi";
 import Image from 'next/image';
@@ -65,6 +55,7 @@ function getLocationText(loc: unknown): string {
 }
 
 function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" }: Props) {
+  const router = useRouter();
   const rawImg = property.title_image_full || property.title_image_thumb || "";
   const isAbs = typeof rawImg === 'string' && /^https?:\/\//i.test(rawImg);
   const img = (typeof rawImg === 'string' && (rawImg.startsWith("/") || isAbs)) ? rawImg : "/image3.jpg";
@@ -84,20 +75,20 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
   const href = `/propiedades/${encodeURIComponent(property.public_id)}`;
 
   return (
-    <LinkBox
-      as="article"
-      role="group"
-      position="relative"
-      borderWidth="1px"
-      borderColor={border}
-      rounded="none"
-      overflow="hidden"
-      bg={cardBg}
-      transition="all .25s ease"
-      _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
-    >
-      {/* Full-card clickable overlay */}
-      <LinkOverlay as={NextLink} href={href} onClick={() => navStart()} position="absolute" inset={0} zIndex={1} aria-label={property.title || `Propiedad ${property.public_id}`} />
+    <NextLink href={href} passHref   >
+      <LinkBox
+      
+        role="group"
+        position="relative"
+        borderWidth="1px"
+        borderColor={border}
+        rounded="none"
+        overflow="hidden"
+        bg={cardBg}
+        transition="all .25s ease"
+        _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
+       
+      >
 
       <AspectRatio ratio={16 / 9}>
         <Box position="relative" w="100%" h="100%">
@@ -125,9 +116,6 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
         </HStack>
 
         <Text
-          as={NextLink}
-          href={href}
-          onClick={() => navStart()}
           fontWeight="bold"
           fontSize="lg"
           noOfLines={2}
@@ -176,7 +164,8 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
           {price}
         </Text>
       </Stack>
-    </LinkBox>
+      </LinkBox>
+    </NextLink>
   );
 }
 // Evitar renders innecesarios cuando la propiedad no cambia

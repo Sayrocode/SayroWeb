@@ -1,22 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import {
-  Box,
-  AspectRatio,
-  Image,
-  Checkbox,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
-  IconButton,
-  HStack,
-  Badge,
-  Text,
-  Icon,
-  Button,
-} from '@chakra-ui/react';
-import { FiMoreVertical, FiExternalLink, FiCopy, FiTrash2, FiEdit2, FiMaximize } from 'react-icons/fi';
+import { Box, AspectRatio, Image, Checkbox, HStack, Badge, Text, Icon, Button } from '@chakra-ui/react';
+import { FiTrash2, FiEdit2, FiMaximize } from 'react-icons/fi';
 
 export type PropertyCardProps = {
   property: any;
@@ -125,30 +110,7 @@ function InnerCard({ property: p, isSelected, onToggleSelect, onDelete }: Proper
           rounded="md"
           shadow="sm"
         />
-        <Menu placement="bottom-end" isLazy>
-          <MenuButton
-            as={IconButton}
-            aria-label="Acciones"
-            icon={<FiMoreVertical />}
-            size="sm"
-            variant="solid"
-            position="absolute"
-            top="2"
-            right="2"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          />
-          <MenuList>
-            <MenuItem as={Link} href={`/admin/properties/${p.id}`} icon={<FiEdit2 />}>Editar</MenuItem>
-            <MenuItem as={Link} href={`/propiedades/${encodeURIComponent(p.publicId)}`} target="_blank" icon={<FiExternalLink />}>Ver público</MenuItem>
-            <MenuItem icon={<FiCopy />} onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(`${window.location.origin}/propiedades/${p.publicId}`); }}>Copiar enlace público</MenuItem>
-            <MenuItem icon={<FiTrash2 />} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(p.id); }}>
-              Eliminar
-            </MenuItem>
-          </MenuList>
-        </Menu>
+
       </Box>
       <Box p={3}>
         <Box as={Link} href={`/admin/properties/${p.id}`} _hover={{ textDecoration: 'none' }} onClick={onEditClick}>

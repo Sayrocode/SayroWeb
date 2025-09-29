@@ -28,10 +28,10 @@ function MyApp({ Component, pageProps }: AppProps) {
       } catch {}
     };
     const custom = () => {
-      // Start loader even before Next.js route event, with a fallback auto-hide
+      // Start loader even before Next.js route event; se oculta solo con los eventos de Next
       setRouteLoading(true);
-      if (customTimerRef.current) clearTimeout(customTimerRef.current);
-      customTimerRef.current = setTimeout(() => setRouteLoading(false), 1200);
+      if (customTimerRef.current) { try { clearTimeout(customTimerRef.current); } catch {} }
+      customTimerRef.current = null;
     };
     router.events.on('routeChangeStart', start);
     router.events.on('routeChangeComplete', done);

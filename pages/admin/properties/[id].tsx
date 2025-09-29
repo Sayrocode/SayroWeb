@@ -494,7 +494,6 @@ export default function AdminPropertyEdit() {
 
             <Box mt={4}>
               <HStack mb={2}>
-                <Button onClick={downloadEBImages} isLoading={dlLoading} colorScheme='green' variant='outline'>Descargar imágenes EB</Button>
                 <Button onClick={publishToEasyBroker} isLoading={publishing} colorScheme='purple'>Publicar en EasyBroker</Button>
               </HStack>
               <Input type="file" ref={fileRef} multiple accept="image/*" onChange={(e) => uploadFiles(e.target.files)} />

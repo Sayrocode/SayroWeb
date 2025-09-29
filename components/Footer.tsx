@@ -199,9 +199,8 @@ export default function Footer() {
             </NavGroup>
 
             <NavGroup title="Soporte" withDivider collapsible={!!isMobile} defaultOpen={!isMobile}>
-              
-              <NavLinkItem href="/aviso-de-privacidad">Aviso de Privacidad</NavLinkItem>
-              <NavLinkItem href="/terminos">Términos y Condiciones</NavLinkItem>
+              <NavLinkItem href="/aviso-de-privacidad" onClick={(e) => handleNavClick(e as any, "/aviso-de-privacidad")}>Aviso de Privacidad</NavLinkItem>
+              <NavLinkItem href="/terminos" onClick={(e) => handleNavClick(e as any, "/terminos")}>Términos y Condiciones</NavLinkItem>
             </NavGroup>
           </SimpleGrid>
 

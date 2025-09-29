@@ -110,6 +110,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (mode !== 'single' && mode !== 'carousel') return res.status(400).json({ error: 'Invalid mode' });
   if (!Array.isArray(propertyIds) || propertyIds.length === 0) return res.status(400).json({ error: 'Missing propertyIds' });
+  // Enforce a hard limit to avoid excessive upstream usage
+  const MAX_PROPERTIES = 5;
+  if (propertyIds.length > MAX_PROPERTIES) {
+    return res.status(400).json({ error: 'too_many_properties', message: `Máximo ${MAX_PROPERTIES} propiedades por solicitud` });
+  }
   if (locale !== 'es' && locale !== 'en') return res.status(400).json({ error: 'Invalid locale' });
   if (!Number.isFinite(temperature)) temperature = 0.7;
   if (!Number.isFinite(top_p)) top_p = 1.0;

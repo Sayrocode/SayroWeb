@@ -869,8 +869,11 @@ export default function Propiedades() {
     return results;
   }, [allProperties, filters.type, filters.city, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, qDebounced]);
 
-  // Sincronizar filtros ↔ URL (consulta compartible)
+  // Sincronizar filtros ↔ URL (consulta compartible) solo cuando estamos en el listado
   useEffect(() => {
+    const path = String((router.asPath || '').split('?')[0] || '');
+    if (path !== '/propiedades') return; // Evitar sobre-escribir URL cuando navegamos al detalle
+
     const q: Record<string, any> = {};
     if (filters.operation) q.operation_type = filters.operation;
     if (typeof filters.priceMin === 'number') q.min_price = filters.priceMin;
@@ -883,8 +886,14 @@ export default function Propiedades() {
     if (typeof filters.lotMin === 'number') q.min_lot_size = filters.lotMin;
     if (typeof filters.lotMax === 'number') q.max_lot_size = filters.lotMax;
     if ((qDebounced || '').trim()) q.q = qDebounced.trim();
+
+    // Evitar replace innecesario si no cambia el querystring
+    const next = new URLSearchParams(Object.entries(q).map(([k, v]) => [k, String(v)])).toString();
+    const current = String((router.asPath.split('?')[1] || ''));
+    if (next === current) return;
+
     try { router.replace({ pathname: '/propiedades', query: q }, undefined, { shallow: true }); } catch {}
-  }, [router, qDebounced, filters.operation, filters.priceMin, filters.priceMax, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax]);
+  }, [router.asPath, qDebounced, filters.operation, filters.priceMin, filters.priceMax, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax]);
 
   // Modo búsqueda completa: cuando el usuario aplica cualquier filtro/consulta,
   // pre-cargamos páginas sucesivas hasta cubrir todo el catálogo available,

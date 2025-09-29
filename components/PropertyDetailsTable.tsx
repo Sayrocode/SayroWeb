@@ -93,13 +93,13 @@ export default function PropertyDetailsTable({ property }: PropertyDetailsTableP
     return "Consultar";
   };
 
-  // Función para obtener el estado/condición
+  // Función para obtener el estado/condición (solo Nuevo/Usado; de lo contrario, vacío)
   const getCondition = () => {
     const status = property.status?.toLowerCase();
     if (status?.includes("nuevo") || status?.includes("new")) return "Nuevo";
     if (status?.includes("usado") || status?.includes("used")) return "Usado";
-    if (status?.includes("disponible") || status?.includes("available")) return "Disponible";
-    return status || "Consultar";
+    // No mostrar otros estados (p. ej. Disponible) ni "Consultar"
+    return "";
   };
 
   // Función para formatear metros cuadrados
@@ -138,7 +138,7 @@ export default function PropertyDetailsTable({ property }: PropertyDetailsTableP
         <Thead>
           <Tr bg="gray.50">
             <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
-              Estado
+              Estado/Provincia
             </Th>
             <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Municipio
@@ -169,7 +169,7 @@ export default function PropertyDetailsTable({ property }: PropertyDetailsTableP
         <Thead>
           <Tr bg="gray.50">
             <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
-              Estado
+              Estatus
             </Th>
             <Th border="1px" borderColor="gray.200" fontWeight="bold" textAlign="center" width="33.33%" fontSize={{ base: 'xs', md: 'sm' }}>
               Referencia

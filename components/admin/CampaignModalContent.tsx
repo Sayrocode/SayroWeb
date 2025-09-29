@@ -54,7 +54,6 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
   const [previewLoading, setPreviewLoading] = React.useState(false);
   // AI generation options
   const [genLocale, setGenLocale] = React.useState<'es'|'en'>('es');
-  const [genModel, setGenModel] = React.useState<'gpt-4o-mini'|'gpt-4.1-mini'>('gpt-4o-mini');
   const [genTemp, setGenTemp] = React.useState<number>(0.7);
   const [genTopP, setGenTopP] = React.useState<number>(1.0);
   const [openaiLoading, setOpenaiLoading] = React.useState(false);
@@ -68,6 +67,23 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
 
   const limit = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n));
 
+  const publishFacebookPost = async () => {
+    try {
+      const pid = selected[0];
+      const body: any = { message: copyPrimary };
+      if (typeof pid === 'number') body.propertyId = pid;
+      const r = await fetch('/api/admin/meta/publish-post', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json();
+      if (r.ok && j?.ok) {
+        toast({ title: 'Publicado en Facebook', status: 'success', duration: 2000 });
+      } else {
+        toast({ title: 'Error al publicar', description: j?.error || '', status: 'error', duration: 3000 });
+      }
+    } catch (e) {
+      toast({ title: 'Error al publicar', status: 'error', duration: 3000 });
+    }
+  };
+
   const generateWithOpenAI = async () => {
     setOpenaiLoading(true);
     try {
@@ -76,12 +92,13 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
         mode: adType,
         propertyIds: ids,
         locale: genLocale,
-        model: genModel,
         temperature: genTemp,
         top_p: genTopP,
       } as any);
       if (!resp || (resp as any).ok === false) {
-        toast({ title: 'No se pudo generar', description: (resp as any)?.error || '', status: 'error', duration: 2000 });
+        // eslint-disable-next-line no-console
+        try { console.error('gen-content error', resp); } catch {}
+        toast({ title: 'No se pudo generar', description: (resp as any)?.error || '', status: 'error', duration: 3000 });
         return;
       }
       const result = resp as any;
@@ -258,13 +275,7 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
             <option value='en'>EN (English)</option>
           </Select>
         </HStack>
-        <HStack>
-          <Text w={labelW}>Modelo</Text>
-          <Select value={genModel} onChange={(e) => setGenModel(e.target.value as any)} maxW='220px' {...commonInputProps}>
-            <option value='gpt-4o-mini'>gpt-4o-mini</option>
-            <option value='gpt-4.1-mini'>gpt-4.1-mini</option>
-          </Select>
-        </HStack>
+        {null}
         <HStack>
           <Text w={labelW}>Creatividad</Text>
           <NumberInput value={genTemp} min={0} max={2} step={0.1} onChange={(_, n) => setGenTemp(Number.isFinite(n) ? Number(n.toFixed(2)) : 0.7)} maxW='200px'>
@@ -331,6 +342,7 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
             <HStack>
               <Button onClick={requestPreview} isLoading={previewLoading} {...outlineBtnProps}>Vista previa</Button>
               <Button onClick={createCampaign} {...primaryBtnProps}>Crear</Button>
+              <Button onClick={publishFacebookPost} variant='outline' colorScheme='facebook' rounded='0' isDisabled={selected.length !== 1 || !copyPrimary}>Publicar en Facebook</Button>
             </HStack>
             {preview && preview.link_data && (
               <Box pt={2}><FacebookSinglePreview spec={preview} /></Box>
