@@ -30,6 +30,11 @@ import {
   DrawerBody,
   DrawerHeader,
   DrawerCloseButton,
+  RangeSlider,
+  RangeSliderTrack,
+  RangeSliderFilledTrack,
+  RangeSliderThumb,
+  HStack,
 } from "@chakra-ui/react";
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import { FiSliders } from "react-icons/fi";
@@ -52,6 +57,36 @@ type FiltersState = {
   priceMin?: number | '';
   priceMax?: number | '';
 };
+
+const PRICE_FORMATTER = new Intl.NumberFormat('es-MX', {
+  style: 'currency',
+  currency: 'MXN',
+  maximumFractionDigits: 0,
+});
+
+const PRICE_COMPACT_FORMATTER = new Intl.NumberFormat('es-MX', {
+  style: 'currency',
+  currency: 'MXN',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+const PRICE_SLIDER_MIN = 500_000;
+const PRICE_SLIDER_MAX = 100_000_000;
+
+const AREA_FORMATTER = new Intl.NumberFormat('es-MX', {
+  maximumFractionDigits: 0,
+});
+
+const AREA_COMPACT_FORMATTER = new Intl.NumberFormat('es-MX', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+const CONSTRUCTION_SLIDER_MIN = 0;
+const CONSTRUCTION_SLIDER_MAX = 5_000;
+const LOT_SLIDER_MIN = 0;
+const LOT_SLIDER_MAX = 20_000;
 
 export default function Propiedades() {
   const router = useRouter();
@@ -887,6 +922,11 @@ export default function Propiedades() {
     return results;
   }, [allProperties, filters.type, filters.city, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, qDebounced]);
 
+  const priceBounds = useMemo(() => ({
+    min: PRICE_SLIDER_MIN,
+    max: PRICE_SLIDER_MAX,
+  }), []);
+
   // Conteo por municipio no-bloqueante (idle) basado en la lista visible
   const [municipalityCounts, setMunicipalityCounts] = useState<Map<string, number>>(new Map());
   useEffect(() => {
@@ -1076,6 +1116,7 @@ export default function Propiedades() {
                   setFilters={setFilters}
                   colonyOptions={colonyOptions}
                   clearFilters={clearFilters}
+                  priceBounds={priceBounds}
                   onClose={() => setSidebarOpen(false)}
                 />
               </DrawerBody>
@@ -1236,10 +1277,11 @@ type FiltersSidebarContentProps = {
   setFilters: React.Dispatch<React.SetStateAction<FiltersState>>;
   colonyOptions: string[];
   clearFilters: () => void | Promise<void>;
+  priceBounds: { min: number; max: number } | null;
   onClose?: () => void;
 };
 
-function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilters, onClose }: FiltersSidebarContentProps) {
+function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilters, priceBounds, onClose }: FiltersSidebarContentProps) {
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [draft, setDraft] = React.useState({
     bedroomsMin: filters.bedroomsMin || '',
@@ -1251,6 +1293,18 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
     lotMin: filters.lotMin || '',
     lotMax: filters.lotMax || '',
   });
+  const [constructionRange, setConstructionRange] = React.useState<[number, number]>([CONSTRUCTION_SLIDER_MIN, CONSTRUCTION_SLIDER_MAX]);
+  const [lotRange, setLotRange] = React.useState<[number, number]>([LOT_SLIDER_MIN, LOT_SLIDER_MAX]);
+
+  const clampConstructionValue = React.useCallback((value: number) => {
+    if (!Number.isFinite(value)) return CONSTRUCTION_SLIDER_MIN;
+    return Math.min(Math.max(value, CONSTRUCTION_SLIDER_MIN), CONSTRUCTION_SLIDER_MAX);
+  }, []);
+
+  const clampLotValue = React.useCallback((value: number) => {
+    if (!Number.isFinite(value)) return LOT_SLIDER_MIN;
+    return Math.min(Math.max(value, LOT_SLIDER_MIN), LOT_SLIDER_MAX);
+  }, []);
 
   React.useEffect(() => {
     setDraft({
@@ -1263,7 +1317,124 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
       lotMin: filters.lotMin || '',
       lotMax: filters.lotMax || '',
     });
-  }, [filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.colony, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax]);
+    const nextConstructionMin = typeof filters.constructionMin === 'number' ? filters.constructionMin : CONSTRUCTION_SLIDER_MIN;
+    const nextConstructionMax = typeof filters.constructionMax === 'number' ? filters.constructionMax : CONSTRUCTION_SLIDER_MAX;
+    setConstructionRange([
+      clampConstructionValue(nextConstructionMin),
+      clampConstructionValue(nextConstructionMax),
+    ]);
+    const nextLotMin = typeof filters.lotMin === 'number' ? filters.lotMin : LOT_SLIDER_MIN;
+    const nextLotMax = typeof filters.lotMax === 'number' ? filters.lotMax : LOT_SLIDER_MAX;
+    setLotRange([
+      clampLotValue(nextLotMin),
+      clampLotValue(nextLotMax),
+    ]);
+  }, [filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.colony, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, clampConstructionValue, clampLotValue]);
+
+  const effectiveBounds = React.useMemo(() => {
+    if (priceBounds && Number.isFinite(priceBounds.min) && Number.isFinite(priceBounds.max) && priceBounds.max > priceBounds.min) {
+      return priceBounds;
+    }
+    if (priceBounds && priceBounds.max === priceBounds.min) {
+      const base = priceBounds.min;
+      return { min: Math.max(PRICE_SLIDER_MIN, base - 50000), max: PRICE_SLIDER_MAX };
+    }
+    return { min: PRICE_SLIDER_MIN, max: PRICE_SLIDER_MAX };
+  }, [priceBounds]);
+
+  const sliderMin = effectiveBounds.min;
+  const sliderMax = effectiveBounds.max;
+
+  const clampValue = React.useCallback((value: number) => {
+    if (!Number.isFinite(value)) return sliderMin;
+    return Math.min(Math.max(value, sliderMin), sliderMax);
+  }, [sliderMin, sliderMax]);
+
+  const [priceRange, setPriceRange] = React.useState<[number, number]>([sliderMin, sliderMax]);
+
+  React.useEffect(() => {
+    const nextMin = typeof filters.priceMin === 'number' ? filters.priceMin : sliderMin;
+    const nextMax = typeof filters.priceMax === 'number' ? filters.priceMax : sliderMax;
+    setPriceRange([clampValue(nextMin), clampValue(nextMax)]);
+  }, [filters.priceMin, filters.priceMax, sliderMin, sliderMax, clampValue]);
+
+  const formatCurrency = React.useCallback((value: number, opts?: { compact?: boolean }) => {
+    const rounded = Math.max(0, Math.round(value));
+    if (opts?.compact) {
+      return PRICE_COMPACT_FORMATTER.format(rounded);
+    }
+    return PRICE_FORMATTER.format(rounded);
+  }, []);
+
+  const priceStep = React.useMemo(() => {
+    const span = sliderMax - sliderMin;
+    if (span <= 500000) return 10000;
+    if (span <= 2000000) return 50000;
+    if (span <= 5000000) return 100000;
+    if (span <= 20000000) return 250000;
+    return 500000;
+  }, [sliderMin, sliderMax]);
+
+  const commitPriceRange = React.useCallback((minValue: number, maxValue: number, opts?: { noMin?: boolean; noMax?: boolean }) => {
+    const low = Math.min(minValue, maxValue);
+    const high = Math.max(minValue, maxValue);
+    const normalizedLow = Math.round(Math.max(sliderMin, low));
+    const normalizedHigh = Math.round(Math.min(sliderMax, high));
+    setFilters((prev) => ({
+      ...prev,
+      priceMin: opts?.noMin ? '' : normalizedLow,
+      priceMax: opts?.noMax ? '' : normalizedHigh,
+    }));
+  }, [setFilters, sliderMin, sliderMax]);
+
+  const formatArea = React.useCallback((value: number, opts?: { compact?: boolean }) => {
+    const rounded = Math.max(0, Math.round(value));
+    const formatted = opts?.compact
+      ? AREA_COMPACT_FORMATTER.format(rounded)
+      : AREA_FORMATTER.format(rounded);
+    return `${formatted} m²`;
+  }, []);
+
+  const constructionStep = React.useMemo(() => {
+    const span = CONSTRUCTION_SLIDER_MAX - CONSTRUCTION_SLIDER_MIN;
+    if (span <= 1000) return 10;
+    if (span <= 5000) return 25;
+    if (span <= 10000) return 50;
+    return 100;
+  }, []);
+
+  const lotStep = React.useMemo(() => {
+    const span = LOT_SLIDER_MAX - LOT_SLIDER_MIN;
+    if (span <= 1000) return 20;
+    if (span <= 5000) return 50;
+    if (span <= 10000) return 100;
+    if (span <= 40000) return 250;
+    return 500;
+  }, []);
+
+  const commitConstructionRange = React.useCallback((minValue: number, maxValue: number, opts?: { noMin?: boolean; noMax?: boolean }) => {
+    const low = Math.min(minValue, maxValue);
+    const high = Math.max(minValue, maxValue);
+    const normalizedLow = clampConstructionValue(low);
+    const normalizedHigh = clampConstructionValue(high);
+    setDraft((prev) => ({
+      ...prev,
+      constructionMin: opts?.noMin ? '' : normalizedLow,
+      constructionMax: opts?.noMax ? '' : normalizedHigh,
+    }));
+  }, [clampConstructionValue]);
+
+  const commitLotRange = React.useCallback((minValue: number, maxValue: number, opts?: { noMin?: boolean; noMax?: boolean }) => {
+    const low = Math.min(minValue, maxValue);
+    const high = Math.max(minValue, maxValue);
+    const normalizedLow = clampLotValue(low);
+    const normalizedHigh = clampLotValue(high);
+    setDraft((prev) => ({
+      ...prev,
+      lotMin: opts?.noMin ? '' : normalizedLow,
+      lotMax: opts?.noMax ? '' : normalizedHigh,
+    }));
+  }, [clampLotValue]);
 
   const applyAdvanced = () => {
     setFilters((f) => ({
@@ -1303,21 +1474,87 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
 
       <Stack spacing={2}>
         <Text fontWeight="medium" color="gray.700">Precio</Text>
-        <Stack spacing={2}>
-          <Input
-            bg="gray.50"
-            type="number"
-            placeholder="Mínimo"
-            value={String(filters.priceMin ?? '')}
-            onChange={(e) => setFilters((f) => ({ ...f, priceMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-          />
-          <Input
-            bg="gray.50"
-            type="number"
-            placeholder="Máximo"
-            value={String(filters.priceMax ?? '')}
-            onChange={(e) => setFilters((f) => ({ ...f, priceMax: e.target.value === '' ? '' : Number(e.target.value) }))}
-          />
+        <Stack spacing={3}>
+          <HStack justify="space-between" fontSize="xs" fontWeight="medium" color="gray.600" px={1}>
+            <Text>{filters.priceMin === '' && priceRange[0] <= sliderMin ? 'Sin mínimo' : formatCurrency(priceRange[0], { compact: true })}</Text>
+            <Text>{filters.priceMax === '' && priceRange[1] >= sliderMax ? 'Sin máximo' : formatCurrency(priceRange[1], { compact: true })}</Text>
+          </HStack>
+          <Box px={1} pt={2} pb={2} bg="gray.50" rounded="md">
+            <RangeSlider
+              aria-label={['Precio mínimo', 'Precio máximo']}
+              colorScheme="green"
+              min={sliderMin}
+              max={sliderMax}
+              step={priceStep}
+              value={priceRange}
+              onChange={(val) => setPriceRange(val as [number, number])}
+              onChangeEnd={(val) => {
+                const [minVal, maxVal] = val as [number, number];
+                commitPriceRange(minVal, maxVal, {
+                  noMin: minVal <= sliderMin && filters.priceMin === '',
+                  noMax: maxVal >= sliderMax && filters.priceMax === '',
+                });
+              }}
+            >
+              <RangeSliderTrack bg="gray.200">
+                <RangeSliderFilledTrack bg="#0E3B30" />
+              </RangeSliderTrack>
+              <RangeSliderThumb index={0} boxSize={4} bg="white" borderWidth="1px" borderColor="gray.200" shadow="sm" />
+              <RangeSliderThumb index={1} boxSize={4} bg="white" borderWidth="1px" borderColor="gray.200" shadow="sm" />
+            </RangeSlider>
+          </Box>
+          <HStack justify="space-between" fontSize="xs" color="gray.500" px={1}>
+            <Text>{formatCurrency(sliderMin, { compact: true })}</Text>
+            <Text>{formatCurrency(sliderMax, { compact: true })}</Text>
+          </HStack>
+          <HStack spacing={3}>
+            <Input
+              bg="gray.50"
+              type="number"
+              inputMode="numeric"
+              placeholder="Mínimo"
+              value={typeof filters.priceMin === 'number' ? String(filters.priceMin) : ''}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  setPriceRange(([_, maxVal]) => [sliderMin, maxVal]);
+                  setFilters((prev) => ({ ...prev, priceMin: '' }));
+                  return;
+                }
+                const parsed = Number(raw);
+                if (Number.isNaN(parsed)) return;
+                const clamped = clampValue(parsed);
+                setPriceRange(([_, maxVal]) => [clamped, maxVal]);
+                const currentMax = typeof filters.priceMax === 'number' ? filters.priceMax : sliderMax;
+                commitPriceRange(clamped, currentMax, {
+                  noMax: filters.priceMax === '' && currentMax >= sliderMax,
+                });
+              }}
+            />
+            <Input
+              bg="gray.50"
+              type="number"
+              inputMode="numeric"
+              placeholder="Máximo"
+              value={typeof filters.priceMax === 'number' ? String(filters.priceMax) : ''}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  setPriceRange(([minVal]) => [minVal, sliderMax]);
+                  setFilters((prev) => ({ ...prev, priceMax: '' }));
+                  return;
+                }
+                const parsed = Number(raw);
+                if (Number.isNaN(parsed)) return;
+                const clamped = clampValue(parsed);
+                setPriceRange(([minVal]) => [minVal, clamped]);
+                const currentMin = typeof filters.priceMin === 'number' ? filters.priceMin : sliderMin;
+                commitPriceRange(currentMin, clamped, {
+                  noMin: filters.priceMin === '' && currentMin <= sliderMin,
+                });
+              }}
+            />
+          </HStack>
         </Stack>
       </Stack>
 
@@ -1368,34 +1605,168 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
               <option value=''>Todas</option>
               {colonyOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
             </Select>
-            <Input
-              bg="gray.50"
-              type="number"
-              placeholder="Min. construcción (m²)"
-              value={String(draft.constructionMin ?? '')}
-              onChange={(e) => setDraft((d) => ({ ...d, constructionMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-            />
-            <Input
-              bg="gray.50"
-              type="number"
-              placeholder="Máx. construcción (m²)"
-              value={String(draft.constructionMax ?? '')}
-              onChange={(e) => setDraft((d) => ({ ...d, constructionMax: e.target.value === '' ? '' : Number(e.target.value) }))}
-            />
-            <Input
-              bg="gray.50"
-              type="number"
-              placeholder="Min. terreno (m²)"
-              value={String(draft.lotMin ?? '')}
-              onChange={(e) => setDraft((d) => ({ ...d, lotMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-            />
-            <Input
-              bg="gray.50"
-              type="number"
-              placeholder="Máx. terreno (m²)"
-              value={String(draft.lotMax ?? '')}
-              onChange={(e) => setDraft((d) => ({ ...d, lotMax: e.target.value === '' ? '' : Number(e.target.value) }))}
-            />
+
+            <Stack spacing={2} bg="gray.50" p={3} rounded="md">
+              <Text fontWeight="medium" color="gray.700" fontSize="sm">Construcción (m²)</Text>
+              <HStack justify="space-between" fontSize="xs" fontWeight="medium" color="gray.600">
+                <Text>{draft.constructionMin === '' && constructionRange[0] <= CONSTRUCTION_SLIDER_MIN ? 'Sin mínimo' : formatArea(constructionRange[0], { compact: true })}</Text>
+                <Text>{draft.constructionMax === '' && constructionRange[1] >= CONSTRUCTION_SLIDER_MAX ? 'Sin máximo' : formatArea(constructionRange[1], { compact: true })}</Text>
+              </HStack>
+              <RangeSlider
+                colorScheme="green"
+                min={CONSTRUCTION_SLIDER_MIN}
+                max={CONSTRUCTION_SLIDER_MAX}
+                step={constructionStep}
+                value={constructionRange}
+                onChange={(val) => setConstructionRange(val as [number, number])}
+                onChangeEnd={(val) => {
+                  const [minVal, maxVal] = val as [number, number];
+                  commitConstructionRange(minVal, maxVal, {
+                    noMin: minVal <= CONSTRUCTION_SLIDER_MIN,
+                    noMax: maxVal >= CONSTRUCTION_SLIDER_MAX,
+                  });
+                }}
+              >
+                <RangeSliderTrack bg="gray.200">
+                  <RangeSliderFilledTrack bg="#0E3B30" />
+                </RangeSliderTrack>
+                <RangeSliderThumb index={0} boxSize={3.5} bg="white" borderWidth="1px" borderColor="gray.200" shadow="sm" />
+                <RangeSliderThumb index={1} boxSize={3.5} bg="white" borderWidth="1px" borderColor="gray.200" shadow="sm" />
+              </RangeSlider>
+              <HStack justify="space-between" fontSize="xs" color="gray.500">
+                <Text>{formatArea(CONSTRUCTION_SLIDER_MIN, { compact: true })}</Text>
+                <Text>{formatArea(CONSTRUCTION_SLIDER_MAX, { compact: true })}</Text>
+              </HStack>
+              <HStack spacing={3}>
+                <Input
+                  bg="white"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Min. construcción"
+                  value={typeof draft.constructionMin === 'number' ? String(draft.constructionMin) : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setConstructionRange(([_, maxVal]) => [CONSTRUCTION_SLIDER_MIN, maxVal]);
+                      setDraft((prev) => ({ ...prev, constructionMin: '' }));
+                      return;
+                    }
+                    const parsed = Number(raw);
+                    if (Number.isNaN(parsed)) return;
+                    const clamped = clampConstructionValue(parsed);
+                    setConstructionRange(([_, maxVal]) => [clamped, maxVal]);
+                    const currentMax = typeof draft.constructionMax === 'number' ? draft.constructionMax : CONSTRUCTION_SLIDER_MAX;
+                    commitConstructionRange(clamped, currentMax, {
+                      noMax: draft.constructionMax === '' && currentMax >= CONSTRUCTION_SLIDER_MAX,
+                    });
+                  }}
+                />
+                <Input
+                  bg="white"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Máx. construcción"
+                  value={typeof draft.constructionMax === 'number' ? String(draft.constructionMax) : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setConstructionRange(([minVal]) => [minVal, CONSTRUCTION_SLIDER_MAX]);
+                      setDraft((prev) => ({ ...prev, constructionMax: '' }));
+                      return;
+                    }
+                    const parsed = Number(raw);
+                    if (Number.isNaN(parsed)) return;
+                    const clamped = clampConstructionValue(parsed);
+                    setConstructionRange(([minVal]) => [minVal, clamped]);
+                    const currentMin = typeof draft.constructionMin === 'number' ? draft.constructionMin : CONSTRUCTION_SLIDER_MIN;
+                    commitConstructionRange(currentMin, clamped, {
+                      noMin: draft.constructionMin === '' && currentMin <= CONSTRUCTION_SLIDER_MIN,
+                    });
+                  }}
+                />
+              </HStack>
+            </Stack>
+
+            <Stack spacing={2} bg="gray.50" p={3} rounded="md">
+              <Text fontWeight="medium" color="gray.700" fontSize="sm">Terreno (m²)</Text>
+              <HStack justify="space-between" fontSize="xs" fontWeight="medium" color="gray.600">
+                <Text>{draft.lotMin === '' && lotRange[0] <= LOT_SLIDER_MIN ? 'Sin mínimo' : formatArea(lotRange[0], { compact: true })}</Text>
+                <Text>{draft.lotMax === '' && lotRange[1] >= LOT_SLIDER_MAX ? 'Sin máximo' : formatArea(lotRange[1], { compact: true })}</Text>
+              </HStack>
+              <RangeSlider
+                colorScheme="green"
+                min={LOT_SLIDER_MIN}
+                max={LOT_SLIDER_MAX}
+                step={lotStep}
+                value={lotRange}
+                onChange={(val) => setLotRange(val as [number, number])}
+                onChangeEnd={(val) => {
+                  const [minVal, maxVal] = val as [number, number];
+                  commitLotRange(minVal, maxVal, {
+                    noMin: minVal <= LOT_SLIDER_MIN,
+                    noMax: maxVal >= LOT_SLIDER_MAX,
+                  });
+                }}
+              >
+                <RangeSliderTrack bg="gray.200">
+                  <RangeSliderFilledTrack bg="#0E3B30" />
+                </RangeSliderTrack>
+                <RangeSliderThumb index={0} boxSize={3.5} bg="white" borderWidth="1px" borderColor="gray.200" shadow="sm" />
+                <RangeSliderThumb index={1} boxSize={3.5} bg="white" borderWidth="1px" borderColor="gray.200" shadow="sm" />
+              </RangeSlider>
+              <HStack justify="space-between" fontSize="xs" color="gray.500">
+                <Text>{formatArea(LOT_SLIDER_MIN, { compact: true })}</Text>
+                <Text>{formatArea(LOT_SLIDER_MAX, { compact: true })}</Text>
+              </HStack>
+              <HStack spacing={3}>
+                <Input
+                  bg="white"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Min. terreno"
+                  value={typeof draft.lotMin === 'number' ? String(draft.lotMin) : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setLotRange(([_, maxVal]) => [LOT_SLIDER_MIN, maxVal]);
+                      setDraft((prev) => ({ ...prev, lotMin: '' }));
+                      return;
+                    }
+                    const parsed = Number(raw);
+                    if (Number.isNaN(parsed)) return;
+                    const clamped = clampLotValue(parsed);
+                    setLotRange(([_, maxVal]) => [clamped, maxVal]);
+                    const currentMax = typeof draft.lotMax === 'number' ? draft.lotMax : LOT_SLIDER_MAX;
+                    commitLotRange(clamped, currentMax, {
+                      noMax: draft.lotMax === '' && currentMax >= LOT_SLIDER_MAX,
+                    });
+                  }}
+                />
+                <Input
+                  bg="white"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Máx. terreno"
+                  value={typeof draft.lotMax === 'number' ? String(draft.lotMax) : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setLotRange(([minVal]) => [minVal, LOT_SLIDER_MAX]);
+                      setDraft((prev) => ({ ...prev, lotMax: '' }));
+                      return;
+                    }
+                    const parsed = Number(raw);
+                    if (Number.isNaN(parsed)) return;
+                    const clamped = clampLotValue(parsed);
+                    setLotRange(([minVal]) => [minVal, clamped]);
+                    const currentMin = typeof draft.lotMin === 'number' ? draft.lotMin : LOT_SLIDER_MIN;
+                    commitLotRange(currentMin, clamped, {
+                      noMin: draft.lotMin === '' && currentMin <= LOT_SLIDER_MIN,
+                    });
+                  }}
+                />
+              </HStack>
+            </Stack>
             <Button size="sm" colorScheme="green" onClick={applyAdvanced}>Aplicar filtros</Button>
           </Stack>
         </Collapse>
