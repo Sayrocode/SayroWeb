@@ -111,14 +111,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   };
   if (q) {
     whereClause.OR = [
-      { title: { contains: q, mode: 'insensitive' } },
-      { publicId: { contains: q, mode: 'insensitive' } },
-      { locationText: { contains: q, mode: 'insensitive' } },
-      { propertyType: { contains: q, mode: 'insensitive' } },
+      { title: { contains: q } },
+      { publicId: { contains: q } },
+      { locationText: { contains: q } },
+      { propertyType: { contains: q } },
     ];
   }
   if (type) whereClause.propertyType = type;
-  if (city) whereClause.locationText = { contains: city, mode: 'insensitive' };
+  if (city) whereClause.locationText = { contains: city };
 
   const listPromise = prisma.property.findMany({
     where: whereClause,

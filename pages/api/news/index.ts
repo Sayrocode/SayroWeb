@@ -25,8 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (q && q.trim()) {
     // naive OR search across title and content
     where.OR = [
-      { title: { contains: q, mode: 'insensitive' as any } },
-      { content: { contains: q, mode: 'insensitive' as any } },
+      { title: { contains: q } },
+      { content: { contains: q } },
     ];
   }
   if (from) {
@@ -53,4 +53,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=300');
   return res.status(200).json({ items, page: pageNum, total, pageSize: take });
 }
-

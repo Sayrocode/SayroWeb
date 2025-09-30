@@ -88,15 +88,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (f.property_types && f.property_types.length) where.propertyType = { in: f.property_types };
   // Locations basic contains
   if (f.locations && f.locations.length) {
-    where.AND = (where.AND || []).concat(f.locations.map((s) => ({ locationText: { contains: s, mode: 'insensitive' } })));
+    where.AND = (where.AND || []).concat(f.locations.map((s) => ({ locationText: { contains: s } })));
   }
   // Free text across title/location/type
   if (f.q && f.q.trim().length >= 2) {
     const q = f.q.trim();
     where.OR = (where.OR || []).concat([
-      { title: { contains: q, mode: 'insensitive' } },
-      { locationText: { contains: q, mode: 'insensitive' } },
-      { propertyType: { contains: q, mode: 'insensitive' } },
+      { title: { contains: q } },
+      { locationText: { contains: q } },
+      { propertyType: { contains: q } },
     ]);
   }
 

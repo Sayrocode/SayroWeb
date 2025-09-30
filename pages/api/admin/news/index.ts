@@ -34,8 +34,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (includeDrafts !== 'true') where.publishedAt = { not: null };
     if (q && q.trim()) {
       where.OR = [
-        { title: { contains: q, mode: 'insensitive' as any } },
-        { content: { contains: q, mode: 'insensitive' as any } },
+        { title: { contains: q } },
+        { content: { contains: q } },
       ];
     }
     if (from) {
@@ -71,4 +71,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return methodNotAllowed(res, ['GET', 'POST']);
 }
-

@@ -97,10 +97,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
       // Remove undefined keys
       Object.keys(location).forEach((k) => location[k] === undefined && delete location[k]);
-      // Normalize property_images to URLs (use public base for relative paths)
+      // Normalize images/property_images to URLs (use public base for relative paths)
       const PUBLIC_BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://sayro-web.vercel.app';
-      const inputImgs = Array.isArray((body as any).property_images) ? (body as any).property_images : [];
-      const property_images = inputImgs
+      const inputImgsRaw = Array.isArray((body as any).images)
+        ? (body as any).images
+        : (Array.isArray((body as any).property_images) ? (body as any).property_images : []);
+      const images = inputImgsRaw
         .map((it: any) => ({ url: (it && typeof it.url === 'string') ? it.url.trim() : '' }))
         .filter((it: any) => !!it.url)
         .map((it: any) => ({ url: it.url.startsWith('http') ? it.url : `${PUBLIC_BASE}${it.url}` }));
@@ -133,7 +135,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         location,
         operations,
       };
-      if (property_images.length) (payload as any).property_images = property_images;
+      if (images.length) (payload as any).images = images;
 
       const upstream = await fetch(EB_BASE, {
         method: 'POST',

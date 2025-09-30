@@ -5,6 +5,32 @@ import { getBaseUrlFromReq } from '../../../../../../lib/meta';
 
 const EB_BASE = 'https://api.easybroker.com/v1/properties';
 
+function norm(s: string) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function normalizeType(raw?: string | null): string | undefined {
+  const s = norm(String(raw || ''));
+  const has = (w: string) => s.includes(w);
+  if (has('casa')) return 'Casa';
+  if (has('depart') || has('depa') || has('apto') || has('apart') || has('loft') || has('duplex') || has('triplex') || has('penthouse') || s === 'ph' || has('studio')) return 'Departamento';
+  if (has('terreno') || has('lote') || has('predio') || has('parcela')) return 'Terreno';
+  if (has('oficina') || has('despacho')) return 'Oficina';
+  if (has('local')) return 'Local';
+  if (has('bodega')) return 'Bodega';
+  if (has('nave') || has('industrial')) return 'Nave';
+  return (raw || undefined) as any;
+}
+
+function toAbs(u: string, baseUrl: string) {
+  if (!u) return '';
+  return /^https?:\/\//i.test(u) ? u : `${baseUrl}${u.startsWith('/') ? '' : '/'}${u}`;
+}
+
 function parseOperations(prop: any): any[] {
   // Try ebDetailJson.operations, then operationsJson
   try {
@@ -41,7 +67,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const baseUrl = getBaseUrlFromReq(req);
 
-  const images = (prop.media || []).map((m) => ({ url: `${baseUrl}/api/admin/images/${encodeURIComponent(m.key)}` }));
+  // property_images: Turso media + saved JSON (propertyImagesJson / ebDetailJson.property_images)
+  const fromMedia = Array.isArray(prop.media) ? prop.media.map((m) => ({ url: `${baseUrl}/api/admin/images/${encodeURIComponent(m.key)}` })) : [];
+  const fromJson: Array<{ url: string }> = (() => {
+    try {
+      if (prop.propertyImagesJson) {
+        const arr = JSON.parse(prop.propertyImagesJson);
+        if (Array.isArray(arr)) return arr.map((it: any) => ({ url: toAbs(String(it?.url || ''), baseUrl) })).filter((it) => !!it.url);
+      }
+    } catch {}
+    try {
+      if (prop.ebDetailJson) {
+        const j = JSON.parse(prop.ebDetailJson);
+        const arr = Array.isArray(j?.property_images) ? j.property_images : [];
+        return arr.map((it: any) => ({ url: toAbs(String(it?.url || ''), baseUrl) })).filter((it) => !!it.url);
+      }
+    } catch {}
+    return [];
+  })();
+  const seen = new Set<string>();
+  const images = [...fromMedia, ...fromJson].filter((it) => {
+    const u = String(it?.url || ''); if (!u) return false; if (seen.has(u)) return false; seen.add(u); return true;
+  });
   const operationsRaw = parseOperations(prop);
   const operations = Array.isArray(operationsRaw)
     ? operationsRaw
@@ -62,18 +109,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .filter(Boolean)
     : [];
 
-  // Location heuristic
+  // Location: prefer structured from ebDetailJson if exists; otherwise, minimal from locationText
   const locText = prop.locationText || '';
-  const [maybeName] = locText ? [locText] : [''];
-  const street = locText ? (locText.split(',')[0] || '').trim() : '';
+  let location: any = { name: locText || undefined, street: locText ? (locText.split(',')[0] || '').trim() : undefined };
+  try {
+    const j = prop.ebDetailJson ? JSON.parse(prop.ebDetailJson) : null;
+    const loc = j?.location;
+    if (loc && typeof loc === 'object') {
+      const stateMap: Record<string,string> = { 'queretaro': 'Querétaro', 'cdmx': 'Ciudad de México', 'ciudad de mexico': 'Ciudad de México' };
+      const sanitize = (x: any) => (typeof x === 'string' && x.trim()) ? x.trim() : undefined;
+      let latitude = typeof loc.latitude === 'number' ? loc.latitude : undefined;
+      let longitude = typeof loc.longitude === 'number' ? loc.longitude : undefined;
+      // Mexico longitudes negativas (si vienen positivas por error)
+      if (longitude != null && Math.abs(longitude) <= 180 && longitude > 0) longitude = -Math.abs(longitude);
+      location = {
+        name: sanitize(loc.name) || location.name,
+        street: sanitize(loc.street) || location.street,
+        postal_code: sanitize(loc.postal_code),
+        exterior_number: sanitize(loc.exterior_number),
+        cross_street: sanitize(loc.cross_street),
+        latitude: latitude,
+        longitude: longitude,
+      };
+    }
+  } catch {}
+
+  // Remove undefined keys (strict whitelist for EB)
+  Object.keys(location).forEach((k) => (location as any)[k] === undefined && delete (location as any)[k]);
   const body: any = {
     title: prop.title || `Propiedad ${prop.publicId || id}`,
-    property_type: prop.propertyType || undefined,
+    // Usar el tipo tal como se guardó (catálogo EB de la cuenta). Fallback al normalizador solo si no hay valor.
+    property_type: (prop.propertyType && String(prop.propertyType).trim()) || normalizeType(prop.propertyType) || undefined,
     description: (() => { try { const j = prop.ebDetailJson ? JSON.parse(prop.ebDetailJson) : null; return j?.description || undefined; } catch { return undefined; } })(),
     operations: operations.length ? operations : undefined,
-    status: (prop.status && typeof prop.status === 'string') ? prop.status : 'not_published',
-    location: { name: maybeName, street },
+    status: (String(prop.status || '').toLowerCase().includes('public')) ? 'published' : 'not_published',
+    location,
+    // Características y tamaños
+    bedrooms: typeof (prop as any).bedrooms === 'number' ? (prop as any).bedrooms : undefined,
+    bathrooms: typeof (prop as any).bathrooms === 'number' ? (prop as any).bathrooms : undefined,
+    parking_spaces: typeof (prop as any).parkingSpaces === 'number' ? (prop as any).parkingSpaces : undefined,
+    lot_size: typeof (prop as any).lotSize === 'number' ? (prop as any).lotSize : undefined,
+    construction_size: typeof (prop as any).constructionSize === 'number' ? (prop as any).constructionSize : undefined,
   };
+  if (images.length) body.images = images;
 
   if (req.method === 'GET') {
     return res.status(200).json({ preview: body });
@@ -81,10 +159,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
+      // Remove legacy key if present
+      const outbound: any = { ...body };
+      if (Array.isArray(outbound.property_images)) delete outbound.property_images;
       const upstream = await fetch(EB_BASE, {
         method: 'POST',
         headers: { accept: 'application/json', 'content-type': 'application/json', 'X-Authorization': apiKey },
-        body: JSON.stringify(body),
+        body: JSON.stringify(outbound),
       });
       const text = await upstream.text();
       let data: any = null;

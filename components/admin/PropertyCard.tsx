@@ -32,7 +32,10 @@ function getSizeSqmAdmin(p: any): number | null {
 
 function isCampaignMode(): boolean {
   if (typeof document === 'undefined') return false;
-  try { return document.body.classList.contains('campaign-mode'); } catch { return false; }
+  try {
+    const b = document.body.classList;
+    return b.contains('campaign-mode') || b.contains('eb-mode');
+  } catch { return false; }
 }
 
 function InnerCard({ property: p, isSelected, onToggleSelect, onDelete }: PropertyCardProps) {

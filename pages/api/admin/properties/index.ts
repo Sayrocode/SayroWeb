@@ -2,6 +2,77 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../../lib/prisma';
 import { requireAdmin, methodNotAllowed } from '../_utils';
 
+// Helpers for type/city normalization (server-side)
+function norm(s: string): string {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+const TYPE_SYNONYMS: Record<string, string[]> = {
+  Casa: ['casa', 'casas'],
+  Departamento: ['departamento', 'departamentos', 'depa', 'dept', 'apto', 'apartamento'],
+  Loft: ['loft', 'studio'],
+  Terreno: ['terreno', 'terrenos', 'lote', 'lotes', 'predio', 'predios', 'parcela', 'parcelas'],
+  Oficina: ['oficina', 'oficinas', 'despacho', 'despachos'],
+  Local: ['local', 'locales', 'comercial', 'comerciales'],
+  Bodega: ['bodega', 'bodegas'],
+  Nave: ['nave', 'naves', 'industrial', 'industriales'],
+  Penthouse: ['penthouse', 'ph'],
+};
+
+function canonTypeToSynonyms(t: string): string[] {
+  const keys = Object.keys(TYPE_SYNONYMS);
+  const found = keys.find((k) => norm(k) === norm(t));
+  if (found) return TYPE_SYNONYMS[found];
+  // fallback: try to detect canonical from raw
+  const s = norm(t);
+  if (s.includes('casa')) return TYPE_SYNONYMS['Casa'];
+  if (s.includes('loft')) return TYPE_SYNONYMS['Loft'];
+  if (/(depart|depa|apart|apto)/.test(s)) return TYPE_SYNONYMS['Departamento'];
+  if (/(terreno|lote|predio|parcela)/.test(s)) return TYPE_SYNONYMS['Terreno'];
+  if (/(oficina|despacho)/.test(s)) return TYPE_SYNONYMS['Oficina'];
+  if (/(local|comercial)/.test(s)) return TYPE_SYNONYMS['Local'];
+  if (/(bodega)/.test(s)) return TYPE_SYNONYMS['Bodega'];
+  if (/(nave|industrial)/.test(s)) return TYPE_SYNONYMS['Nave'];
+  if (/(penthouse|\bph\b)/.test(s)) return TYPE_SYNONYMS['Penthouse'];
+  return [t];
+}
+
+const QRO_MUNICIPALITIES = [
+  'Amealco de Bonfil', 'Arroyo Seco', 'Cadereyta de Montes', 'Colón', 'Corregidora', 'Ezequiel Montes', 'Huimilpan',
+  'Jalpan de Serra', 'Landa de Matamoros', 'El Marqués', 'Pedro Escobedo', 'Peñamiller', 'Pinal de Amoles', 'Querétaro',
+  'San Joaquín', 'San Juan del Río', 'Tequisquiapan', 'Tolimán',
+];
+const MUNICIPIO_SYNONYMS = (() => {
+  const map: Record<string, string> = {};
+  const add = (canon: string, ...syns: string[]) => { syns.forEach((s) => { map[norm(s)] = canon; }); map[norm(canon)] = canon; };
+  add('Querétaro', 'Santiago de Querétaro', 'Queretaro');
+  add('El Marqués', 'El Marques', 'Marques');
+  add('San Juan del Río', 'San Juan del Rio');
+  add('Tolimán', 'Toliman');
+  add('Peñamiller', 'Penamiller');
+  add('Colón', 'Colon');
+  add('San Joaquín', 'San Joaquin');
+  QRO_MUNICIPALITIES.forEach((m) => { map[norm(m)] = m; });
+  return map;
+})();
+
+function canonicalMunicipio(raw?: string | null): string | null {
+  if (!raw) return null;
+  let s = String(raw);
+  s = s.replace(/\bmunicipio de\b\s*/i, '');
+  s = s.replace(/^\s*nuevo\s+/i, '');
+  const n = norm(s);
+  if (MUNICIPIO_SYNONYMS[n]) return MUNICIPIO_SYNONYMS[n];
+  for (const k of Object.keys(MUNICIPIO_SYNONYMS)) {
+    if (k && (n.includes(k) || n.includes(`nuevo ${k}`))) return MUNICIPIO_SYNONYMS[k];
+  }
+  return null;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const user = await requireAdmin(req, res);
   if (!user) return;
@@ -54,23 +125,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const q = String(req.query.q || '').trim();
     const fast = String(req.query.fast || '').trim();
     const type = String(req.query.type || '').trim();
-    const city = String(req.query.city || '').trim();
+    const cityRaw = String(req.query.city || '').trim();
     const operation = String(req.query.operation || '').trim().toLowerCase(); // 'sale' | 'rental'
     const status = String(req.query.status || '').trim();
     const bedroomsParam = parseInt(String(req.query.bedrooms ?? ''), 10);
     const bathroomsParam = parseInt(String(req.query.bathrooms ?? ''), 10);
 
     const where: any = {};
+    // Fallback case-insensitive search for SQLite/Turso using raw lower(...) LIKE
+    let idFilter: number[] | null = null;
     if (q) {
-      where.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { publicId: { contains: q, mode: 'insensitive' } },
-        { locationText: { contains: q, mode: 'insensitive' } },
-        { propertyType: { contains: q, mode: 'insensitive' } },
-      ];
+      try {
+        const like = `%${q.toLowerCase()}%`;
+        const rows = await prisma.$queryRaw<{ id: number }[]>`
+          SELECT id
+          FROM Property
+          WHERE lower(title) LIKE ${like}
+             OR lower(publicId) LIKE ${like}
+             OR lower(locationText) LIKE ${like}
+             OR lower(propertyType) LIKE ${like}
+          ORDER BY updatedAt DESC
+          LIMIT ${take} OFFSET ${skip}
+        `;
+        idFilter = Array.isArray(rows) ? rows.map((r) => Number(r.id)).filter((n) => Number.isFinite(n)) : [];
+        if (idFilter.length === 0) {
+          return res.status(200).json({ items: [], total: null, page, take });
+        }
+        where.id = { in: idFilter };
+      } catch {
+        // Si el raw falla por cualquier razón, usar contains (case-sensitive) como respaldo mínimo
+        where.OR = [
+          { title: { contains: q } },
+          { publicId: { contains: q } },
+          { locationText: { contains: q } },
+          { propertyType: { contains: q } },
+        ];
+      }
     }
-    if (type) where.propertyType = type;
-    if (city) where.locationText = { contains: city, mode: 'insensitive' };
+    if (type) {
+      const syns = canonTypeToSynonyms(type);
+      (where.AND = where.AND || []).push({ OR: syns.map((s) => ({ propertyType: { contains: s } })) });
+    }
+    if (cityRaw) {
+      const canon = canonicalMunicipio(cityRaw) || cityRaw;
+      const needle = canon;
+      (where.AND = where.AND || []).push({ OR: [
+        { locationText: { contains: needle } },
+        { ebDetailJson: { contains: `"municipality":"${needle}"` } },
+        { ebDetailJson: { contains: `"city":"${needle}"` } },
+      ] });
+    }
     // Bedrooms exact (igual a n)
     if (Number.isFinite(bedroomsParam) && bedroomsParam > 0) {
       where.bedrooms = bedroomsParam;
@@ -90,7 +194,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ...allowedBase.map((s) => s.charAt(0).toUpperCase() + s.slice(1)),
         ...allowedBase.map((s) => s.toUpperCase()),
       ])) };
-      else where.status = { contains: status, mode: 'insensitive' };
+      else where.status = { contains: status };
     }
     // operation filter using JSON string search as approximation
     if (operation === 'sale' || operation === 'rental') {
@@ -102,11 +206,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const listPromise = prisma.property.findMany({
       where,
       orderBy: { updatedAt: 'desc' },
-      skip,
-      take,
+      // Cuando usamos búsqueda por ids, ya paginamos en SQL; no volver a aplicar skip/take para mantener el orden
+      ...(idFilter ? {} : { skip, take }),
       include: { media: { select: { key: true, filename: true }, take: 1, orderBy: { createdAt: 'desc' } } },
     });
-    const countPromise = (q || fast || type || city || operation || status) ? Promise.resolve(null as any) : prisma.property.count({ where });
+    const countPromise = (q || fast || type || cityRaw || operation || status) ? Promise.resolve(null as any) : prisma.property.count({ where });
     const [items, total] = await Promise.all([listPromise, countPromise]);
 
     const data = items.map((p) => {

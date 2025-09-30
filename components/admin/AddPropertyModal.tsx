@@ -178,7 +178,7 @@ export default function AddPropertyModal({ isOpen, onClose, onCreated }: Props) 
         // Always use public base domain for absolute URLs (required by EasyBroker)
         const publicBase = process.env.NEXT_PUBLIC_SITE_URL || 'https://sayro-web.vercel.app';
         const toAbs = (u: string) => (u.startsWith('http') ? u : `${publicBase}${u}`);
-        const property_images2 = [
+        const images2 = [
           ...property_images.map((it) => ({ url: toAbs(it.url) })),
           ...uploadedLocalUrls.map((u) => ({ url: toAbs(u) })),
         ];
@@ -197,8 +197,14 @@ export default function AddPropertyModal({ isOpen, onClose, onCreated }: Props) 
             cross_street: crossStreet || undefined,
           },
           operations,
-          // Send images to EB via URL
-          property_images: property_images2,
+          // Send images to EB via URL (correct field name)
+          images: images2,
+          // Características y tamaños
+          bedrooms: bedrooms ?? undefined,
+          bathrooms: bathrooms ?? undefined,
+          parking_spaces: parking ?? undefined,
+          lot_size: lotSize ?? undefined,
+          construction_size: constructionSize ?? undefined,
         };
         const ebResp = await fetch('/api/admin/easybroker/properties', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ebDraft)
@@ -212,7 +218,7 @@ export default function AddPropertyModal({ isOpen, onClose, onCreated }: Props) 
           await fetch(`/api/admin/properties/${localId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             publicId: detail.public_id || undefined,
             eb_detail: detail,
-            property_images: detail.property_images || property_images,
+            property_images: (detail.images || detail.property_images || property_images),
           }) });
           // Fire and forget image download
           try { fetch(`/api/admin/properties/${localId}/images/download`, { method: 'POST' }); } catch {}

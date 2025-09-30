@@ -4,7 +4,7 @@ import { getIronSession } from 'iron-session';
 import Layout from '../../components/Layout';
 import { sessionOptions, AppSession } from '../../lib/session';
 import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast, Wrap, WrapItem, Breadcrumb, BreadcrumbItem, Select, BreadcrumbLink, Icon, Textarea } from '@chakra-ui/react';
-import { SearchIcon } from '@chakra-ui/icons';
+import { SearchIcon, CloseIcon } from '@chakra-ui/icons';
 import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2, FiMaximize } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import useSWR from 'swr';
@@ -141,14 +141,16 @@ export default function AdminHome({ username }: Props) {
   }, [size, qDebounced, isLoadingMore, isReachingEnd, setSize]);
   React.useEffect(() => { if (!isLoadingMore) setLookahead(false); }, [isLoadingMore]);
   const [campaignMode, setCampaignMode] = React.useState(false);
+  const [ebMode, setEbMode] = React.useState(false);
   React.useEffect(() => {
     try {
       document.body.classList.toggle('campaign-mode', campaignMode);
+      document.body.classList.toggle('eb-mode', ebMode);
     } catch {}
     return () => {
-      try { document.body.classList.remove('campaign-mode'); } catch {}
+      try { document.body.classList.remove('campaign-mode'); document.body.classList.remove('eb-mode'); } catch {}
     };
-  }, [campaignMode]);
+  }, [campaignMode, ebMode]);
   const [selected, setSelected] = React.useState<number[]>([]);
   const selectedSet = React.useMemo(() => new Set(selected), [selected]);
   const onToggleSelect = React.useCallback((id: number) => {
@@ -181,11 +183,82 @@ export default function AdminHome({ username }: Props) {
   const items = aggregated; // no filtro por texto aquí; lo maneja la búsqueda avanzada
   const [addOpen, setAddOpen] = React.useState(false);
 
-  const typeOptions = React.useMemo(() => Array.from(new Set((items || []).map((p: any) => p.propertyType).filter(Boolean))) as string[], [items]);
-  const cityOptions = React.useMemo(() => {
-    const arr = (items || []).map((p: any) => (p.locationText || '').split(',').pop()?.trim()).filter(Boolean) as string[];
-    return Array.from(new Set(arr));
+  // Normalización de tipo (igual al catálogo público)
+  function normalizeType(raw?: string | null): string {
+    const s = String(raw || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const has = (w: string) => s.includes(w);
+    // EB canon
+    if (has('casa')) return 'Casa';
+    if (has('depart') || has('depa') || has('apto') || has('apart') || has('loft') || has('duplex') || has('triplex') || has('bloque de departamento') || has('edificio') || has('studio') || has('penthouse') || s === 'ph' || has('pent house')) return 'Departamento';
+    if (has('terreno') || has('lote') || has('predio') || has('parcela')) return 'Terreno';
+    if (has('oficina') || has('despacho')) return 'Oficina';
+    if (has('local')) return 'Local';
+    if (has('bodega')) return 'Bodega';
+    if (has('nave') || has('industrial')) return 'Nave';
+    if (has('villa') || has('rancho') || has('quinta') || has('condominio')) return 'Casa';
+    return 'Otro';
+  }
+
+  // Municipios de Qro. + canónicos (mismo criterio del público)
+  const QRO_MUNICIPALITIES = React.useMemo(() => [
+    'Amealco de Bonfil','Arroyo Seco','Cadereyta de Montes','Colón','Corregidora','Ezequiel Montes','Huimilpan',
+    'Jalpan de Serra','Landa de Matamoros','El Marqués','Pedro Escobedo','Peñamiller','Pinal de Amoles','Querétaro',
+    'San Joaquín','San Juan del Río','Tequisquiapan','Tolimán',
+  ], []);
+  const MUNICIPIO_SYNONYMS = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const add = (canon: string, ...syns: string[]) => { syns.forEach((s) => { map[norm(s)] = canon; }); map[norm(canon)] = canon; };
+    add('Querétaro','Santiago de Querétaro','Queretaro');
+    add('El Marqués','El Marques','Marques');
+    add('San Juan del Río','San Juan del Rio');
+    add('Tolimán','Toliman');
+    add('Peñamiller','Penamiller');
+    add('Colón','Colon');
+    add('San Joaquín','San Joaquin');
+    QRO_MUNICIPALITIES.forEach((m) => { map[norm(m)] = m; });
+    return map;
+  }, [QRO_MUNICIPALITIES]);
+  const normSimple = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const canonicalMunicipio = (raw?: string | null): string | null => {
+    if (!raw) return null;
+    let s = String(raw).replace(/\bmunicipio de\b\s*/i,'');
+    s = s.replace(/^\s*nuevo\s+/i,'');
+    const n = normSimple(s);
+    if (MUNICIPIO_SYNONYMS[n]) return MUNICIPIO_SYNONYMS[n];
+    for (const k of Object.keys(MUNICIPIO_SYNONYMS)) { if (k && (n.includes(k) || n.includes(`nuevo ${k}`))) return MUNICIPIO_SYNONYMS[k]; }
+    return null;
+  };
+  const extractMunicipioFromText = (txt?: string | null): string | null => {
+    const s = String(txt || '');
+    const parts = s.split(',').map((p) => p.trim()).filter(Boolean);
+    for (const p of parts) {
+      const canon = canonicalMunicipio(p);
+      if (canon && QRO_MUNICIPALITIES.includes(canon)) return canon;
+    }
+    const canonAll = canonicalMunicipio(s);
+    return (canonAll && QRO_MUNICIPALITIES.includes(canonAll)) ? canonAll : null;
+  };
+
+  const typeOptions = React.useMemo(() => {
+    const whitelist = ['Casa','Departamento','Terreno','Oficina','Local','Bodega','Nave'];
+    const order = new Map(whitelist.map((t, i) => [t, i]));
+    const set = new Set<string>();
+    (items || []).forEach((p: any) => { const t = normalizeType(p.propertyType); if (whitelist.includes(t)) set.add(t); });
+    return Array.from(set).sort((a, b) => (order.get(a)! - order.get(b)!));
   }, [items]);
+
+  const cityOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    (items || []).forEach((p: any) => {
+      const m = extractMunicipioFromText(p.locationText);
+      if (m) set.add(m);
+    });
+    // Mantener el orden alfabético para mejor UX
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  // cityCounts se define después de advancedFiltered para evitar referencias antes de inicializar
 
   // Suggestions (admin)
   React.useEffect(() => {
@@ -442,6 +515,26 @@ export default function AdminHome({ username }: Props) {
     });
   }, [filtered, qDebounced, type, city, range]);
 
+  // Conteo por municipio no-bloqueante (idle) a partir de la lista agregada
+  const [cityCounts, setCityCounts] = React.useState<Map<string, number>>(new Map());
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const itemsLocal = aggregated || [];
+    const idle = (cb: () => void) => (typeof (window as any).requestIdleCallback === 'function')
+      ? (window as any).requestIdleCallback(cb, { timeout: 400 })
+      : setTimeout(cb, 16) as any;
+    const cancel = (id: any) => (typeof (window as any).cancelIdleCallback === 'function')
+      ? (window as any).cancelIdleCallback(id)
+      : clearTimeout(id);
+    const id = idle(() => {
+      const counts = new Map<string, number>();
+      const add = (k?: string | null) => { if (!k) return; counts.set(k, (counts.get(k) || 0) + 1); };
+      for (const p of itemsLocal) add(extractMunicipioFromText((p as any)?.locationText));
+      setCityCounts(counts);
+    });
+    return () => cancel(id);
+  }, [aggregated]);
+
   const onDelete = async (id: number) => {
     if (!confirm('¿Eliminar esta propiedad?')) return;
     const r = await fetch(`/api/admin/properties/${id}`, { method: 'DELETE' });
@@ -527,6 +620,61 @@ export default function AdminHome({ username }: Props) {
       setAdType('carousel');
     }
     setIsOpen(true);
+  };
+
+  // EB preview modal state
+  const [ebPreviewOpen, setEbPreviewOpen] = React.useState(false);
+  const [ebPreviewResults, setEbPreviewResults] = React.useState<any[]>([]);
+  const openEbPreview = async () => {
+    const dict = new Map<number, any>((items || []).map((p: any) => [p.id, p]));
+    const nonEb = selected.filter((id) => { const p = dict.get(id); const pid = String(p?.publicId || ''); return !pid.toUpperCase().startsWith('EB-'); });
+    if (!nonEb.length) { toast({ title: 'Nada para publicar', description: 'Todas las seleccionadas ya están en EasyBroker', status: 'info', duration: 2000 }); return; }
+    try {
+      const r = await fetch('/api/admin/easybroker/publish-batch?validate=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: nonEb }) });
+      const j = await r.json();
+      setEbPreviewResults(Array.isArray(j?.results) ? j.results : []);
+      setEbPreviewOpen(true);
+    } catch (e: any) {
+      toast({ title: 'Error al validar', description: e?.message || 'Intenta de nuevo', status: 'error', duration: 2500 });
+    }
+  };
+  const doPublishEb = async (overrides: Record<number, any>) => {
+    try {
+      const idsAll = (ebPreviewResults || []).map((r: any) => r.id);
+      if (!idsAll.length) { toast({ title: 'Nada para publicar', status: 'info', duration: 1500 }); return; }
+      // Validar nuevamente con overrides
+      const rVal = await fetch('/api/admin/easybroker/publish-batch?validate=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: idsAll, overrides }) });
+      const jVal = await rVal.json();
+      const issues = (jVal?.results || []).filter((it: any) => !it.ok);
+      setEbPreviewResults(Array.isArray(jVal?.results) ? jVal.results : []);
+      if (issues.length) { toast({ title: 'Revisa los campos', description: `${issues.length} con problemas`, status: 'warning', duration: 3000 }); return; }
+      // Publicar
+      const r2 = await fetch('/api/admin/easybroker/publish-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: idsAll, overrides }) });
+      const j2 = await r2.json();
+      const results = Array.isArray(j2?.results) ? j2.results : [];
+      const ok = results.filter((x: any) => x.ok).length;
+      const fail = results.filter((x: any) => !x.ok);
+      if (fail.length > 0) {
+        const details = fail.slice(0, 3).map((r: any) => {
+          const msg = r?.message || r?.data?.error || r?.reason || 'error';
+          return `ID ${r?.id}: ${String(msg)}`;
+        }).join('; ');
+        toast({
+          title: 'Publicación con errores',
+          description: `${ok} publicadas, ${fail.length} con error. ${details}${fail.length > 3 ? '…' : ''}`,
+          status: 'error',
+          duration: 6000,
+          isClosable: true,
+        });
+        // Para inspección completa en consola
+        try { console.error('EB publish errors:', results); } catch {}
+      } else {
+        toast({ title: 'Publicación completada', description: `${ok} publicadas`, status: 'success', duration: 2500 });
+      }
+      setEbPreviewOpen(false); setSelected([]); mutate();
+    } catch (e: any) {
+      toast({ title: 'Error al publicar', description: e?.message || 'Intenta de nuevo', status: 'error', duration: 2500 });
+    }
   };
 
   const createCampaign = async () => {
@@ -663,8 +811,12 @@ export default function AdminHome({ username }: Props) {
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg='white' placeholder='Ciudad' value={city} onChange={(e) => setCity(e.target.value)} minW='140px'>
-                {cityOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              <Select bg='white' placeholder='Ciudad' value={city} onChange={(e) => setCity(e.target.value)} minW='180px'>
+                {cityOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c} ({cityCounts.get(c) || 0})
+                  </option>
+                ))}
               </Select>
             </WrapItem>
             <WrapItem>
@@ -679,6 +831,12 @@ export default function AdminHome({ username }: Props) {
               <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
                 <Text fontSize="sm">Campaign Mode</Text>
                 <Switch isChecked={campaignMode} onChange={(e) => { setCampaignMode(e.target.checked); setSelected([]); }} />
+              </HStack>
+            </WrapItem>
+            <WrapItem>
+              <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
+                <Text fontSize="sm">EB Upload</Text>
+                <Switch isChecked={ebMode} onChange={(e) => { setEbMode(e.target.checked); setSelected([]); }} />
               </HStack>
             </WrapItem>
             <WrapItem>
@@ -737,17 +895,25 @@ export default function AdminHome({ username }: Props) {
           </Box>
         )}
 
-        {campaignMode && (
+        {(campaignMode || ebMode) && (
           <Flex position="fixed" bottom={6} left={0} right={0} justify="center">
             <HStack spacing={3} bg="white" borderWidth="1px" rounded="full" px={4} py={2} boxShadow="md">
               <Text fontWeight="medium">{selected.length} seleccionadas</Text>
-              <RadioGroup value={adType} onChange={(v: any) => setAdType(v)}>
-                <HStack spacing={4}>
-                  <Radio value='single' isDisabled={selected.length !== 1}>Single</Radio>
-                  <Radio value='carousel'>Carrusel</Radio>
-                </HStack>
-              </RadioGroup>
-              <Button colorScheme="purple" onClick={openCampaign}>Crear anuncio</Button>
+              {campaignMode ? (
+                <>
+                  <RadioGroup value={adType} onChange={(v: any) => setAdType(v)}>
+                    <HStack spacing={4}>
+                      <Radio value='single' isDisabled={selected.length !== 1}>Single</Radio>
+                      <Radio value='carousel'>Carrusel</Radio>
+                    </HStack>
+                  </RadioGroup>
+                  <Button colorScheme="purple" onClick={openCampaign}>Crear anuncio</Button>
+                </>
+              ) : (
+                <>
+                  <Button colorScheme='green' onClick={openEbPreview}>Validar y publicar en EasyBroker</Button>
+                </>
+              )}
             </HStack>
           </Flex>
         )}
@@ -768,8 +934,273 @@ export default function AdminHome({ username }: Props) {
         )}
       </Container>
       <AddPropertyModal isOpen={addOpen} onClose={() => setAddOpen(false)} onCreated={() => { setSize(1); mutate(); }} />
+      <EbPreviewModal isOpen={ebPreviewOpen} onClose={() => setEbPreviewOpen(false)} results={ebPreviewResults} onPublish={doPublishEb} />
       </Box>
     </Layout>
+  );
+}
+
+// ============ EB Upload Preview Helpers ============
+function EbPreviewModal({ isOpen, onClose, results, onPublish }: { isOpen: boolean; onClose: () => void; results: any[]; onPublish: (overrides: Record<number, any>) => void }) {
+  const [drafts, setDrafts] = React.useState<Record<number, any>>({});
+  React.useEffect(() => {
+    const next: Record<number, any> = {};
+    (results || []).forEach((r: any) => { if (r && r.preview) next[r.id] = { ...r.preview }; });
+    setDrafts(next);
+  }, [results, isOpen]);
+  const okList = (results || []).filter((r) => r.ok);
+  const badList = (results || []).filter((r) => !r.ok);
+
+  const ImagesPreview = ({ rid }: { rid: number }) => {
+    const d = drafts[rid] || {};
+    const imgs: Array<{ url: string }> = Array.isArray(d?.images)
+      ? d.images
+      : (Array.isArray(d?.property_images) ? d.property_images : []);
+    if (!imgs.length) return null;
+    return (
+      <SimpleGrid columns={{ base: 3, md: 5 }} spacing={2} mt={2}>
+        {imgs.map((it: any, idx: number) => {
+          const url = String(it?.url || '');
+          if (!url) return null;
+          return (
+            <Box key={idx} position='relative' borderWidth='1px' rounded='md' overflow='hidden'>
+              <Image src={url} alt={`img-${idx}`} w='100%' h='70px' objectFit='cover' />
+              <IconButton
+                aria-label='Quitar imagen'
+                icon={<CloseIcon boxSize={2.5} />}
+                size='xs'
+                variant='solid'
+                colorScheme='red'
+                position='absolute'
+                top='1'
+                right='1'
+                onClick={() => setDrafts((m) => {
+                  const cur = { ...(m[rid] || {}) } as any;
+                  const baseArr: any[] = Array.isArray(cur.images)
+                    ? cur.images
+                    : (Array.isArray(cur.property_images) ? cur.property_images : []);
+                  const arr = baseArr.filter((_: any, i: number) => i !== idx);
+                  return { ...m, [rid]: { ...cur, images: arr } };
+                })}
+              />
+            </Box>
+          );
+        })}
+      </SimpleGrid>
+    );
+  };
+
+  const AddImageInput = ({ rid }: { rid: number }) => {
+    const [url, setUrl] = React.useState('');
+    return (
+      <HStack mt={2} spacing={2} align='center'>
+        <Input placeholder='https://…' value={url} onChange={(e) => setUrl(e.target.value)} />
+        <Button onClick={() => {
+          const u = (url || '').trim(); if (!u) return;
+          setDrafts((m) => {
+            const cur: any = { ...(m[rid] || {}) };
+            const arr: any[] = Array.isArray(cur.images)
+              ? [...cur.images]
+              : (Array.isArray(cur.property_images) ? [...cur.property_images] : []);
+            arr.push({ url: u });
+            return { ...m, [rid]: { ...cur, images: arr } };
+          });
+          setUrl('');
+        }}>Agregar imagen</Button>
+      </HStack>
+    );
+  };
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size='4xl' scrollBehavior='inside'>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Publicar en EasyBroker — Revisión</ModalHeader>
+        <ModalBody>
+          <Stack spacing={5}>
+            {badList.length > 0 && (
+              <Box borderWidth='1px' rounded='md' p={3} bg='yellow.50'>
+                <Heading size='sm' mb={2}>Necesitan ajustes ({badList.length})</Heading>
+                <Stack spacing={3}>
+                  {badList.map((r: any, i: number) => {
+                    const d = drafts[r.id] || {};
+                    return (
+                      <Box key={i} borderWidth='1px' rounded='md' p={3}>
+                        <Text fontWeight='bold' mb={2}>ID local: {r.id}</Text>
+                        <Stack spacing={2}>
+                          <Input placeholder='Título' value={d.title || ''} onChange={(e) => setDrafts((m) => ({ ...m, [r.id]: { ...(m[r.id]||{}), title: e.target.value } }))} />
+                          <Textarea placeholder='Descripción' value={d.description || ''} onChange={(e) => setDrafts((m) => ({ ...m, [r.id]: { ...(m[r.id]||{}), description: e.target.value } }))} rows={3} />
+                          <HStack>
+                            <Select value={d.property_type || ''} onChange={(e) => setDrafts((m) => ({ ...m, [r.id]: { ...(m[r.id]||{}), property_type: e.target.value } }))}>
+                              {[
+                                'Bodega comercial','Bodega industrial','Casa','Casa con uso de suelo','Casa en condominio','Departamento','Edificio','Huerta','Local comercial','Local en centro comercial','Nave industrial','Oficina','Quinta','Rancho','Terreno','Terreno comercial','Terreno industrial','Villa',
+                              ].map((t) => <option key={t} value={t}>{t}</option>)}
+                            </Select>
+                            <Select value={d.status || 'available'} onChange={(e) => setDrafts((m) => ({ ...m, [r.id]: { ...(m[r.id]||{}), status: e.target.value } }))}>
+                              <option value='available'>Disponible</option>
+                              <option value='publicada'>Publicada</option>
+                              <option value='en venta'>En venta</option>
+                              <option value='en renta'>En renta</option>
+                            </Select>
+                          </HStack>
+                          <HStack>
+                            <NumberInput min={0} value={(d.operations||[]).find((o:any)=>o.type==='sale')?.amount || ''} onChange={(_,v)=>setDrafts((m)=>{ const cur={...(m[r.id]||{})}; const ops=Array.isArray(cur.operations)?[...cur.operations]:[]; let idx=ops.findIndex((o:any)=>o.type==='sale'); if(idx<0){idx=ops.length; ops.push({type:'sale',unit:'total',currency:'mxn'});} ops[idx]={...ops[idx], type:'sale', amount:(Number.isFinite(v)?v:undefined), currency:'mxn'}; return {...m,[r.id]:{...cur,operations:ops}}; })}>
+                              <NumberInputField placeholder='Precio venta' />
+                            </NumberInput>
+                            <Select value={(d.operations||[]).find((o:any)=>o.type==='sale')?.unit || 'total'} onChange={(e)=>setDrafts((m)=>{ const cur={...(m[r.id]||{})}; const ops=Array.isArray(cur.operations)?[...cur.operations]:[]; let idx=ops.findIndex((o:any)=>o.type==='sale'); if(idx<0){idx=ops.length; ops.push({type:'sale',currency:'mxn'});} ops[idx]={...ops[idx], unit:e.target.value||'total', type:'sale', currency:'mxn'}; return {...m,[r.id]:{...cur,operations:ops}}; })}>
+                              <option value='total'>Total</option>
+                              <option value='square_meter'>m²</option>
+                              <option value='hectare'>Hectárea</option>
+                            </Select>
+                          </HStack>
+                          <HStack>
+                            <NumberInput min={0} value={(d.operations||[]).find((o:any)=>o.type==='rental')?.amount || ''} onChange={(_,v)=>setDrafts((m)=>{ const cur={...(m[r.id]||{})}; const ops=Array.isArray(cur.operations)?[...cur.operations]:[]; let idx=ops.findIndex((o:any)=>o.type==='rental'); if(idx<0){idx=ops.length; ops.push({type:'rental',unit:'total',currency:'mxn'});} ops[idx]={...ops[idx], type:'rental', amount:(Number.isFinite(v)?v:undefined), currency:'mxn'}; return {...m,[r.id]:{...cur,operations:ops}}; })}>
+                              <NumberInputField placeholder='Precio renta (mensual)' />
+                            </NumberInput>
+                            <Select value={(d.operations||[]).find((o:any)=>o.type==='rental')?.unit || 'total'} onChange={(e)=>setDrafts((m)=>{ const cur={...(m[r.id]||{})}; const ops=Array.isArray(cur.operations)?[...cur.operations]:[]; let idx=ops.findIndex((o:any)=>o.type==='rental'); if(idx<0){idx=ops.length; ops.push({type:'rental',currency:'mxn'});} ops[idx]={...ops[idx], unit:e.target.value||'total', type:'rental', currency:'mxn'}; return {...m,[r.id]:{...cur,operations:ops}}; })}>
+                              <option value='total'>Total</option>
+                              <option value='square_meter'>m²</option>
+                              <option value='hectare'>Hectárea</option>
+                            </Select>
+                          </HStack>
+                          <HStack>
+                            <NumberInput value={d.bedrooms ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), bedrooms: Number.isFinite(v)?v:undefined } }))} min={0}>
+                              <NumberInputField placeholder='Recámaras' />
+                            </NumberInput>
+                            <NumberInput value={d.bathrooms ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), bathrooms: Number.isFinite(v)?v:undefined } }))} min={0}>
+                              <NumberInputField placeholder='Baños' />
+                            </NumberInput>
+                            <NumberInput value={d.parking_spaces ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), parking_spaces: Number.isFinite(v)?v:undefined } }))} min={0}>
+                              <NumberInputField placeholder='Estacionamientos' />
+                            </NumberInput>
+                          </HStack>
+                          <HStack>
+                            <NumberInput value={d.construction_size ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), construction_size: Number.isFinite(v)?v:undefined } }))} min={0}>
+                              <NumberInputField placeholder='Construcción (m²)' />
+                            </NumberInput>
+                            <NumberInput value={d.lot_size ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), lot_size: Number.isFinite(v)?v:undefined } }))} min={0}>
+                              <NumberInputField placeholder='Terreno (m²)' />
+                            </NumberInput>
+                          </HStack>
+                          <HStack>
+                            <Input placeholder='Código Postal' value={d?.location?.postal_code || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), postal_code: e.target.value } } }))} />
+                            <Input placeholder='Número exterior' value={d?.location?.exterior_number || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), exterior_number: e.target.value } } }))} />
+                            <Input placeholder='Calle transversal' value={d?.location?.cross_street || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), cross_street: e.target.value } } }))} />
+                          </HStack>
+                          <Input placeholder='Ubicación (name)' value={d?.location?.name || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), name: e.target.value } } }))} />
+                          <Input placeholder='Calle y número' value={d?.location?.street || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), street: e.target.value } } }))} />
+                          <HStack>
+                            <NumberInput step={0.000001} value={d?.location?.latitude ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), latitude: Number.isFinite(v)?v:undefined } } }))}>
+                              <NumberInputField placeholder='Latitud' />
+                            </NumberInput>
+                            <NumberInput step={0.000001} value={d?.location?.longitude ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), longitude: Number.isFinite(v)?v:undefined } } }))}>
+                              <NumberInputField placeholder='Longitud' />
+                            </NumberInput>
+                          </HStack>
+                        </Stack>
+                        <ImagesPreview rid={r.id} />
+                        <AddImageInput rid={r.id} />
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            )}
+            <Heading size='sm'>Se publicarán ({okList.length})</Heading>
+            <Stack spacing={3}>
+              {okList.map((r, i) => {
+                const b = drafts[r.id] || r.preview || {};
+                return (
+                  <Box key={i} borderWidth='1px' rounded='md' p={3}>
+                    <Input mb={2} placeholder='Título' value={b.title || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), title: e.target.value } }))} />
+                    <HStack spacing={4} fontSize='sm' color='gray.700' wrap='wrap'>
+                      <HStack>
+                        <Text>Tipo:</Text>
+                        <Select value={b.property_type || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), property_type: e.target.value } }))}>
+                          {['Casa','Departamento','Terreno','Oficina','Local','Bodega','Nave'].map((t)=> <option key={t} value={t}>{t}</option>)}
+                        </Select>
+                      </HStack>
+                      <HStack>
+                        <Text>Estatus:</Text>
+                        <Select value={b.status || 'not_published'} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), status: e.target.value } }))}>
+                          <option value='not_published'>No publicada</option>
+                          <option value='published'>Publicada</option>
+                          <option value='available'>Disponible</option>
+                        </Select>
+                      </HStack>
+                    </HStack>
+                    <HStack spacing={6} fontSize='sm' color='gray.700' mt={1} wrap='wrap'>
+                      <HStack>
+                        <Text>Venta:</Text>
+                        <NumberInput min={0} value={(b.operations||[]).find((o:any)=>o.type==='sale')?.amount || ''} onChange={(_,v)=>setDrafts((m)=>{ const cur={...(m[r.id]||{})}; const ops=Array.isArray(cur.operations)?[...cur.operations]:[]; let idx=ops.findIndex((o:any)=>o.type==='sale'); if(idx<0){idx=ops.length; ops.push({type:'sale',unit:'total',currency:'mxn'});} ops[idx]={...ops[idx], type:'sale', amount:(Number.isFinite(v)?v:undefined), currency:'mxn'}; return {...m,[r.id]:{...cur,operations:ops}}; })}>
+                          <NumberInputField placeholder='Precio venta' />
+                        </NumberInput>
+                        <Select value={(b.operations||[]).find((o:any)=>o.type==='sale')?.unit || 'total'} onChange={(e)=>setDrafts((m)=>{ const cur={...(m[r.id]||{})}; const ops=Array.isArray(cur.operations)?[...cur.operations]:[]; let idx=ops.findIndex((o:any)=>o.type==='sale'); if(idx<0){idx=ops.length; ops.push({type:'sale',currency:'mxn'});} ops[idx]={...ops[idx], unit:e.target.value||'total', type:'sale', currency:'mxn'}; return {...m,[r.id]:{...cur,operations:ops}}; })}>
+                          <option value='total'>Total</option>
+                          <option value='square_meter'>m²</option>
+                          <option value='hectare'>Hectárea</option>
+                        </Select>
+                      </HStack>
+                      <HStack>
+                        <Text>Renta:</Text>
+                        <NumberInput min={0} value={(b.operations||[]).find((o:any)=>o.type==='rental')?.amount || ''} onChange={(_,v)=>setDrafts((m)=>{ const cur={...(m[r.id]||{})}; const ops=Array.isArray(cur.operations)?[...cur.operations]:[]; let idx=ops.findIndex((o:any)=>o.type==='rental'); if(idx<0){idx=ops.length; ops.push({type:'rental',unit:'total',currency:'mxn'});} ops[idx]={...ops[idx], type:'rental', amount:(Number.isFinite(v)?v:undefined), currency:'mxn'}; return {...m,[r.id]:{...cur,operations:ops}}; })}>
+                          <NumberInputField placeholder='Precio renta (mensual)' />
+                        </NumberInput>
+                        <Select value={(b.operations||[]).find((o:any)=>o.type==='rental')?.unit || 'total'} onChange={(e)=>setDrafts((m)=>{ const cur={...(m[r.id]||{})}; const ops=Array.isArray(cur.operations)?[...cur.operations]:[]; let idx=ops.findIndex((o:any)=>o.type==='rental'); if(idx<0){idx=ops.length; ops.push({type:'rental',currency:'mxn'});} ops[idx]={...ops[idx], unit:e.target.value||'total', type:'rental', currency:'mxn'}; return {...m,[r.id]:{...cur,operations:ops}}; })}>
+                          <option value='total'>Total</option>
+                          <option value='square_meter'>m²</option>
+                          <option value='hectare'>Hectárea</option>
+                        </Select>
+                      </HStack>
+                    </HStack>
+                    <HStack mt={2}>
+                      <NumberInput value={b.bedrooms ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), bedrooms: Number.isFinite(v)?v:undefined } }))} min={0}>
+                        <NumberInputField placeholder='Recámaras' />
+                      </NumberInput>
+                      <NumberInput value={b.bathrooms ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), bathrooms: Number.isFinite(v)?v:undefined } }))} min={0}>
+                        <NumberInputField placeholder='Baños' />
+                      </NumberInput>
+                      <NumberInput value={b.parking_spaces ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), parking_spaces: Number.isFinite(v)?v:undefined } }))} min={0}>
+                        <NumberInputField placeholder='Estacionamientos' />
+                      </NumberInput>
+                    </HStack>
+                    <HStack mt={2}>
+                      <NumberInput value={b.construction_size ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), construction_size: Number.isFinite(v)?v:undefined } }))} min={0}>
+                        <NumberInputField placeholder='Construcción (m²)' />
+                      </NumberInput>
+                      <NumberInput value={b.lot_size ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), lot_size: Number.isFinite(v)?v:undefined } }))} min={0}>
+                        <NumberInputField placeholder='Terreno (m²)' />
+                      </NumberInput>
+                    </HStack>
+                    <HStack mt={2}>
+                      <Input placeholder='Código Postal' value={b?.location?.postal_code || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), postal_code: e.target.value } } }))} />
+                      <Input placeholder='Número exterior' value={b?.location?.exterior_number || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), exterior_number: e.target.value } } }))} />
+                      <Input placeholder='Calle transversal' value={b?.location?.cross_street || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), cross_street: e.target.value } } }))} />
+                    </HStack>
+                    <Input mt={2} placeholder='Ubicación (name)' value={b?.location?.name || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), name: e.target.value } } }))} />
+                    <Input mt={2} placeholder='Calle y número' value={b?.location?.street || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), street: e.target.value } } }))} />
+                    <HStack mt={2}>
+                      <NumberInput step={0.000001} value={b?.location?.latitude ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), latitude: Number.isFinite(v)?v:undefined } } }))}>
+                        <NumberInputField placeholder='Latitud' />
+                      </NumberInput>
+                      <NumberInput step={0.000001} value={b?.location?.longitude ?? ''} onChange={(_,v)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), location: { ...(m[r.id]?.location||{}), longitude: Number.isFinite(v)?v:undefined } } }))}>
+                        <NumberInputField placeholder='Longitud' />
+                      </NumberInput>
+                    </HStack>
+                    <Textarea mt={2} placeholder='Descripción' value={b.description || ''} onChange={(e)=>setDrafts((m)=>({ ...m, [r.id]: { ...(m[r.id]||{}), description: e.target.value } }))} rows={2} />
+                    <ImagesPreview rid={r.id} />
+                    <AddImageInput rid={r.id} />
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Stack>
+        </ModalBody>
+        <ModalFooter>
+          <Button onClick={onClose} mr={3}>Cancelar</Button>
+          <Button colorScheme='green' onClick={() => onPublish(drafts)} isDisabled={(results || []).length === 0}>Publicar</Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }
 

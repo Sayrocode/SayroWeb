@@ -16,10 +16,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const where = q
       ? {
           OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { email: { contains: q, mode: 'insensitive' } },
-            { phone: { contains: q, mode: 'insensitive' } },
-            { responsible: { contains: q, mode: 'insensitive' } },
+            { name: { contains: q } },
+            { email: { contains: q } },
+            { phone: { contains: q } },
+            { responsible: { contains: q } },
           ],
         }
       : {};

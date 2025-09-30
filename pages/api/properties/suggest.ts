@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json(cached);
   }
 
-  const whereContains = (field: any) => ({ contains: q, mode: 'insensitive' as const });
+  const whereContains = (field: any) => ({ contains: q });
   const take = 8;
 
   const [titles, types, locs, props] = await Promise.all([

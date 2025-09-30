@@ -344,25 +344,30 @@ export default function Propiedades() {
   function normalizeType(raw?: string | null): string {
     const s = String(raw || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const has = (w: string) => s.includes(w);
+    // EB canon: Casa / Departamento / Terreno / Oficina / Local / Bodega / Nave
     if (has('casa')) return 'Casa';
-    if (has('depart') || has('depa') || has('loft') || has('studio')) return has('loft') ? 'Loft' : 'Departamento';
+    // Departamentos y sinónimos (EGO): departamento, depa, apto, apart, loft, duplex, triplex, ph, penthouse, bloque de departamentos, edificio, studio
+    if (has('depart') || has('depa') || has('apto') || has('apart') || has('loft') || has('duplex') || has('triplex') || has('bloque de departamento') || has('edificio') || has('studio') || has('penthouse') || s === 'ph' || has('pent house')) return 'Departamento';
     if (has('terreno') || has('lote') || has('predio') || has('parcela')) return 'Terreno';
     if (has('oficina') || has('despacho')) return 'Oficina';
-    if (has('local') || has('comercial')) return 'Local';
+    if (has('local')) return 'Local';
     if (has('bodega')) return 'Bodega';
-    if (has('nave')) return 'Nave';
-    if (has('penthouse') || s === 'ph' || has('pent house') || has('ph ')) return 'Penthouse';
-    // fallback: capitalizar primer letra
-    return (String(raw || '').trim() || 'Otro').replace(/^[a-z]/, (c) => c.toUpperCase());
+    if (has('nave') || has('industrial')) return 'Nave';
+    // Otras residenciales: villa, rancho, quinta, casa en condominio → Casa
+    if (has('villa') || has('rancho') || has('quinta') || has('condominio')) return 'Casa';
+    // Fallback: regresar "Otro" para no contaminar opciones
+    return 'Otro';
   }
 
   const typeOptions = useMemo(() => {
+    const whitelist = ['Casa','Departamento','Terreno','Oficina','Local','Bodega','Nave'];
+    const order = new Map(whitelist.map((t, i) => [t, i]));
     const set = new Set<string>();
     for (const p of allProperties) {
       const t = normalizeType((p as any)?.property_type);
-      if (t) set.add(t);
+      if (whitelist.includes(t)) set.add(t);
     }
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => (order.get(a)! - order.get(b)!));
   }, [allProperties]);
 
   // -------- SUGERENCIAS RÁPIDAS --------
@@ -504,6 +509,9 @@ export default function Propiedades() {
 
   // Opciones de municipio (lista completa de Querétaro)
   const municipalityOptions = useMemo(() => QRO_MUNICIPALITIES.slice(), [QRO_MUNICIPALITIES]);
+
+  // Conteo por municipio no-bloqueante (idle) basado en la lista visible
+  // Se declara después de 'filtered' para evitar TDZ
 
   function getLocationString(p: any): string {
     const loc = p?.location;
@@ -731,8 +739,7 @@ export default function Propiedades() {
         if (tokens.some((t) => ['local','comercial'].includes(t))) return 'Local';
         if (tokens.some((t) => ['bodega'].includes(t))) return 'Bodega';
         if (tokens.some((t) => ['nave','industrial'].includes(t))) return 'Nave';
-        if (tokens.some((t) => ['loft'].includes(t))) return 'Loft';
-        if (tokens.some((t) => ['penthouse','ph'].includes(t))) return 'Penthouse';
+        if (tokens.some((t) => ['loft','penthouse','ph'].includes(t))) return 'Departamento';
         return '';
       })();
       if (selectCanon || urlCanon) {
@@ -869,6 +876,26 @@ export default function Propiedades() {
     return results;
   }, [allProperties, filters.type, filters.city, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, qDebounced]);
 
+  // Conteo por municipio no-bloqueante (idle) basado en la lista visible
+  const [municipalityCounts, setMunicipalityCounts] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const list = filtered || [];
+    const idle = (cb: () => void) => (typeof (window as any).requestIdleCallback === 'function')
+      ? (window as any).requestIdleCallback(cb, { timeout: 400 })
+      : setTimeout(cb, 16) as any;
+    const cancel = (id: any) => (typeof (window as any).cancelIdleCallback === 'function')
+      ? (window as any).cancelIdleCallback(id)
+      : clearTimeout(id);
+    const id = idle(() => {
+      const map = new Map<string, number>();
+      const add = (k?: string | null) => { if (!k) return; map.set(k, (map.get(k) || 0) + 1); };
+      for (const p of list) add(extractMunicipioFromProperty(p));
+      setMunicipalityCounts(map);
+    });
+    return () => cancel(id);
+  }, [filtered]);
+
   // Sincronizar filtros ↔ URL (consulta compartible) solo cuando estamos en el listado
   useEffect(() => {
     const path = String((router.asPath || '').split('?')[0] || '');
@@ -994,8 +1021,18 @@ export default function Propiedades() {
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg="white" placeholder="Municipio" value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} minW="160px">
-                {municipalityOptions.map((m) => (<option key={m} value={m}>{m}</option>))}
+              <Select bg="white" placeholder="Municipio" value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} minW="200px">
+                {municipalityOptions
+                  .filter((m) => {
+                    // Si aún no tenemos conteos, mostrar todas; cuando haya conteos, ocultar los de 0
+                    if (!municipalityCounts || municipalityCounts.size === 0) return true;
+                    return (municipalityCounts.get(m) || 0) > 0;
+                  })
+                  .map((m) => (
+                    <option key={m} value={m}>
+                      {m} ({municipalityCounts.get(m) || 0})
+                    </option>
+                  ))}
               </Select>
             </WrapItem>
             <WrapItem>
