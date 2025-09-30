@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../../lib/prisma';
 import { requireAdmin, methodNotAllowed } from '../_utils';
+import { parseFiltersFromQuery, buildEBQueryParams, hasPriceInRange, OperationType } from '../../../../lib/filters/propertyFilters';
 
 // Helpers for type/city normalization (server-side)
 function norm(s: string): string {
@@ -127,9 +128,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const type = String(req.query.type || '').trim();
     const cityRaw = String(req.query.city || '').trim();
     const operation = String(req.query.operation || '').trim().toLowerCase(); // 'sale' | 'rental'
+    const origin = String(req.query.origin || '').trim().toLowerCase(); // 'eb_own' | 'eb_bolsa' | 'ego' | 'local'
     const status = String(req.query.status || '').trim();
     const bedroomsParam = parseInt(String(req.query.bedrooms ?? ''), 10);
     const bathroomsParam = parseInt(String(req.query.bathrooms ?? ''), 10);
+    const filters = parseFiltersFromQuery(req.query as any);
+    const operationType: OperationType = (filters.operation_type || (operation === 'sale' || operation === 'rental' ? (operation as OperationType) : '')) as OperationType;
+    if (!filters.operation_type && operationType) filters.operation_type = operationType;
 
     const where: any = {};
     // Fallback case-insensitive search for SQLite/Turso using raw lower(...) LIKE
@@ -175,6 +180,102 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         { ebDetailJson: { contains: `"city":"${needle}"` } },
       ] });
     }
+    if (filters.locations && filters.locations.length) {
+      const needles = filters.locations.map((s) => String(s || '').trim()).filter(Boolean);
+      if (needles.length) {
+        const safe = needles.map((loc) => loc.replace(/"/g, '\\"'));
+        (where.AND = where.AND || []).push({
+          OR: safe.flatMap((loc) => ([
+            { locationText: { contains: loc } },
+            { ebDetailJson: { contains: `"neighborhood":"${loc}"` } },
+            { ebDetailJson: { contains: `"name":"${loc}"` } },
+          ])),
+        });
+      }
+    }
+    if (typeof filters.min_bedrooms === 'number') {
+      if (typeof where.bedrooms === 'object' && where.bedrooms) where.bedrooms = { ...where.bedrooms, gte: filters.min_bedrooms };
+      else if (typeof where.bedrooms === 'number') {
+        if (where.bedrooms < filters.min_bedrooms) where.bedrooms = { gte: filters.min_bedrooms };
+      } else {
+        where.bedrooms = { gte: filters.min_bedrooms };
+      }
+    }
+    if (typeof filters.min_bathrooms === 'number') {
+      (where.AND = where.AND || []).push({ bathrooms: { gte: filters.min_bathrooms } });
+    }
+    if (typeof filters.min_parking_spaces === 'number') {
+      const current = typeof where.parkingSpaces === 'object' && where.parkingSpaces ? where.parkingSpaces : {};
+      where.parkingSpaces = { ...current, gte: filters.min_parking_spaces };
+    }
+    if (typeof filters.min_construction_size === 'number' || typeof filters.max_construction_size === 'number') {
+      const current = typeof where.constructionSize === 'object' && where.constructionSize ? where.constructionSize : {};
+      where.constructionSize = {
+        ...current,
+        ...(typeof filters.min_construction_size === 'number' ? { gte: filters.min_construction_size } : {}),
+        ...(typeof filters.max_construction_size === 'number' ? { lte: filters.max_construction_size } : {}),
+      } as any;
+    }
+    if (typeof filters.min_lot_size === 'number' || typeof filters.max_lot_size === 'number') {
+      const current = typeof where.lotSize === 'object' && where.lotSize ? where.lotSize : {};
+      where.lotSize = {
+        ...current,
+        ...(typeof filters.min_lot_size === 'number' ? { gte: filters.min_lot_size } : {}),
+        ...(typeof filters.max_lot_size === 'number' ? { lte: filters.max_lot_size } : {}),
+      } as any;
+    }
+    // Origin filter
+    if (origin === 'ego') {
+      (where.AND = where.AND || []).push({ publicId: { startsWith: 'EGO-' } });
+    } else if (origin === 'local') {
+      (where.AND = where.AND || []).push({ publicId: { startsWith: 'LOC-' } });
+    } else if (origin === 'eb_own') {
+      // Traer directamente desde EasyBroker y upsert en la DB para devolver ítems editables
+      const apiKey = process.env.EASYBROKER_API_KEY;
+      if (!apiKey) return res.status(200).json({ items: [], total: 0, page, take, note: 'Falta EASYBROKER_API_KEY' });
+      const EB_BASE = 'https://api.easybroker.com/v1/properties';
+      const ebFilters = { ...filters } as any;
+      delete ebFilters.locations; // EB ignore colonias; evitamos params no soportados
+      const params = buildEBQueryParams(ebFilters);
+      params.set('page', String(page));
+      params.set('limit', String(take));
+      const url = `${EB_BASE}?${params.toString()}`;
+      const upstream = await fetch(url, { headers: { accept: 'application/json', 'X-Authorization': apiKey } });
+      const text = await upstream.text();
+      let data: any = null; try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+      if (!upstream.ok || !data) return res.status(200).json({ items: [], total: 0, page, take, note: 'EB upstream error' });
+      const content = Array.isArray(data?.content) ? data.content : [];
+      const ids: number[] = [];
+      for (const it of content) {
+        try {
+          const publicId = String(it?.public_id || '').trim(); if (!publicId) continue;
+          // Map minimal fields
+          const operationsJson = (() => { try { return Array.isArray(it?.operations) ? JSON.stringify(it.operations) : null; } catch { return null; } })();
+          const payload: any = {
+            publicId,
+            title: it?.title || null,
+            titleImageFull: it?.title_image_full || null,
+            titleImageThumb: it?.title_image_thumb || null,
+            propertyType: it?.property_type || null,
+            status: it?.status || null,
+            bedrooms: typeof it?.bedrooms === 'number' ? it.bedrooms : null,
+            bathrooms: typeof it?.bathrooms === 'number' ? it.bathrooms : null,
+            parkingSpaces: typeof it?.parking_spaces === 'number' ? it.parking_spaces : null,
+            lotSize: typeof it?.lot_size === 'number' ? it.lot_size : null,
+            constructionSize: typeof it?.construction_size === 'number' ? it.construction_size : null,
+            locationText: typeof it?.location === 'string' ? it.location : null,
+            operationsJson,
+          };
+          const up = await prisma.property.upsert({ where: { publicId }, update: { ...payload }, create: { ...payload } });
+          ids.push(up.id);
+        } catch {}
+      }
+      if (ids.length === 0) return res.status(200).json({ items: [], total: 0, page, take });
+      (where.AND = where.AND || []).push({ id: { in: ids } });
+    } else if (origin === 'eb_bolsa') {
+      // Placeholder: EB Bolsa deshabilitado por ahora
+      return res.status(200).json({ items: [], total: 0, page, take, note: 'EB Bolsa deshabilitado' });
+    }
     // Bedrooms exact (igual a n)
     if (Number.isFinite(bedroomsParam) && bedroomsParam > 0) {
       where.bedrooms = bedroomsParam;
@@ -197,10 +298,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       else where.status = { contains: status };
     }
     // operation filter using JSON string search as approximation
-    if (operation === 'sale' || operation === 'rental') {
+    if (operationType === 'sale' || operationType === 'rental') {
       where.OR = (where.OR || []).concat([
-        { ebDetailJson: { contains: `"type":"${operation === 'sale' ? 'sale' : 'rental'}"` } },
-        { operationsJson: { contains: `"type":"${operation === 'sale' ? 'sale' : 'rental'}"` } },
+        { ebDetailJson: { contains: `"type":"${operationType === 'sale' ? 'sale' : 'rental'}"` } },
+        { operationsJson: { contains: `"type":"${operationType === 'sale' ? 'sale' : 'rental'}"` } },
       ]);
     }
     const listPromise = prisma.property.findMany({
@@ -210,17 +311,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ...(idFilter ? {} : { skip, take }),
       include: { media: { select: { key: true, filename: true }, take: 1, orderBy: { createdAt: 'desc' } } },
     });
-    const countPromise = (q || fast || type || cityRaw || operation || status) ? Promise.resolve(null as any) : prisma.property.count({ where });
+    const hasAdvanced = Boolean(
+      (filters.locations && filters.locations.length) ||
+      typeof filters.min_price === 'number' || typeof filters.max_price === 'number' ||
+      typeof filters.min_bedrooms === 'number' || typeof filters.min_bathrooms === 'number' ||
+      typeof filters.min_parking_spaces === 'number' ||
+      typeof filters.min_construction_size === 'number' || typeof filters.max_construction_size === 'number' ||
+      typeof filters.min_lot_size === 'number' || typeof filters.max_lot_size === 'number'
+    );
+    const countPromise = (q || fast || type || cityRaw || operation || status || origin || hasAdvanced)
+      ? Promise.resolve(null as any)
+      : prisma.property.count({ where });
     const [items, total] = await Promise.all([listPromise, countPromise]);
 
-    const data = items.map((p) => {
-      // Solo usar imágenes locales (Turso) o placeholder público
+    const data = items.reduce<Array<{
+      id: number;
+      publicId: string;
+      title: string | null;
+      coverUrl: string | null;
+      coverZoom: number | null;
+      propertyType: string | null;
+      status: string | null;
+      locationText: string | null;
+      bedrooms: number | null;
+      bathrooms: number | null;
+      parkingSpaces: number | null;
+      lotSize: number | null;
+      constructionSize: number | null;
+      price: string | null;
+      priceAmount: number | null;
+      opKind: '' | 'sale' | 'rental';
+      updatedAt: Date;
+    }>>((acc, p) => {
       let coverUrl: string | null = null;
       let coverZoom: number | null = null;
       if (p.media && p.media.length && (p.media[0] as any).key) {
         const m = p.media[0] as any;
         coverUrl = `/api/admin/images/${encodeURIComponent(m.key)}`;
-        // Optional: infer zoom from filename pattern like "zoom-1.15.jpg"
         if (typeof m.filename === 'string') {
           const match = m.filename.match(/zoom[-_]?([0-9]+(?:\.[0-9]+)?)?/i);
           if (match && match[1]) {
@@ -228,10 +355,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (Number.isFinite(z) && z >= 1.0 && z <= 2.0) coverZoom = z;
           }
         }
+      } else if (typeof (p as any).titleImageFull === 'string' && (p as any).titleImageFull) {
+        coverUrl = (p as any).titleImageFull as any;
+      } else if (typeof (p as any).titleImageThumb === 'string' && (p as any).titleImageThumb) {
+        coverUrl = (p as any).titleImageThumb as any;
       } else {
         coverUrl = '/image3.jpg';
       }
-      // derive price
+
       let operations: any[] = [];
       try {
         if (p.ebDetailJson) {
@@ -267,7 +398,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return null;
       })();
 
-      return {
+      if ((typeof filters.min_price === 'number' || typeof filters.max_price === 'number')
+        && !hasPriceInRange(operations, filters.min_price, filters.max_price)) {
+        return acc;
+      }
+
+      acc.push({
         id: p.id,
         publicId: p.publicId,
         title: p.title || `Propiedad ${p.publicId}`,
@@ -285,8 +421,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         priceAmount: numericPrice,
         opKind,
         updatedAt: p.updatedAt,
-      };
-    });
+      });
+      return acc;
+    }, []);
 
     return res.status(200).json({ items: data, total, page, take });
   }

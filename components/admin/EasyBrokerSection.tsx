@@ -1,6 +1,6 @@
 import React from 'react';
 import useSWR from 'swr';
-import { Box, Button, Heading, HStack, Link as CLink, SimpleGrid, Spacer, Stack, Text, useToast } from '@chakra-ui/react';
+import { Box, Button, Heading, HStack, Link as CLink, SimpleGrid, Spacer, Stack, Text, useToast, Badge } from '@chakra-ui/react';
 import { FiMail, FiPhone, FiCopy } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { PHONE_CALL_SCHEME } from '../../lib/site';
@@ -9,6 +9,7 @@ type Props = {
   visible: boolean;
   q?: string;
   onTotal?: (n: number) => void;
+  defaultMode?: 'contacts' | 'requests';
 };
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -19,8 +20,11 @@ function digitsOnly(s?: string | null) {
   return d.startsWith('52') ? d : `52${d}`;
 }
 
-export default function EasyBrokerSection({ visible, q, onTotal }: Props) {
-  const { data: eb } = useSWR(visible ? '/api/admin/easybroker/contacts' : null, fetcher, {
+export default function EasyBrokerSection({ visible, q, onTotal, defaultMode }: Props) {
+  const [mode, setMode] = React.useState<'contacts' | 'requests'>(defaultMode || 'contacts');
+  React.useEffect(() => { if (defaultMode) setMode(defaultMode); }, [defaultMode]);
+  const url = !visible ? null : (mode === 'contacts' ? '/api/admin/easybroker/contacts' : '/api/admin/easybroker/contact-requests');
+  const { data: eb } = useSWR(url, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     dedupingInterval: 30000,
@@ -36,6 +40,7 @@ export default function EasyBrokerSection({ visible, q, onTotal }: Props) {
           c?.email,
           c?.phone,
           c?.notes,
+          c?.message,
         ]
           .filter(Boolean)
           .map((s: any) => String(s).toLowerCase());
@@ -68,7 +73,14 @@ export default function EasyBrokerSection({ visible, q, onTotal }: Props) {
 
   return (
     <>
-      <Heading size='lg' mt={12} mb={3}>EasyBroker</Heading>
+      <HStack mt={12} mb={3} spacing={3} align='center'>
+        <Heading size='lg'>EasyBroker</Heading>
+        <Spacer />
+        <HStack spacing={2}>
+          <Button size='sm' variant={mode === 'contacts' ? 'solid' : 'outline'} onClick={() => setMode('contacts')}>Contactos</Button>
+          <Button size='sm' variant={mode === 'requests' ? 'solid' : 'outline'} onClick={() => setMode('requests')}>Contact Requests</Button>
+        </HStack>
+      </HStack>
       {ebItems.length === 0 ? (
         <Text color='gray.600'>Conecta EASYBROKER_API_KEY para cargar contactos.</Text>
       ) : filtered.length === 0 ? (
@@ -100,7 +112,21 @@ export default function EasyBrokerSection({ visible, q, onTotal }: Props) {
                     {c.email || '-'}
                   </CLink>
                 </Stack>
-                {c.notes && <Text color='gray.600' fontSize='sm'>{c.notes}</Text>}
+                {mode === 'requests' ? (
+                  <>
+                    {c.message && <Text color='gray.700' fontSize='sm'>{c.message}</Text>}
+                    {(c.created_at || c.createdAt) && (
+                      <Text color='gray.600' fontSize='sm'>
+                        {new Date(c.created_at || c.createdAt).toLocaleString?.() || String(c.created_at || c.createdAt)}
+                      </Text>
+                    )}
+                    {(c.property_public_id || c.property_id || c.property?.public_id) && (
+                      <Text color='gray.600' fontSize='sm'>Propiedad: {c.property_public_id || c.property_id || c.property?.public_id}</Text>
+                    )}
+                  </>
+                ) : (
+                  c.notes && <Text color='gray.600' fontSize='sm'>{c.notes}</Text>
+                )}
               </Stack>
             </Box>
           ))}

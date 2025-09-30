@@ -3,8 +3,8 @@ import React from 'react';
 import { getIronSession } from 'iron-session';
 import Layout from '../../components/Layout';
 import { sessionOptions, AppSession } from '../../lib/session';
-import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast, Wrap, WrapItem, Breadcrumb, BreadcrumbItem, Select, BreadcrumbLink, Icon, Textarea } from '@chakra-ui/react';
-import { SearchIcon, CloseIcon } from '@chakra-ui/icons';
+import { Box, Button, Container, Heading, Text, SimpleGrid, Image, Flex, Spacer, HStack, Input, InputGroup, InputLeftElement, IconButton, Badge, AspectRatio, Menu, MenuButton, MenuItem, MenuList, Tooltip, Skeleton, Checkbox, Switch, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, RadioGroup, Stack, Radio, NumberInput, NumberInputField, useToast, Wrap, WrapItem, Breadcrumb, BreadcrumbItem, Select, BreadcrumbLink, Icon, Textarea, Collapse } from '@chakra-ui/react';
+import { SearchIcon, CloseIcon, ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons';
 import { FiMoreVertical, FiExternalLink, FiCopy, FiRefreshCw, FiTrash2, FiEdit2, FiMaximize } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import useSWR from 'swr';
@@ -19,6 +19,38 @@ import VirtualGrid from '../../components/admin/VirtualGrid';
 type Props = {
   username: string;
 };
+
+type AdvancedFiltersState = {
+  priceMin: string;
+  priceMax: string;
+  bedroomsMin: string;
+  bathroomsMin: string;
+  parkingMin: string;
+  colony: string;
+  constructionMin: string;
+  constructionMax: string;
+  lotMin: string;
+  lotMax: string;
+};
+
+type AdvancedFiltersToggleProps = {
+  filters: AdvancedFiltersState;
+  onApply: (next: AdvancedFiltersState) => void;
+  colonyOptions: string[];
+};
+
+const createEmptyAdvancedFilters = (): AdvancedFiltersState => ({
+  priceMin: '',
+  priceMax: '',
+  bedroomsMin: '',
+  bathroomsMin: '',
+  parkingMin: '',
+  colony: '',
+  constructionMin: '',
+  constructionMax: '',
+  lotMin: '',
+  lotMax: '',
+});
 
 export default function AdminHome({ username }: Props) {
   const router = useRouter();
@@ -47,8 +79,49 @@ export default function AdminHome({ username }: Props) {
 
   const [operation, setOperation] = React.useState<string>(''); // 'sale' | 'rental'
   const [status, setStatus] = React.useState<string>(''); // 'available' or free text
-  const [bedroomsEq, setBedroomsEq] = React.useState<string>('');
-  const [bathroomsEq, setBathroomsEq] = React.useState<string>('');
+  // Origen de propiedades ('' = todos, EB Bolsa sigue deshabilitado)
+  const [origin, setOrigin] = React.useState<string>(''); // '' | 'eb_own' | 'eb_bolsa' | 'ego'
+  const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFiltersState>(() => createEmptyAdvancedFilters());
+
+  const matchRangePreset = React.useCallback((f: AdvancedFiltersState): string => {
+    const min = f.priceMin.trim();
+    const max = f.priceMax.trim();
+    if (!min && max === '1000000') return '0-1000';
+    if (min === '1000000' && max === '2000000') return '1000-2000';
+    if (min === '2000000' && max === '3000000') return '2000-3000';
+    if (min === '3000000' && !max) return '3000+';
+    return '';
+  }, []);
+
+  const handleRangeChange = React.useCallback((value: string) => {
+    setRange(value);
+    setAdvancedFilters((prev) => {
+      const next = { ...prev };
+      if (value === '0-1000') { next.priceMin = ''; next.priceMax = '1000000'; }
+      else if (value === '1000-2000') { next.priceMin = '1000000'; next.priceMax = '2000000'; }
+      else if (value === '2000-3000') { next.priceMin = '2000000'; next.priceMax = '3000000'; }
+      else if (value === '3000+') { next.priceMin = '3000000'; next.priceMax = ''; }
+      else { next.priceMin = ''; next.priceMax = ''; }
+      return next;
+    });
+  }, []);
+
+  const updateAdvanced = React.useCallback(<K extends keyof AdvancedFiltersState>(key: K, value: string) => {
+    setAdvancedFilters((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const {
+    priceMin,
+    priceMax,
+    bedroomsMin,
+    bathroomsMin,
+    parkingMin,
+    colony,
+    constructionMin,
+    constructionMax,
+    lotMin,
+    lotMax,
+  } = advancedFilters;
 
   const PAGE_SIZE = 30;
   const getKey = (index: number) => `/api/admin/properties?take=${PAGE_SIZE}&page=${index + 1}`
@@ -57,8 +130,17 @@ export default function AdminHome({ username }: Props) {
     + `${city ? `&city=${encodeURIComponent(city)}` : ''}`
     + `${operation ? `&operation=${encodeURIComponent(operation)}` : ''}`
     + `${status ? `&status=${encodeURIComponent(status)}` : ''}`
-    + `${bedroomsEq ? `&bedrooms=${encodeURIComponent(bedroomsEq)}` : ''}`
-    + `${bathroomsEq ? `&bathrooms=${encodeURIComponent(bathroomsEq)}` : ''}`;
+    + `${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`
+    + `${priceMin ? `&min_price=${encodeURIComponent(priceMin)}` : ''}`
+    + `${priceMax ? `&max_price=${encodeURIComponent(priceMax)}` : ''}`
+    + `${bedroomsMin ? `&min_bedrooms=${encodeURIComponent(bedroomsMin)}` : ''}`
+    + `${bathroomsMin ? `&min_bathrooms=${encodeURIComponent(bathroomsMin)}` : ''}`
+    + `${parkingMin ? `&min_parking_spaces=${encodeURIComponent(parkingMin)}` : ''}`
+    + `${colony ? `&locations=${encodeURIComponent(colony)}` : ''}`
+    + `${constructionMin ? `&min_construction_size=${encodeURIComponent(constructionMin)}` : ''}`
+    + `${constructionMax ? `&max_construction_size=${encodeURIComponent(constructionMax)}` : ''}`
+    + `${lotMin ? `&min_lot_size=${encodeURIComponent(lotMin)}` : ''}`
+    + `${lotMax ? `&max_lot_size=${encodeURIComponent(lotMax)}` : ''}`;
   const { data, mutate, size, setSize, isLoading } = useSWRInfinite(
     getKey,
     fetcher,
@@ -75,7 +157,23 @@ export default function AdminHome({ username }: Props) {
   const [lookahead, setLookahead] = React.useState(false);
   const prefetchGuard = React.useRef<number>(0);
   // Reset pagination when search or filters change
-  React.useEffect(() => { setSize(1); }, [qDebounced, type, city, bedroomsEq, bathroomsEq, setSize]);
+  React.useEffect(() => { setSize(1); }, [
+    qDebounced,
+    type,
+    city,
+    origin,
+    priceMin,
+    priceMax,
+    bedroomsMin,
+    bathroomsMin,
+    parkingMin,
+    colony,
+    constructionMin,
+    constructionMax,
+    lotMin,
+    lotMax,
+    setSize,
+  ]);
   // Reset when op/status change
   React.useEffect(() => { setSize(1); }, [operation, status, setSize]);
   // Avoid re-creating observer and stale closures: use refs
@@ -161,6 +259,22 @@ export default function AdminHome({ username }: Props) {
   const [budget, setBudget] = React.useState(150);
   const [days, setDays] = React.useState(7);
   const toast = useToast();
+  // Auto-sync from EasyBroker when selecting EB — Mías and no local data present yet
+  const syncRequestedRef = React.useRef(false);
+  React.useEffect(() => {
+    (async () => {
+      if (origin !== 'eb_own') return;
+      if (isLoadingMore || isInitial) return; // wait first fetch
+      if (aggregated.length > 0) return; // already have items
+      if (syncRequestedRef.current) return; // avoid loops
+      syncRequestedRef.current = true;
+      try {
+        toast({ title: 'Sincronizando EasyBroker…', status: 'info', duration: 1500 });
+        await fetch('/api/admin/sync?limit=100', { method: 'POST' });
+        await mutate();
+      } catch {}
+    })();
+  }, [origin, aggregated.length, isLoadingMore, isInitial, mutate, toast]);
   // Copy fields (single)
   const [copyHeadline, setCopyHeadline] = React.useState('');
   const [copyDesc, setCopyDesc] = React.useState('');
@@ -258,6 +372,16 @@ export default function AdminHome({ username }: Props) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [items]);
 
+  const colonyOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    (aggregated || []).forEach((p: any) => {
+      const raw = String((p as any)?.locationText || '');
+      const first = raw.split(',')[0]?.trim();
+      if (first && first.length <= 72 && !/\d/.test(first)) set.add(first);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [aggregated]);
+
   // cityCounts se define después de advancedFiltered para evitar referencias antes de inicializar
 
   // Suggestions (admin)
@@ -304,8 +428,61 @@ export default function AdminHome({ username }: Props) {
     if (range === '3000+') return amount >= 3_000_000;
     return true;
   };
-  // Server already filters by type and city; keep only range client-side
-  const filtered = items.filter((p: any) => inRange((p as any).priceAmount));
+  const matchesAdvancedFilters = React.useCallback((p: any) => {
+    const amount = typeof (p as any)?.priceAmount === 'number' ? Number((p as any).priceAmount) : NaN;
+    if (!inRange((p as any)?.priceAmount)) return false;
+
+    const priceMinNum = Number(priceMin);
+    if (priceMin && Number.isFinite(priceMinNum)) {
+      if (!Number.isFinite(amount) || amount < priceMinNum) return false;
+    }
+    const priceMaxNum = Number(priceMax);
+    if (priceMax && Number.isFinite(priceMaxNum)) {
+      if (!Number.isFinite(amount) || amount > priceMaxNum) return false;
+    }
+
+    const bedroomsMinNum = Number(bedroomsMin);
+    if (bedroomsMin && Number.isFinite(bedroomsMinNum)) {
+      if (!(typeof p?.bedrooms === 'number' && p.bedrooms >= bedroomsMinNum)) return false;
+    }
+    const bathroomsMinNum = Number(bathroomsMin);
+    if (bathroomsMin && Number.isFinite(bathroomsMinNum)) {
+      if (!(typeof p?.bathrooms === 'number' && p.bathrooms >= bathroomsMinNum)) return false;
+    }
+    const parkingMinNum = Number(parkingMin);
+    if (parkingMin && Number.isFinite(parkingMinNum)) {
+      if (!(typeof p?.parkingSpaces === 'number' && p.parkingSpaces >= parkingMinNum)) return false;
+    }
+    if (colony) {
+      const target = normSimple(colony);
+      const location = normSimple(String(p?.locationText || ''));
+      if (target && !location.includes(target)) return false;
+    }
+
+    const construction = typeof p?.constructionSize === 'number' ? p.constructionSize : null;
+    const lot = typeof p?.lotSize === 'number' ? p.lotSize : null;
+    const constructionMinNum = Number(constructionMin);
+    if (constructionMin && Number.isFinite(constructionMinNum)) {
+      if (!(typeof construction === 'number' && construction >= constructionMinNum)) return false;
+    }
+    const constructionMaxNum = Number(constructionMax);
+    if (constructionMax && Number.isFinite(constructionMaxNum)) {
+      if (!(typeof construction === 'number' && construction <= constructionMaxNum)) return false;
+    }
+    const lotMinNum = Number(lotMin);
+    if (lotMin && Number.isFinite(lotMinNum)) {
+      if (!(typeof lot === 'number' && lot >= lotMinNum)) return false;
+    }
+    const lotMaxNum = Number(lotMax);
+    if (lotMax && Number.isFinite(lotMaxNum)) {
+      if (!(typeof lot === 'number' && lot <= lotMaxNum)) return false;
+    }
+
+    return true;
+  }, [bathroomsMin, bedroomsMin, colony, constructionMax, constructionMin, inRange, lotMax, lotMin, normSimple, parkingMin, priceMax, priceMin]);
+
+  // Server already filtra por los parámetros principales; aquí reforzamos filtros adicionales
+  const filtered = items.filter((p: any) => matchesAdvancedFilters(p));
 
   // ===== Super-búsqueda estilo catálogo público =====
   function norm(s: string): string {
@@ -801,12 +978,21 @@ export default function AdminHome({ username }: Props) {
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg='white' placeholder='Habitaciones' value={bedroomsEq} onChange={(e) => setBedroomsEq(e.target.value)} minW='140px'>
+              <Select bg='white' value={origin} onChange={(e) => setOrigin(e.target.value)} minW='160px'>
+                <option value=''>Todos</option>
+                <option value='eb_own'>EB — Mías</option>
+                {/* EB — Bolsa deshabilitado temporalmente */}
+                {/* <option value='eb_bolsa'>EB — Bolsa</option> */}
+                <option value='ego'>EGO</option>
+              </Select>
+            </WrapItem>
+            <WrapItem>
+              <Select bg='white' placeholder='Habitaciones' value={bedroomsMin} onChange={(e) => updateAdvanced('bedroomsMin', e.target.value)} minW='140px'>
                 {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg='white' placeholder='Baños' value={bathroomsEq} onChange={(e) => setBathroomsEq(e.target.value)} minW='140px'>
+              <Select bg='white' placeholder='Baños' value={bathroomsMin} onChange={(e) => updateAdvanced('bathroomsMin', e.target.value)} minW='140px'>
                 {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
               </Select>
             </WrapItem>
@@ -820,13 +1006,21 @@ export default function AdminHome({ username }: Props) {
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg='white' placeholder='Rango precio' value={range} onChange={(e) => setRange(e.target.value)} minW='160px'>
+              <Select bg='white' placeholder='Rango precio' value={range} onChange={(e) => handleRangeChange(e.target.value)} minW='160px'>
                 <option value='0-1000'>&lt; $1M</option>
                 <option value='1000-2000'>$1M - $2M</option>
                 <option value='2000-3000'>$2M - $3M</option>
                 <option value='3000+'>$3M+</option>
               </Select>
             </WrapItem>
+            <AdvancedFiltersToggle
+              filters={advancedFilters}
+              onApply={(next) => {
+                setAdvancedFilters(next);
+                setRange(matchRangePreset(next));
+              }}
+              colonyOptions={colonyOptions}
+            />
             <WrapItem>
               <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
                 <Text fontSize="sm">Campaign Mode</Text>
@@ -1211,3 +1405,107 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ req, res }
   }
   return { props: { username: session.user.username } };
 };
+
+function AdvancedFiltersToggle({ filters, onApply, colonyOptions }: AdvancedFiltersToggleProps) {
+  const [open, setOpen] = React.useState(false);
+  const [draft, setDraft] = React.useState<AdvancedFiltersState>(filters);
+
+  React.useEffect(() => {
+    setDraft(filters);
+  }, [filters]);
+
+  const updateDraft = React.useCallback(<K extends keyof AdvancedFiltersState>(key: K, value: string) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const applyDraft = React.useCallback(() => {
+    onApply({
+      priceMin: draft.priceMin.trim(),
+      priceMax: draft.priceMax.trim(),
+      bedroomsMin: draft.bedroomsMin.trim(),
+      bathroomsMin: draft.bathroomsMin.trim(),
+      parkingMin: draft.parkingMin.trim(),
+      colony: draft.colony.trim(),
+      constructionMin: draft.constructionMin.trim(),
+      constructionMax: draft.constructionMax.trim(),
+      lotMin: draft.lotMin.trim(),
+      lotMax: draft.lotMax.trim(),
+    });
+    setOpen(false);
+  }, [draft, onApply]);
+
+  const clearDraft = React.useCallback(() => {
+    const empty = createEmptyAdvancedFilters();
+    setDraft(empty);
+    onApply(empty);
+    setOpen(false);
+  }, [onApply]);
+
+  const icon = open ? <ChevronUpIcon /> : <ChevronDownIcon />;
+
+  return (
+    <>
+      <WrapItem>
+        <Button variant='link' colorScheme='green' onClick={() => setOpen((v) => !v)} rightIcon={icon}>Avanzadas</Button>
+      </WrapItem>
+      <Collapse in={open} style={{ width: '100%' }}>
+        <Wrap spacing={3} align='center' mt={2}>
+          <WrapItem>
+            <Input type='number' bg='white' placeholder='Precio mínimo (MXN)' value={draft.priceMin}
+              onChange={(e) => updateDraft('priceMin', e.target.value)} minW='200px' />
+          </WrapItem>
+          <WrapItem>
+            <Input type='number' bg='white' placeholder='Precio máximo (MXN)' value={draft.priceMax}
+              onChange={(e) => updateDraft('priceMax', e.target.value)} minW='200px' />
+          </WrapItem>
+          <WrapItem>
+            <Select bg='white' placeholder='Habitaciones mín.' value={draft.bedroomsMin}
+              onChange={(e) => updateDraft('bedroomsMin', e.target.value)} minW='160px'>
+              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
+            </Select>
+          </WrapItem>
+          <WrapItem>
+            <Select bg='white' placeholder='Baños mín.' value={draft.bathroomsMin}
+              onChange={(e) => updateDraft('bathroomsMin', e.target.value)} minW='160px'>
+              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
+            </Select>
+          </WrapItem>
+          <WrapItem>
+            <Select bg='white' placeholder='Estacionamientos mín.' value={draft.parkingMin}
+              onChange={(e) => updateDraft('parkingMin', e.target.value)} minW='200px'>
+              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
+            </Select>
+          </WrapItem>
+          <WrapItem>
+            <Select bg='white' placeholder='Colonia' value={draft.colony}
+              onChange={(e) => updateDraft('colony', e.target.value)} minW='200px'>
+              {colonyOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
+            </Select>
+          </WrapItem>
+          <WrapItem>
+            <Input type='number' bg='white' placeholder='Construcción mínima (m²)' value={draft.constructionMin}
+              onChange={(e) => updateDraft('constructionMin', e.target.value)} minW='220px' />
+          </WrapItem>
+          <WrapItem>
+            <Input type='number' bg='white' placeholder='Construcción máxima (m²)' value={draft.constructionMax}
+              onChange={(e) => updateDraft('constructionMax', e.target.value)} minW='220px' />
+          </WrapItem>
+          <WrapItem>
+            <Input type='number' bg='white' placeholder='Terreno mínimo (m²)' value={draft.lotMin}
+              onChange={(e) => updateDraft('lotMin', e.target.value)} minW='220px' />
+          </WrapItem>
+          <WrapItem>
+            <Input type='number' bg='white' placeholder='Terreno máximo (m²)' value={draft.lotMax}
+              onChange={(e) => updateDraft('lotMax', e.target.value)} minW='220px' />
+          </WrapItem>
+          <WrapItem>
+            <Button colorScheme='green' onClick={applyDraft}>Aplicar</Button>
+          </WrapItem>
+          <WrapItem>
+            <Button variant='ghost' onClick={clearDraft}>Limpiar</Button>
+          </WrapItem>
+        </Wrap>
+      </Collapse>
+    </>
+  );
+}
