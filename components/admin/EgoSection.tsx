@@ -7,10 +7,18 @@ import {
   Heading,
   HStack,
   Link as CLink,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   SimpleGrid,
   Spacer,
   Stack,
   Text,
+  useDisclosure,
   useToast,
 } from '@chakra-ui/react';
 import { FiMail, FiPhone, FiCopy } from 'react-icons/fi';
@@ -55,6 +63,10 @@ function CallMenu({ phone }: { phone?: string | null }) {
 
 export default function EgoSection({ q, visible, onTotal }: Props) {
   const [pendingMore, setPendingMore] = React.useState(false);
+  const toast = useToast();
+  const [pushState, setPushState] = React.useState<Record<number, 'idle'|'loading'|'done'>>({});
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [previewPayload, setPreviewPayload] = React.useState<{ id: number; payload: Record<string, any> } | null>(null);
   const EGO_PAGE_SIZE = 30;
   const getEgoKey = (index: number) => (visible)
     ? `/api/admin/egocontacts?take=${EGO_PAGE_SIZE}&page=${index + 1}${q ? `&q=${encodeURIComponent(q)}` : ''}`
@@ -115,6 +127,60 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
   }, [visible, setEgoSize]);
   React.useEffect(() => { if (!egoLoading) setPendingMore(false); }, [egoLoading]);
 
+  const buildPayload = (contact: any) => {
+    const extras: string[] = [];
+    if (contact?.personId) extras.push(`ID persona: ${contact.personId}`);
+    if (contact?.responsible) extras.push(`Responsable: ${contact.responsible}`);
+    if (contact?.role) extras.push(`Rol: ${contact.role}`);
+    if (contact?.createdText) extras.push(`Creada: ${contact.createdText}`);
+    const baseMessage = String(contact?.notes || contact?.message || '').trim();
+    const messageLines = [
+      '[EGO] Contacto importado desde Ego Real Estate.',
+      baseMessage,
+      extras.join(' | '),
+    ].filter(Boolean);
+    const message = messageLines.join('\n');
+    return {
+      name: contact?.name || undefined,
+      phone: contact?.phone || undefined,
+      email: contact?.email || undefined,
+      message,
+      source: 'egoRealEstate',
+    };
+  };
+
+  const confirmPush = React.useCallback((contact: any) => {
+    const id = contact?.id;
+    if (!id) return;
+    const payload = buildPayload(contact);
+    setPreviewPayload({ id, payload });
+    onOpen();
+  }, [onOpen]);
+
+  const pushToEasyBroker = React.useCallback(async (contact: any) => {
+    const id = contact?.id;
+    if (!id) return;
+    setPushState((prev) => ({ ...prev, [id]: 'loading' }));
+    const payload = buildPayload(contact);
+    try {
+      const resp = await fetch('/api/admin/easybroker/contact-requests', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const info = await resp.json().catch(() => ({}));
+        throw new Error(info?.error || `status_${resp.status}`);
+      }
+      setPushState((prev) => ({ ...prev, [id]: 'done' }));
+      toast({ title: 'Enviado a EasyBroker', status: 'success', duration: 2000 });
+    } catch (error: any) {
+      console.warn('pushToEasyBroker', error);
+      setPushState((prev) => ({ ...prev, [id]: 'idle' }));
+      toast({ title: 'No se pudo enviar a EasyBroker', description: error?.message || 'Error desconocido', status: 'error', duration: 3500 });
+    }
+  }, [toast]);
+
   return (
     <>
       <Heading size='lg' mt={12} mb={3}>Contactos EGO</Heading>
@@ -157,6 +223,16 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
                   {c.responsible && <Text><b>Responsable:</b> {c.responsible}</Text>}
                   {c.personId && <Text><b>Persona ID:</b> {c.personId}</Text>}
                 </Stack>
+                <Button
+                  mt={4}
+                  colorScheme='green'
+                  variant={pushState[c.id] === 'done' ? 'outline' : 'solid'}
+                  onClick={() => confirmPush(c)}
+                  isLoading={pushState[c.id] === 'loading'}
+                  isDisabled={pushState[c.id] === 'done'}
+                >
+                  {pushState[c.id] === 'done' ? 'Agregado a EasyBroker' : 'Agregar a EasyBroker'}
+                </Button>
               </Box>
             ))}
           </SimpleGrid>
@@ -182,6 +258,39 @@ export default function EgoSection({ q, visible, onTotal }: Props) {
           )}
         </>
       )}
+
+      <Modal isOpen={isOpen} onClose={() => { setPreviewPayload(null); onClose(); }} isCentered size='lg'>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Confirmar envío a EasyBroker</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {previewPayload ? (
+              <Stack spacing={3} fontSize='sm'>
+                <Text>Así se enviará la información:</Text>
+                <Box bg='gray.50' borderWidth='1px' rounded='md' p={3} fontFamily='mono'>
+                  {JSON.stringify(previewPayload.payload, null, 2)}
+                </Box>
+              </Stack>
+            ) : (
+              <Text>Cargando…</Text>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={3}>
+              <Button variant='ghost' onClick={() => { setPreviewPayload(null); onClose(); }}>Cancelar</Button>
+              <Button colorScheme='green' onClick={() => {
+                if (!previewPayload) return;
+                const contact = egoItems.find((c: any) => c.id === previewPayload.id);
+                if (contact) {
+                  onClose();
+                  void pushToEasyBroker(contact);
+                }
+              }}>Enviar a EasyBroker</Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }
