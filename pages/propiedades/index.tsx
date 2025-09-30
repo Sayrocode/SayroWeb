@@ -21,8 +21,18 @@ import {
   Button,
   Collapse,
   SlideFade,
+  IconButton,
+  Divider,
+  Stack,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerBody,
+  DrawerHeader,
+  DrawerCloseButton,
 } from "@chakra-ui/react";
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
+import { FiSliders } from "react-icons/fi";
 import Link from "next/link";
 import PropertyCard from "../../components/PropertyCard";
 
@@ -59,6 +69,7 @@ export default function Propiedades() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingMore, setPendingMore] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
   // Refs para evitar cierres obsoletos dentro del IntersectionObserver
   const pageRef = useRef(page);
@@ -982,8 +993,26 @@ export default function Propiedades() {
           </Breadcrumb>
           <Heading  fontFamily="'Binggo Wood', heading" mb={4} color="#0E3B30" textAlign="center">Catálogo de Propiedades</Heading>
 
-          <Wrap spacing={3} align="center" mb={2}>
-            <WrapItem flex="1 1 260px" position='relative'>
+          <Wrap spacing={3} align="center" mb={4}>
+            <WrapItem display={{ base: 'block', md: 'none' }}>
+              <IconButton
+                display={{ base: 'inline-flex', md: 'none' }}
+                aria-label="Abrir filtros"
+                icon={<FiSliders />}
+                variant="outline"
+                onClick={() => setSidebarOpen(true)}
+              />
+            </WrapItem>
+            <WrapItem display={{ base: 'none', md: 'inline-flex' }}>
+              <Button
+                leftIcon={<FiSliders />}
+                variant="outline"
+                onClick={() => setSidebarOpen(true)}
+              >
+                Filtros
+              </Button>
+            </WrapItem>
+            <WrapItem flex="1 1 280px" position='relative'>
               <InputGroup>
                 <InputLeftElement pointerEvents="none">
                   <SearchIcon color="gray.400" />
@@ -1016,15 +1045,14 @@ export default function Propiedades() {
               )}
             </WrapItem>
             <WrapItem>
-              <Select bg="white" placeholder="Tipo" value={filters.type} onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))} minW="140px">
+              <Select bg="white" placeholder="Tipo" value={filters.type} onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))} minW="160px">
                 {typeOptions.map((t) => (<option key={t} value={t}>{t}</option>))}
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg="white" placeholder="Municipio" value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} minW="200px">
+              <Select bg="white" placeholder="Municipio" value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} minW="220px">
                 {municipalityOptions
                   .filter((m) => {
-                    // Si aún no tenemos conteos, mostrar todas; cuando haya conteos, ocultar los de 0
                     if (!municipalityCounts || municipalityCounts.size === 0) return true;
                     return (municipalityCounts.get(m) || 0) > 0;
                   })
@@ -1035,78 +1063,32 @@ export default function Propiedades() {
                   ))}
               </Select>
             </WrapItem>
-            <WrapItem>
-              <Select bg="white" placeholder="Operación" value={filters.operation || ''} onChange={(e) => setFilters((f) => ({ ...f, operation: (e.target.value as any) }))} minW="140px">
-                <option value='sale'>Venta</option>
-                <option value='rental'>Renta</option>
-              </Select>
-            </WrapItem>
-            <WrapItem>
-              <Input bg="white" type="number" placeholder="Precio mín." value={String(filters.priceMin ?? '')}
-                onChange={(e) => setFilters((f) => ({ ...f, priceMin: e.target.value === '' ? '' : Number(e.target.value) }))} minW="140px" />
-            </WrapItem>
-            <WrapItem>
-              <Input bg="white" type="number" placeholder="Precio máx." value={String(filters.priceMax ?? '')}
-                onChange={(e) => setFilters((f) => ({ ...f, priceMax: e.target.value === '' ? '' : Number(e.target.value) }))} minW="140px" />
-            </WrapItem>
-            {/* Toggle Avanzadas */}
-            <AdvancedFiltersToggle
-              filters={filters}
-              setFilters={setFilters}
-              colonyOptions={colonyOptions}
-            />
-            {/* Búsqueda automática: solo mantener Limpiar fuera */}
-            <WrapItem>
-              <Button variant="ghost" onClick={clearFilters}>Limpiar</Button>
-            </WrapItem>
           </Wrap>
 
-          {/* Separador visual sutil */}
-          <Box h="1" />
+          <Drawer placement="left" isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} size="sm">
+            <DrawerOverlay />
+            <DrawerContent>
+              <DrawerCloseButton mt={2} />
+              <DrawerHeader borderBottomWidth="1px">Filtros</DrawerHeader>
+              <DrawerBody>
+                <FiltersSidebarContent
+                  filters={filters}
+                  setFilters={setFilters}
+                  colonyOptions={colonyOptions}
+                  clearFilters={clearFilters}
+                  onClose={() => setSidebarOpen(false)}
+                />
+              </DrawerBody>
+            </DrawerContent>
+          </Drawer>
 
-        {loading ? (
-          <Box>
-            <SimpleGrid columns={[1, 2, 3]} spacing={6}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Box key={i} borderWidth="1px" rounded="none" overflow="hidden">
-                  <Skeleton h="200px" w="100%" />
-                  <Box p={4}>
-                    <Skeleton height="20px" mb={2} />
-                    <Skeleton height="16px" mb={2} />
-                    <Skeleton height="16px" w="60%" />
-                  </Box>
-                </Box>
-              ))}
-            </SimpleGrid>
-          </Box>
-        ) : (() => {
-          const showEmpty = !loading && !loadingMore && !pendingMore && !isPrefetching && allProperties.length > 0 && filtered.length === 0;
-          return showEmpty ? (
-            <Center py={20}>
-              <Text color="gray.500">No encontramos propiedades con esos filtros.</Text>
-            </Center>
-          ) : null;
-        })() || (
-          <>
-            <Text mb={3} color="gray.600">
-              {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
-            </Text>
-            {/* Virtualización simple por ventanas para catálogos grandes */}
-            <VirtualizedGrid items={filtered} estimateRowHeight={360} gap={24} />
-            {/* Sentinel para infinito: altura mayor para intersección más confiable */}
-            <Box ref={loaderRef} h="32px" />
-            {/* Fallback manual si el observer falla por cualquier razón */}
-            {hasMore && !loadingMore && (
-              <Center mt={4}>
-                <Button onClick={() => fetchPage(page + 1)} variant="outline" colorScheme="green">
-                  Cargar más
-                </Button>
-              </Center>
-            )}
-            {(pendingMore || loadingMore) && (
-              <Box mt={6}>
+          <Box w="full">
+            <Box h="1" />
+
+            {loading ? (
+              <Box>
                 <SimpleGrid columns={[1, 2, 3]} spacing={6}>
-                  {Array.from({ length: 3 }).map((_, i) => (
+                  {Array.from({ length: 6 }).map((_, i) => (
                     <Box key={i} borderWidth="1px" rounded="none" overflow="hidden">
                       <Skeleton h="200px" w="100%" />
                       <Box p={4}>
@@ -1118,10 +1100,50 @@ export default function Propiedades() {
                   ))}
                 </SimpleGrid>
               </Box>
+            ) : (() => {
+              const showEmpty = !loading && !loadingMore && !pendingMore && !isPrefetching && allProperties.length > 0 && filtered.length === 0;
+              return showEmpty ? (
+                <Center py={20}>
+                  <Text color="gray.500">No encontramos propiedades con esos filtros.</Text>
+                </Center>
+              ) : null;
+            })() || (
+              <>
+                <Text mb={3} color="gray.600">
+                  {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
+                </Text>
+                {/* Virtualización simple por ventanas para catálogos grandes */}
+                <VirtualizedGrid items={filtered} estimateRowHeight={360} gap={24} />
+                {/* Sentinel para infinito: altura mayor para intersección más confiable */}
+                <Box ref={loaderRef} h="32px" />
+                {/* Fallback manual si el observer falla por cualquier razón */}
+                {hasMore && !loadingMore && (
+                  <Center mt={4}>
+                    <Button onClick={() => fetchPage(page + 1)} variant="outline" colorScheme="green">
+                      Cargar más
+                    </Button>
+                  </Center>
+                )}
+                {(pendingMore || loadingMore) && (
+                  <Box mt={6}>
+                    <SimpleGrid columns={[1, 2, 3]} spacing={6}>
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Box key={i} borderWidth="1px" rounded="none" overflow="hidden">
+                          <Skeleton h="200px" w="100%" />
+                          <Box p={4}>
+                            <Skeleton height="20px" mb={2} />
+                            <Skeleton height="16px" mb={2} />
+                            <Skeleton height="16px" w="60%" />
+                          </Box>
+                        </Box>
+                      ))}
+                    </SimpleGrid>
+                  </Box>
+                )}
+              </>
             )}
-          </>
-        )}
-      </Container>
+          </Box>
+        </Container>
       </Box>
 
       {/* CTA flotante mientras se hace scroll */}
@@ -1209,16 +1231,16 @@ function VirtualizedGrid({ items, estimateRowHeight = 360, gap = 24 }: { items: 
   );
 }
 
-// Subcomponente: botón "Avanzadas" + panel desplegable
-
-type AdvancedProps = {
+type FiltersSidebarContentProps = {
   filters: FiltersState;
   setFilters: React.Dispatch<React.SetStateAction<FiltersState>>;
   colonyOptions: string[];
+  clearFilters: () => void | Promise<void>;
+  onClose?: () => void;
 };
 
-function AdvancedFiltersToggle({ filters, setFilters, colonyOptions }: AdvancedProps) {
-  const [open, setOpen] = React.useState(false);
+function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilters, onClose }: FiltersSidebarContentProps) {
+  const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [draft, setDraft] = React.useState({
     bedroomsMin: filters.bedroomsMin || '',
     bathroomsMin: filters.bathroomsMin || '',
@@ -1243,7 +1265,7 @@ function AdvancedFiltersToggle({ filters, setFilters, colonyOptions }: AdvancedP
     });
   }, [filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.colony, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax]);
 
-  const apply = () => {
+  const applyAdvanced = () => {
     setFilters((f) => ({
       ...f,
       bedroomsMin: draft.bedroomsMin === '' ? '' : Number(draft.bedroomsMin),
@@ -1255,67 +1277,133 @@ function AdvancedFiltersToggle({ filters, setFilters, colonyOptions }: AdvancedP
       lotMin: draft.lotMin === '' ? '' : Number(draft.lotMin),
       lotMax: draft.lotMax === '' ? '' : Number(draft.lotMax),
     }));
-    setOpen(false);
+    setAdvancedOpen(false);
+    onClose?.();
+  };
+
+  const handleClear = async () => {
+    await Promise.resolve(clearFilters());
+    onClose?.();
   };
 
   return (
-    <>
-      <WrapItem>
-        <Button variant="link" colorScheme="green" onClick={() => setOpen((v) => !v)} rightIcon={open ? <ChevronUpIcon /> : <ChevronDownIcon />}>Avanzadas</Button>
-      </WrapItem>
-      <Collapse in={open} style={{ width: '100%' }}>
-        <Wrap spacing={3} align="center" mt={2}>
-          <WrapItem>
-            <Select bg="white" placeholder="Habitaciones" value={draft.bedroomsMin as any}
-              onChange={(e) => setDraft((d) => ({ ...d, bedroomsMin: (e.target.value ? Number(e.target.value) : '') as any }))}
-              minW="140px">
+    <Stack spacing={6} fontSize="sm">
+      <Stack spacing={2}>
+        <Text fontWeight="medium" color="gray.700">Operación</Text>
+        <Select
+          bg="gray.50"
+          value={filters.operation || ''}
+          onChange={(e) => setFilters((f) => ({ ...f, operation: e.target.value as FiltersState['operation'] }))}
+        >
+          <option value=''>Todas</option>
+          <option value='sale'>Venta</option>
+          <option value='rental'>Renta</option>
+        </Select>
+      </Stack>
+
+      <Stack spacing={2}>
+        <Text fontWeight="medium" color="gray.700">Precio</Text>
+        <Stack spacing={2}>
+          <Input
+            bg="gray.50"
+            type="number"
+            placeholder="Mínimo"
+            value={String(filters.priceMin ?? '')}
+            onChange={(e) => setFilters((f) => ({ ...f, priceMin: e.target.value === '' ? '' : Number(e.target.value) }))}
+          />
+          <Input
+            bg="gray.50"
+            type="number"
+            placeholder="Máximo"
+            value={String(filters.priceMax ?? '')}
+            onChange={(e) => setFilters((f) => ({ ...f, priceMax: e.target.value === '' ? '' : Number(e.target.value) }))}
+          />
+        </Stack>
+      </Stack>
+
+      <Divider />
+
+      <Stack spacing={3}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setAdvancedOpen((v) => !v)}
+          rightIcon={advancedOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          justifyContent="space-between"
+        >
+          Filtros avanzados
+        </Button>
+        <Collapse in={advancedOpen} animateOpacity>
+          <Stack spacing={3} mt={2}>
+            <Select
+              bg="gray.50"
+              placeholder="Habitaciones mínimas"
+              value={draft.bedroomsMin as any}
+              onChange={(e) => setDraft((d) => ({ ...d, bedroomsMin: e.target.value === '' ? '' : Number(e.target.value) }))}
+            >
               {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}</option>))}
             </Select>
-          </WrapItem>
-          <WrapItem>
-            <Select bg="white" placeholder="Baños" value={draft.bathroomsMin as any}
-              onChange={(e) => setDraft((d) => ({ ...d, bathroomsMin: (e.target.value ? Number(e.target.value) : '') as any }))}
-              minW="140px">
+            <Select
+              bg="gray.50"
+              placeholder="Baños mínimos"
+              value={draft.bathroomsMin as any}
+              onChange={(e) => setDraft((d) => ({ ...d, bathroomsMin: e.target.value === '' ? '' : Number(e.target.value) }))}
+            >
               {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}</option>))}
             </Select>
-          </WrapItem>
-          <WrapItem>
-            <Select bg="white" placeholder="Estacionamientos" value={draft.parkingMin as any}
-              onChange={(e) => setDraft((d) => ({ ...d, parkingMin: (e.target.value ? Number(e.target.value) : '') as any }))}
-              minW="160px">
+            <Select
+              bg="gray.50"
+              placeholder="Estacionamientos mínimos"
+              value={draft.parkingMin as any}
+              onChange={(e) => setDraft((d) => ({ ...d, parkingMin: e.target.value === '' ? '' : Number(e.target.value) }))}
+            >
               {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
             </Select>
-          </WrapItem>
-          <WrapItem>
-            <Select bg="white" placeholder="Colonia" value={draft.colony || ''} onChange={(e) => setDraft((d) => ({ ...d, colony: e.target.value }))} minW="160px">
+            <Select
+              bg="gray.50"
+              placeholder="Colonia"
+              value={draft.colony || ''}
+              onChange={(e) => setDraft((d) => ({ ...d, colony: e.target.value }))}
+            >
+              <option value=''>Todas</option>
               {colonyOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
             </Select>
-          </WrapItem>
-          <WrapItem>
-            <Input type="number" bg="white" placeholder="Min. construcción (m²)" value={String(draft.constructionMin ?? '')}
+            <Input
+              bg="gray.50"
+              type="number"
+              placeholder="Min. construcción (m²)"
+              value={String(draft.constructionMin ?? '')}
               onChange={(e) => setDraft((d) => ({ ...d, constructionMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-              minW="220px" />
-          </WrapItem>
-          <WrapItem>
-            <Input type="number" bg="white" placeholder="Máx. construcción (m²)" value={String(draft.constructionMax ?? '')}
+            />
+            <Input
+              bg="gray.50"
+              type="number"
+              placeholder="Máx. construcción (m²)"
+              value={String(draft.constructionMax ?? '')}
               onChange={(e) => setDraft((d) => ({ ...d, constructionMax: e.target.value === '' ? '' : Number(e.target.value) }))}
-              minW="220px" />
-          </WrapItem>
-          <WrapItem>
-            <Input type="number" bg="white" placeholder="Min. terreno (m²)" value={String(draft.lotMin ?? '')}
+            />
+            <Input
+              bg="gray.50"
+              type="number"
+              placeholder="Min. terreno (m²)"
+              value={String(draft.lotMin ?? '')}
               onChange={(e) => setDraft((d) => ({ ...d, lotMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-              minW="220px" />
-          </WrapItem>
-          <WrapItem>
-            <Input type="number" bg="white" placeholder="Máx. terreno (m²)" value={String(draft.lotMax ?? '')}
+            />
+            <Input
+              bg="gray.50"
+              type="number"
+              placeholder="Máx. terreno (m²)"
+              value={String(draft.lotMax ?? '')}
               onChange={(e) => setDraft((d) => ({ ...d, lotMax: e.target.value === '' ? '' : Number(e.target.value) }))}
-              minW="220px" />
-          </WrapItem>
-          <WrapItem>
-            <Button colorScheme="green" onClick={apply}>Buscar</Button>
-          </WrapItem>
-        </Wrap>
-      </Collapse>
-    </>
+            />
+            <Button size="sm" colorScheme="green" onClick={applyAdvanced}>Aplicar filtros</Button>
+          </Stack>
+        </Collapse>
+      </Stack>
+
+      <Divider />
+
+      <Button variant="ghost" size="sm" onClick={handleClear}>Limpiar filtros</Button>
+    </Stack>
   );
 }
