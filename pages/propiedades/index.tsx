@@ -180,7 +180,15 @@ export default function Propiedades() {
     if (typeof filters.lotMax === 'number') sp.set('max_lot_size', String(filters.lotMax));
     if (qDebounced.trim()) sp.set('q', qDebounced.trim());
     const [ebJson, dbJson] = await Promise.all([
-      ebTarget ? fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: ebPageRef.current } })) : Promise.resolve(null),
+      ebTarget
+        ? (async () => {
+            const primary = await fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`);
+            if (primary.ok) return primary.json();
+            const alt = await fetch(`/api/easybroker?endpoint=properties&limit=${limit}&page=${ebTarget}&${sp.toString()}`);
+            if (alt.ok) return alt.json();
+            return { content: [], pagination: { total_pages: ebPageRef.current } };
+          })()
+        : Promise.resolve(null),
       fetch(`/api/properties?limit=${limit}&page=${dbTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
     ]);
 
@@ -258,7 +266,15 @@ export default function Propiedades() {
     if (typeof filters.lotMax === 'number') sp.set('max_lot_size', String(filters.lotMax));
     if (qDebounced.trim()) sp.set('q', qDebounced.trim());
     const [ebJson, dbJson] = await Promise.all([
-      ebTarget ? fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: ebPageRef.current } })) : Promise.resolve(null),
+      ebTarget
+        ? (async () => {
+            const primary = await fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`);
+            if (primary.ok) return primary.json();
+            const alt = await fetch(`/api/easybroker?endpoint=properties&limit=${limit}&page=${ebTarget}&${sp.toString()}`);
+            if (alt.ok) return alt.json();
+            return { content: [], pagination: { total_pages: ebPageRef.current } };
+          })()
+        : Promise.resolve(null),
       fetch(`/api/properties?limit=${limit}&page=${dbTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
     ]);
 
