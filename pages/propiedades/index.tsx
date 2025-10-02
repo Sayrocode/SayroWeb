@@ -524,16 +524,41 @@ export default function Propiedades() {
   function canonicalMunicipio(raw?: string | null): string | null {
     if (!raw) return null;
     let s = String(raw);
+    // Remover prefijos comunes y ruido
     s = s.replace(/\bmunicipio de\b\s*/i, '');
-    // Quitar prefijo "Nuevo " si está presente; algunos orígenes lo agregan erróneamente
     s = s.replace(/^\s*nuevo\s+/i, '');
     const n = norm(s);
-    // Intento directo por sinónimo
+
+    // 1) Coincidencia directa exacta
     if (MUNICIPIO_SYNONYMS[n]) return MUNICIPIO_SYNONYMS[n];
-    // Búsqueda por inclusión dentro del texto normalizado
-    for (const k of Object.keys(MUNICIPIO_SYNONYMS)) {
-      if (k && (n.includes(k) || n.includes(`nuevo ${k}`))) return MUNICIPIO_SYNONYMS[k];
+
+    // 2) Coincidencia por tokens separados (coma, guión, slash, paréntesis)
+    const tokens = n
+      .split(/[\s,;\-\/|()]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    for (const t of tokens) {
+      if (MUNICIPIO_SYNONYMS[t]) return MUNICIPIO_SYNONYMS[t];
     }
+
+    // 3) Coincidencia por palabra con límites (prefiere nombres largos)
+    const keys = Object.keys(MUNICIPIO_SYNONYMS).sort((a, b) => b.length - a.length);
+    const matches: string[] = [];
+    for (const k of keys) {
+      if (!k) continue;
+      const re = new RegExp(`(^|[^a-zñ])${k}([^a-zñ]|$)`, 'i');
+      if (re.test(n)) {
+        const canon = MUNICIPIO_SYNONYMS[k];
+        if (canon && !matches.includes(canon)) matches.push(canon);
+      }
+    }
+    if (matches.length) {
+      // Si hay múltiples coincidencias y una es Querétaro (estado) junto con otra,
+      // priorizar la que no sea 'Querétaro'.
+      const nonQro = matches.find((m) => m !== 'Querétaro');
+      return (nonQro || matches[0]) || null;
+    }
+
     return null;
   }
 
