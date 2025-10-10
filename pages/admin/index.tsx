@@ -304,6 +304,10 @@ export default function AdminHome({ username }: Props) {
       try { document.body.classList.remove('campaign-mode'); document.body.classList.remove('eb-mode'); } catch {}
     };
   }, [campaignMode, ebMode]);
+  // Al entrar a MLS embed, apagar modos especiales y limpiar selección
+  React.useEffect(() => {
+    if (origin === 'eb_mls') { setCampaignMode(false); setEbMode(false); setSelected([]); }
+  }, [origin]);
   const [selected, setSelected] = React.useState<number[]>([]);
   const selectedSet = React.useMemo(() => new Set(selected), [selected]);
   const onToggleSelect = React.useCallback((id: number) => {
@@ -1003,6 +1007,7 @@ export default function AdminHome({ username }: Props) {
             <WrapItem>
               <Button colorScheme='green' onClick={() => setAddOpen(true)}>Agregar Propiedad</Button>
             </WrapItem>
+            {origin !== 'eb_mls' && (
             <WrapItem flex='1 1 260px' position='relative'>
               <InputGroup>
                 <InputLeftElement pointerEvents="none"><SearchIcon color="gray.400" /></InputLeftElement>
@@ -1026,69 +1031,87 @@ export default function AdminHome({ username }: Props) {
                 </Box>
               )}
             </WrapItem>
+            )}
             {/* Búsqueda en vivo debounced; sin botón Buscar */}
-            <WrapItem>
-              <Select bg='white' placeholder='Tipo' value={type} onChange={(e) => setType(e.target.value)} minW='140px'>
-                {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
-              </Select>
-            </WrapItem>
+            {origin !== 'eb_mls' && (
+              <>
+                <WrapItem>
+                  <Select bg='white' placeholder='Tipo' value={type} onChange={(e) => setType(e.target.value)} minW='140px'>
+                    {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </Select>
+                </WrapItem>
+              </>
+            )}
             <WrapItem>
               <Select bg='white' value={origin} onChange={(e) => setOrigin(e.target.value)} minW='180px'>
-                <option value=''>Todos</option>
-                <option value='eb_own'>EB — Mías</option>
-                <option value='eb_mls'>EB — MLS</option>
-                {/* EB — Bolsa deshabilitado temporalmente */}
-                {/* <option value='eb_bolsa'>EB — Bolsa</option> */}
-                <option value='ego'>EGO</option>
+                {origin === 'eb_mls' ? (
+                  <>
+                    <option value=''>Todos</option>
+                    <option value='eb_mls'>EB — MLS</option>
+                  </>
+                ) : (
+                  <>
+                    <option value=''>Todos</option>
+                    <option value='eb_own'>EB — Mías</option>
+                    <option value='eb_mls'>EB — MLS</option>
+                    {/* EB — Bolsa deshabilitado temporalmente */}
+                    {/* <option value='eb_bolsa'>EB — Bolsa</option> */}
+                    <option value='ego'>EGO</option>
+                  </>
+                )}
               </Select>
             </WrapItem>
-            <WrapItem>
-              <Select bg='white' placeholder='Habitaciones' value={bedroomsMin} onChange={(e) => updateAdvanced('bedroomsMin', e.target.value)} minW='140px'>
-                {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
-              </Select>
-            </WrapItem>
-            <WrapItem>
-              <Select bg='white' placeholder='Baños' value={bathroomsMin} onChange={(e) => updateAdvanced('bathroomsMin', e.target.value)} minW='140px'>
-                {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
-              </Select>
-            </WrapItem>
-            <WrapItem>
-              <Select bg='white' placeholder='Ciudad' value={city} onChange={(e) => setCity(e.target.value)} minW='180px'>
-                {cityOptions.map((c) => (
-                  <option key={c} value={c}>
-                    {c} ({cityCounts.get(c) || 0})
-                  </option>
-                ))}
-              </Select>
-            </WrapItem>
-            <WrapItem>
-              <Select bg='white' placeholder='Rango precio' value={range} onChange={(e) => handleRangeChange(e.target.value)} minW='160px'>
-                <option value='0-1000'>&lt; $1M</option>
-                <option value='1000-2000'>$1M - $2M</option>
-                <option value='2000-3000'>$2M - $3M</option>
-                <option value='3000+'>$3M+</option>
-              </Select>
-            </WrapItem>
-            <AdvancedFiltersToggle
-              filters={advancedFilters}
-              onApply={(next) => {
-                setAdvancedFilters(next);
-                setRange(matchRangePreset(next));
-              }}
-              colonyOptions={colonyOptions}
-            />
-            <WrapItem>
-              <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
-                <Text fontSize="sm">Campaign Mode</Text>
-                <Switch isChecked={campaignMode} onChange={(e) => { setCampaignMode(e.target.checked); setSelected([]); }} />
-              </HStack>
-            </WrapItem>
-            <WrapItem>
-              <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
-                <Text fontSize="sm">EB Upload</Text>
-                <Switch isChecked={ebMode} onChange={(e) => { setEbMode(e.target.checked); setSelected([]); }} />
-              </HStack>
-            </WrapItem>
+            {origin !== 'eb_mls' && (
+              <>
+                <WrapItem>
+                  <Select bg='white' placeholder='Habitaciones' value={bedroomsMin} onChange={(e) => updateAdvanced('bedroomsMin', e.target.value)} minW='140px'>
+                    {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </Select>
+                </WrapItem>
+                <WrapItem>
+                  <Select bg='white' placeholder='Baños' value={bathroomsMin} onChange={(e) => updateAdvanced('bathroomsMin', e.target.value)} minW='140px'>
+                    {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </Select>
+                </WrapItem>
+                <WrapItem>
+                  <Select bg='white' placeholder='Ciudad' value={city} onChange={(e) => setCity(e.target.value)} minW='180px'>
+                    {cityOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c} ({cityCounts.get(c) || 0})
+                      </option>
+                    ))}
+                  </Select>
+                </WrapItem>
+                <WrapItem>
+                  <Select bg='white' placeholder='Rango precio' value={range} onChange={(e) => handleRangeChange(e.target.value)} minW='160px'>
+                    <option value='0-1000'>&lt; $1M</option>
+                    <option value='1000-2000'>$1M - $2M</option>
+                    <option value='2000-3000'>$2M - $3M</option>
+                    <option value='3000+'>$3M+</option>
+                  </Select>
+                </WrapItem>
+                <AdvancedFiltersToggle
+                  filters={advancedFilters}
+                  onApply={(next) => {
+                    setAdvancedFilters(next);
+                    setRange(matchRangePreset(next));
+                  }}
+                  colonyOptions={colonyOptions}
+                />
+                <WrapItem>
+                  <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
+                    <Text fontSize="sm">Campaign Mode</Text>
+                    <Switch isChecked={campaignMode} onChange={(e) => { setCampaignMode(e.target.checked); setSelected([]); }} />
+                  </HStack>
+                </WrapItem>
+                <WrapItem>
+                  <HStack px={3} py={2} borderWidth="1px" rounded="md" bg="white">
+                    <Text fontSize="sm">EB Upload</Text>
+                    <Switch isChecked={ebMode} onChange={(e) => { setEbMode(e.target.checked); setSelected([]); }} />
+                  </HStack>
+                </WrapItem>
+              </>
+            )}
             <WrapItem>
               <Button onClick={logout} variant="outline" colorScheme="red" size="sm">Cerrar sesión</Button>
             </WrapItem>
