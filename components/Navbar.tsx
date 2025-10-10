@@ -29,6 +29,7 @@ const publicLinks = [
   { name: "Nosotros", href: "/#nosotros" },
   { name: "Servicios", href: "/#servicios" },
   { name: "Catálogo", href: "/propiedades" },
+  { name: "Catálogo MLS", href: "/catalogo-mls" },
   // Cambiamos contacto para apuntar a la sección del home
   { name: "Contacto", href: "/#contacto" },
   // Mantener orden según diseño de referencia

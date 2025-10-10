@@ -30,7 +30,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const perPage = Math.max(1, Math.min(parseInt(String(limit || '24'), 10) || 24, 100));
 
     const params = new URLSearchParams();
+    const arr = (v: any): string[] => Array.isArray(v) ? v.map(String) : (v != null ? [String(v)] : []);
     Object.entries(rest).forEach(([k, v]) => {
+      // Map helpful aliases to EasyBroker search params when present
+      if (k === 'sources' || k === 'source' || k === 'searchSources' || k === 'search[sources]') {
+        const vals = arr(v);
+        vals.forEach((vv) => params.append('search[sources][]', vv));
+        return;
+      }
+      if ((k === 'include_shared' || k === 'collab' || k === 'include_collaborations') && String(v).toLowerCase() !== 'false' && String(v) !== '0') {
+        params.append('search[sources][]', 'shared');
+        return;
+      }
       if (Array.isArray(v)) v.forEach((vv) => params.append(k, String(vv)));
       else if (v != null) params.append(k, String(v));
     });
@@ -49,4 +60,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: 'Internal Server Error', message: e?.message || String(e) });
   }
 }
-
