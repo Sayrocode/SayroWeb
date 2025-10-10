@@ -124,7 +124,9 @@ export default function AdminHome({ username }: Props) {
   } = advancedFilters;
 
   const PAGE_SIZE = 30;
-  const getKey = (index: number) => `/api/admin/properties?take=${PAGE_SIZE}&page=${index + 1}`
+  const getKey = (index: number) => {
+    if (origin === 'eb_mls') return null as any;
+    return `/api/admin/properties?take=${PAGE_SIZE}&page=${index + 1}`
     + `${qDebounced ? `&q=${encodeURIComponent(qDebounced)}&fast=1` : ''}`
     + `${type ? `&type=${encodeURIComponent(type)}` : ''}`
     + `${city ? `&city=${encodeURIComponent(city)}` : ''}`
@@ -141,6 +143,7 @@ export default function AdminHome({ username }: Props) {
     + `${constructionMax ? `&max_construction_size=${encodeURIComponent(constructionMax)}` : ''}`
     + `${lotMin ? `&min_lot_size=${encodeURIComponent(lotMin)}` : ''}`
     + `${lotMax ? `&max_lot_size=${encodeURIComponent(lotMax)}` : ''}`;
+  };
   const { data, mutate, size, setSize, isLoading } = useSWRInfinite(
     getKey,
     fetcher,
@@ -196,7 +199,7 @@ export default function AdminHome({ username }: Props) {
   React.useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
-    if (qDebounced || type || city || operation || status) return; // disable infinite scroll during search/filter
+    if (qDebounced || type || city || operation || status || origin === 'eb_mls') return; // disable infinite scroll during search/filter and MLS embed
     const ob = new IntersectionObserver((entries) => {
       const e = entries[0];
       if (e.isIntersecting && !loadingRef.current && !endRef.current && scrollingDownRef.current) {
@@ -206,8 +209,9 @@ export default function AdminHome({ username }: Props) {
     }, { rootMargin: '800px 0px' });
     ob.observe(el);
     return () => ob.disconnect();
-  }, [setSize, qDebounced]);
+  }, [setSize, qDebounced, origin]);
   React.useEffect(() => { if (!isLoadingMore) setPendingMore(false); }, [isLoadingMore]);
+  React.useEffect(() => { if (origin === 'eb_mls') setPendingMore(false); }, [origin]);
 
   // Scroll position persistence for fast back/forward
   React.useEffect(() => {
@@ -225,6 +229,7 @@ export default function AdminHome({ username }: Props) {
     if (qDebounced) return;            // no adelantar cuando hay búsqueda
     if (isLoadingMore) return;
     if (isReachingEnd) return;
+    if (origin === 'eb_mls') return;   // no prefetch en modo MLS embed
     // Evitar pedir múltiples veces por el mismo tamaño
     if (prefetchGuard.current === size) return;
     prefetchGuard.current = size;
@@ -236,8 +241,58 @@ export default function AdminHome({ username }: Props) {
       React.startTransition(() => { void setSize(size + 1); });
     });
     return () => { if (typeof (window as any).cancelIdleCallback === 'function') (window as any).cancelIdleCallback(id); else clearTimeout(id as any); };
-  }, [size, qDebounced, isLoadingMore, isReachingEnd, setSize]);
+  }, [size, qDebounced, isLoadingMore, isReachingEnd, setSize, origin]);
   React.useEffect(() => { if (!isLoadingMore) setLookahead(false); }, [isLoadingMore]);
+  // ===== MLS embed state (when origin === 'eb_mls') =====
+  const [mlsMode, setMlsMode] = React.useState<'venta' | 'renta'>('venta');
+  const mlsEmbedSrc = mlsMode === 'venta' ? '/api/embed/mls?path=/properties' : '/api/embed/mls?path=/rentals';
+  const mlsIframeRef = React.useRef<HTMLIFrameElement | null>(null);
+  React.useEffect(() => {
+    if (origin !== 'eb_mls') return;
+    const frame = mlsIframeRef.current;
+    if (!frame) return;
+    let ro: ResizeObserver | null = null;
+    let mo: MutationObserver | null = null;
+    function resizeOnce() {
+      try {
+        const f = mlsIframeRef.current;
+        if (!f) return;
+        const doc = f.contentDocument || f.contentWindow?.document;
+        if (!doc) return;
+        const h1 = doc.documentElement?.scrollHeight || 0;
+        const h2 = doc.body?.scrollHeight || 0;
+        const h = Math.max(h1, h2, 0);
+        if (h) f.style.height = `${h}px`;
+      } catch {}
+    }
+    function onLoad() { resizeOnce(); tryAttachObservers(); }
+    function tryAttachObservers() {
+      try {
+        const f = mlsIframeRef.current;
+        if (!f) return;
+        const doc = f.contentDocument || f.contentWindow?.document;
+        if (!doc) return;
+        if ('ResizeObserver' in window) {
+          ro = new (window as any).ResizeObserver(() => resizeOnce());
+          if (doc.body) ro.observe(doc.body);
+          ro.observe(doc.documentElement);
+        }
+        mo = new MutationObserver(() => resizeOnce());
+        mo.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
+        f.contentWindow?.addEventListener('hashchange', resizeOnce);
+        setTimeout(resizeOnce, 50);
+        setTimeout(resizeOnce, 300);
+        setTimeout(resizeOnce, 1200);
+      } catch {}
+    }
+    frame.addEventListener('load', onLoad);
+    setTimeout(() => { try { resizeOnce(); } catch {} }, 50);
+    return () => {
+      try { frame.removeEventListener('load', onLoad); } catch {}
+      try { if (ro) ro.disconnect(); } catch {}
+      try { if (mo) mo.disconnect(); } catch {}
+    };
+  }, [origin, mlsEmbedSrc]);
   const [campaignMode, setCampaignMode] = React.useState(false);
   const [ebMode, setEbMode] = React.useState(false);
   React.useEffect(() => {
@@ -978,9 +1033,10 @@ export default function AdminHome({ username }: Props) {
               </Select>
             </WrapItem>
             <WrapItem>
-              <Select bg='white' value={origin} onChange={(e) => setOrigin(e.target.value)} minW='160px'>
+              <Select bg='white' value={origin} onChange={(e) => setOrigin(e.target.value)} minW='180px'>
                 <option value=''>Todos</option>
                 <option value='eb_own'>EB — Mías</option>
+                <option value='eb_mls'>EB — MLS</option>
                 {/* EB — Bolsa deshabilitado temporalmente */}
                 {/* <option value='eb_bolsa'>EB — Bolsa</option> */}
                 <option value='ego'>EGO</option>
@@ -1039,41 +1095,75 @@ export default function AdminHome({ username }: Props) {
           </Wrap>
         </Stack>
 
-        {(isInitial && aggregated.length === 0) ? (
+        {origin === 'eb_mls' ? (
           <Box>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Box key={i} borderWidth="1px" rounded="none" overflow="hidden" bg="white" p={0} mb={4}>
-                <Skeleton height="180px" />
-                <Box p={3}>
-                  <Skeleton height="20px" mb={2} />
-                  <Skeleton height="16px" width="60%" />
-                </Box>
-              </Box>
-            ))}
+            <HStack justify='center' mb={4} spacing={3}>
+              <Button
+                colorScheme='green'
+                variant={mlsMode === 'venta' ? 'solid' : 'outline'}
+                onClick={() => setMlsMode('venta')}
+              >
+                Venta
+              </Button>
+              <Button
+                colorScheme='green'
+                variant={mlsMode === 'renta' ? 'solid' : 'outline'}
+                onClick={() => setMlsMode('renta')}
+              >
+                Renta
+              </Button>
+            </HStack>
+            <Box
+              as='iframe'
+              title={mlsMode === 'venta' ? 'MLS — Venta (embed)' : 'MLS — Renta (embed)'}
+              src={mlsEmbedSrc}
+              width='100%'
+              height='1400'
+              loading='lazy'
+              style={{ border: '0', display: 'block', margin: 0, padding: 0 }}
+              sandbox='allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox'
+              allow='geolocation *; fullscreen *'
+              referrerPolicy='strict-origin-when-cross-origin'
+              ref={mlsIframeRef as any}
+            />
           </Box>
         ) : (
-          <VirtualGrid
-            items={advancedFiltered}
-            itemKey={(p: any) => p.id}
-            rowHeight={360}
-            gap={24}
-            overscanRows={2}
-            renderItem={(p: any) => (
-              <PropertyCard
-                property={p}
-                isSelected={selectedSet.has(p.id)}
-                onToggleSelect={onToggleSelect}
-                onDelete={onDelete}
-              />
-            )}
-          />
+          (isInitial && aggregated.length === 0) ? (
+            <Box>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Box key={i} borderWidth="1px" rounded="none" overflow="hidden" bg="white" p={0} mb={4}>
+                  <Skeleton height="180px" />
+                  <Box p={3}>
+                    <Skeleton height="20px" mb={2} />
+                    <Skeleton height="16px" width="60%" />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <VirtualGrid
+              items={advancedFiltered}
+              itemKey={(p: any) => p.id}
+              rowHeight={360}
+              gap={24}
+              overscanRows={2}
+              renderItem={(p: any) => (
+                <PropertyCard
+                  property={p}
+                  isSelected={selectedSet.has(p.id)}
+                  onToggleSelect={onToggleSelect}
+                  onDelete={onDelete}
+                />
+              )}
+            />
+          )
         )}
 
         {/* Sentinel para cargar más */}
-        <Box ref={loaderRef} h="1px" />
+        {origin !== 'eb_mls' && (<Box ref={loaderRef} h="1px" />)}
 
         {/* Indicador de carga incremental */}
-        {(pendingMore || (isLoadingMore && !lookahead)) && (
+        {(origin !== 'eb_mls') && (pendingMore || (isLoadingMore && !lookahead)) && (
           <Box mt={6}>
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
               {Array.from({ length: 3 }).map((_, i) => (
