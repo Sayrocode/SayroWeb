@@ -75,9 +75,8 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
   const href = `/propiedades/${encodeURIComponent(property.public_id)}`;
 
   return (
-    <NextLink href={href} passHref   >
+    <NextLink href={href} passHref>
       <LinkBox
-      
         role="group"
         position="relative"
         borderWidth="1px"
@@ -87,7 +86,10 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
         bg={cardBg}
         transition="all .25s ease"
         _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
-       
+        // Equal-height cards: make the card fill the grid track
+        h="100%"
+        display="flex"
+        flexDirection="column"
       >
 
       <AspectRatio ratio={16 / 9}>
@@ -103,7 +105,7 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
         </Box>
       </AspectRatio>
 
-      <Stack p={4} spacing={3}>
+      <Stack p={4} spacing={3} flex="1 1 auto" display="flex">
         <HStack spacing={2}>
           {property.property_type && (
             <Badge colorScheme="green" rounded="full" px={2}>
@@ -160,7 +162,9 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
             </HStack>
           )}
         </HStack>
-        <Text fontWeight="semibold" color="green.700" fontSize="lg">
+        {/* Spacer to push price to bottom so all cards align */}
+        <Box flex="1 1 auto" />
+        <Text fontWeight="semibold" color="green.700" fontSize="lg" mt={1}>
           {price}
         </Text>
       </Stack>
