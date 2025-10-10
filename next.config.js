@@ -27,8 +27,8 @@ const nextConfig = {
         "base-uri 'self'",
         // Permit self-embedding so our own pages can be iframed (embed proxy)
         "frame-ancestors 'self'",
-        // Permitir iframes externos necesarios (Catálogo MLS de EasyBroker)
-        "frame-src 'self' https://sayro-bienes-raices.easybroker.com",
+        // Permitir iframes necesarios (EasyBroker y Google Maps)
+        "frame-src 'self' https://sayro-bienes-raices.easybroker.com https://www.google.com https://maps.google.com",
         "default-src 'self'",
         "img-src 'self' data: blob: https:",
         "script-src 'self' 'unsafe-inline' https:",
@@ -41,7 +41,7 @@ const nextConfig = {
         "base-uri 'self'",
         // In dev, keep self-embedding allowed as well
         "frame-ancestors 'self'",
-        "frame-src 'self' https://sayro-bienes-raices.easybroker.com",
+        "frame-src 'self' https://sayro-bienes-raices.easybroker.com https://www.google.com https://maps.google.com",
         "default-src 'self'",
         "img-src 'self' data: blob: http: https:",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' http: https:",
