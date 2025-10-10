@@ -25,24 +25,28 @@ export default function CatalogoMLSPage() {
 
   // Auto-resize iframe to fit embedded content height (same-origin via proxy)
   useEffect(() => {
-    const el = iframeRef.current;
-    if (!el) return;
+    const frame = iframeRef.current;
+    if (!frame) return;
     let ro: ResizeObserver | null = null;
     let mo: MutationObserver | null = null;
     function resizeOnce() {
       try {
-        const doc = el.contentDocument || el.contentWindow?.document;
+        const f = iframeRef.current;
+        if (!f) return;
+        const doc = f.contentDocument || f.contentWindow?.document;
         if (!doc) return;
         const h1 = doc.documentElement?.scrollHeight || 0;
         const h2 = doc.body?.scrollHeight || 0;
         const h = Math.max(h1, h2, 0);
-        if (h && el.height !== String(h)) el.style.height = `${h}px`;
+        if (h) f.style.height = `${h}px`;
       } catch {}
     }
     function onLoad() { resizeOnce(); tryAttachObservers(); }
     function tryAttachObservers() {
       try {
-        const doc = el.contentDocument || el.contentWindow?.document;
+        const f = iframeRef.current;
+        if (!f) return;
+        const doc = f.contentDocument || f.contentWindow?.document;
         if (!doc) return;
         // ResizeObserver on body/html
         if ('ResizeObserver' in window) {
@@ -54,18 +58,18 @@ export default function CatalogoMLSPage() {
         mo = new MutationObserver(() => resizeOnce());
         mo.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
         // Also listen for hash changes inside iframe
-        el.contentWindow?.addEventListener('hashchange', resizeOnce);
+        f.contentWindow?.addEventListener('hashchange', resizeOnce);
         // initial
         setTimeout(resizeOnce, 50);
         setTimeout(resizeOnce, 300);
         setTimeout(resizeOnce, 1200);
       } catch {}
     }
-    el.addEventListener('load', onLoad);
+    frame.addEventListener('load', onLoad);
     // In case it already loaded
     setTimeout(resizeOnce, 50);
     return () => {
-      try { el.removeEventListener('load', onLoad); } catch {}
+      try { frame.removeEventListener('load', onLoad); } catch {}
       try { if (ro) ro.disconnect(); } catch {}
       try { if (mo) mo.disconnect(); } catch {}
     };
@@ -80,37 +84,32 @@ export default function CatalogoMLSPage() {
       {/* Hero */}
       <Box as="header" bg={GREEN} color="white" py={{ base: 10, md: 14 }}>
         <Container maxW="7xl" px={{ base: 4, md: 6 }}>
-          <Heading as="h1" fontSize={{ base: '2xl', md: '3xl' }} lineHeight="short">
-            Catálogo MLS
-          </Heading>
-          <Text mt={2} color="whiteAlpha.900">
-            Explora propiedades publicadas en EasyBroker.
-          </Text>
-        </Container>
-      </Box>
-
-      {/* Filtros simples: Venta / Renta */}
-      <Container maxW="7xl" px={{ base: 4, md: 6 }} my={{ base: 6, md: 8 }}>
-        <HStack justify="space-between" align={{ base: 'stretch', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} gap={4}>
-          <Box id="contenido">
-            <Heading as="h2" fontSize={{ base: 'xl', md: '2xl' }}>
-              {mode === 'venta' ? 'Propiedades en venta | Sayro Bienes Raíces' : 'Propiedades en renta | Sayro Bienes Raíces'}
-            </Heading>
-          </Box>
-
-          <HStack spacing={4}>
+          <HStack justify="space-between" align={{ base: 'start', md: 'center' }} spacing={4} flexDir={{ base: 'column', md: 'row' }}>
+            <Box>
+              <Heading as="h1" fontSize={{ base: '2xl', md: '3xl' }} lineHeight="short">
+                Catálogo MLS
+              </Heading>
+              <Text mt={2} color="whiteAlpha.900">
+                Explora propiedades publicadas en EasyBroker.
+              </Text>
+            </Box>
             <ButtonGroup isAttached variant="outline" colorScheme="green">
               <Button onClick={() => setMode('venta')} isActive={mode === 'venta'}>Venta</Button>
               <Button onClick={() => setMode('renta')} isActive={mode === 'renta'}>Renta</Button>
             </ButtonGroup>
           </HStack>
-        </HStack>
+        </Container>
+      </Box>
+
+      {/* Ancla accesible al contenido */}
+      <Container maxW="full" px={0} my={{ base: 0, md: 0 }}>
+        <Box id="contenido" aria-hidden />
 
         {/* Embed proxy (iframe) */}
         <Box
-          mt={{ base: 4, md: 6 }}
-          // Full-bleed: cancel Container horizontal padding
-          mx={{ base: -4, md: -6 }}
+          mt={0}
+          w="100%"
+          mx={0}
           bg={bg}
           borderWidth={0}
           borderColor="transparent"
