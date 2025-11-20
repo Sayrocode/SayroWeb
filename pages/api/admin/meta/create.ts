@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../../lib/prisma';
 import { requireAdmin, methodNotAllowed } from '../_utils';
-import { createCampaign, getBaseUrlFromReq, limitText, readMetaEnv, requireMetaEnv, uploadImages } from '../../../../lib/meta';
+import { createCampaign, getBaseUrlFromReq, limitText, readMetaEnv, uploadImages, resolveMXRegionTargeting } from '../../../../lib/meta';
+import { getPreferredMetaAccessToken } from '../../../../lib/metaStore';
 
 type Body = {
   propertyIds: number[];
@@ -9,6 +10,10 @@ type Body = {
   dailyBudget: number; // in MXN
   durationDays?: number;
   dryRun?: boolean;
+  // Targeting: Advantage audience with location restriction
+  targetRegion?: string; // e.g., 'Querétaro', 'Jalisco', 'CDMX'. If absent, targets all MX.
+  targetCities?: string[]; // e.g., ['Querétaro', 'San Juan del Río'] or CDMX alcaldías
+  status?: 'ACTIVE' | 'PAUSED';
   // overrides when using custom copy
   copy?: { headline?: string; description?: string; primaryText?: string };
   copies?: { propertyId: number; headline?: string; description?: string }[];
@@ -120,13 +125,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   };
 
   const env = readMetaEnv();
+  const accessToken = await getPreferredMetaAccessToken();
   // Allow SITE_BASE_URL to be optional in creds (we can compute from req)
-  const missingCreds = !env.accessToken || !env.adAccountId || !env.pageId;
+  const missingCreds = !accessToken || !env.adAccountId || !env.pageId;
 
   // Prepare creative spec
   const now = new Date();
   const end = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
   const dailyBudgetMinor = Math.max(50, Math.round((dailyBudget || 100) * 100)); // default 100 MXN
+  const status: 'PAUSED' | 'ACTIVE' = body.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED';
+
+  // Resolve targeting (location)
+  let targetingArg: any | null = null;
+  if (!dryRun) {
+    const envCreds = readMetaEnv();
+    if (envCreds.accessToken) {
+      if (Array.isArray(body.targetCities) && body.targetCities.length) {
+        // Dynamically import to avoid circular deps in some bundlers
+        const { resolveMXCitiesTargeting } = await import('../../../../lib/meta');
+        targetingArg = await resolveMXCitiesTargeting(body.targetCities, envCreds.accessToken);
+      } else if (body.targetRegion) {
+        targetingArg = await resolveMXRegionTargeting(body.targetRegion, envCreds.accessToken);
+      }
+    }
+  }
 
   if (adType === 'single') {
     const p = props[0];
@@ -139,8 +161,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           primaryText: body.copy.primaryText ?? toCopy(p).primaryText,
         }
       : toCopy(p);
-    const imagesWithHash: { url: string; hash?: string }[] = env.accessToken && env.adAccountId && !dryRun
-      ? await uploadImages(env.adAccountId, env.accessToken, images.map((u) => ({ url: u })))
+    const imagesWithHash: { url: string; hash?: string }[] = accessToken && env.adAccountId && !dryRun
+      ? await uploadImages(env.adAccountId, accessToken, images.map((u) => ({ url: u })))
       : images.map((u) => ({ url: u }));
     // v19: no se admite image_url en link_data; si no hay hash, omitimos la imagen para que Meta tome OG del link
     const imageArg = imagesWithHash[0]?.hash ? { image_hash: imagesWithHash[0].hash } : {};
@@ -161,18 +183,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ ok: false, dryRun: true, reason: missingCreds ? 'Faltan credenciales META_*' : 'dryRun', storySpec, budgetMinor: dailyBudgetMinor });
     }
 
-    const creds = requireMetaEnv();
     const created = await createCampaign({
       name: `Sayro - ${copy.headline}`,
       objective: 'OUTCOME_TRAFFIC',
-      status: 'PAUSED',
+      status,
       dailyBudgetMinor,
       startTime: now.toISOString(),
       endTime: end.toISOString(),
-      adAccountId: creds.adAccountId,
-      pageId: creds.pageId,
-      token: creds.accessToken,
+      adAccountId: env.adAccountId!,
+      pageId: env.pageId!,
+      token: accessToken!,
       storySpec,
+      targeting: targetingArg || undefined,
     });
     return res.status(200).json({ ok: true, created });
   }
@@ -186,7 +208,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!imageUrl) continue;
     imgUploads.push({ url: imageUrl });
   }
-  const uploaded = env.accessToken && env.adAccountId && !dryRun ? await uploadImages(env.adAccountId, env.accessToken, imgUploads) : imgUploads;
+  const uploaded = accessToken && env.adAccountId && !dryRun ? await uploadImages(env.adAccountId, accessToken, imgUploads) : imgUploads;
 
   let idx = 0;
   for (const p of chosen) {
@@ -220,18 +242,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ ok: false, dryRun: true, reason: missingCreds ? 'Faltan credenciales META_*' : 'dryRun', storySpec, budgetMinor: dailyBudgetMinor });
   }
 
-  const creds = requireMetaEnv();
   const created = await createCampaign({
     name: `Sayro - Carrusel ${chosen.length}`,
     objective: 'OUTCOME_TRAFFIC',
-    status: 'PAUSED',
+    status,
     dailyBudgetMinor,
     startTime: now.toISOString(),
     endTime: end.toISOString(),
-    adAccountId: creds.adAccountId,
-    pageId: creds.pageId,
-    token: creds.accessToken,
+    adAccountId: env.adAccountId!,
+    pageId: env.pageId!,
+    token: accessToken!,
     storySpec,
+    targeting: targetingArg || undefined,
   });
   return res.status(200).json({ ok: true, created });
 }

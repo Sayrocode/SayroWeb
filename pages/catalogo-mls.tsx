@@ -128,6 +128,7 @@ export default function CatalogoMLSPage() {
             style={{ border: '0', display: 'block', margin: 0, padding: 0 }}
             // Prevent frame-busting; allow required capabilities only
             sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+            allow="geolocation *; fullscreen *"
             referrerPolicy="strict-origin-when-cross-origin"
             ref={iframeRef as any}
           />

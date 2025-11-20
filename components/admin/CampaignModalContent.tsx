@@ -57,6 +57,23 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
   const [genTemp, setGenTemp] = React.useState<number>(0.7);
   const [genTopP, setGenTopP] = React.useState<number>(1.0);
   const [openaiLoading, setOpenaiLoading] = React.useState(false);
+  // Targeting (location)
+  const MX_STATES = React.useMemo(() => [
+    'Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua','Ciudad de México','Coahuila','Colima','Durango','Guanajuato','Guerrero','Hidalgo','Jalisco','Estado de México','Michoacán','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla','Querétaro','Quintana Roo','San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas',
+  ], []);
+  const [targetRegion, setTargetRegion] = React.useState<string>('Querétaro');
+  const QUERETARO_MUNICIPIOS = React.useMemo(() => [
+    'Amealco de Bonfil', 'Arroyo Seco', 'Cadereyta de Montes', 'Colón', 'Corregidora', 'El Marqués',
+    'Ezequiel Montes', 'Huimilpan', 'Jalpan de Serra', 'Landa de Matamoros', 'Pedro Escobedo', 'Peñamiller',
+    'Pinal de Amoles', 'Santiago de Querétaro', 'San Joaquín', 'San Juan del Río', 'Tequisquiapan', 'Tolimán',
+  ], []);
+  const CDMX_ALCALDIAS = React.useMemo(() => [
+    'Álvaro Obregón', 'Azcapotzalco', 'Benito Juárez', 'Coyoacán', 'Cuajimalpa de Morelos', 'Cuauhtémoc',
+    'Gustavo A. Madero', 'Iztacalco', 'Iztapalapa', 'La Magdalena Contreras', 'Miguel Hidalgo', 'Milpa Alta',
+    'Tláhuac', 'Tlalpan', 'Venustiano Carranza', 'Xochimilco',
+  ], []);
+  const [targetCities, setTargetCities] = React.useState<string[]>([]);
+  const [startActive, setStartActive] = React.useState<boolean>(true);
 
   // UI styles (Binggo Wood headings, centered, square buttons)
   const containerProps = { maxW: '800px', mx: 'auto', w: '100%' } as const;
@@ -221,6 +238,8 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
     setPreviewLoading(true);
     try {
       const body: any = { propertyIds: selected, adType, dailyBudget: budget, durationDays: days, dryRun: true };
+      if (targetCities.length > 0) body.targetCities = targetCities;
+      else if (targetRegion) body.targetRegion = targetRegion;
       if (adType === 'single') {
         body.copy = { headline: copyHeadline, description: copyDesc, primaryText: copyPrimary };
       } else {
@@ -237,7 +256,9 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
   };
 
   const createCampaign = async () => {
-    const body: any = { propertyIds: selected, adType, dailyBudget: budget, durationDays: days };
+    const body: any = { propertyIds: selected, adType, dailyBudget: budget, durationDays: days, status: startActive ? 'ACTIVE' : 'PAUSED' };
+    if (targetCities.length > 0) body.targetCities = targetCities;
+    else if (targetRegion) body.targetRegion = targetRegion;
     if (adType === 'single') {
       body.copy = { headline: copyHeadline, description: copyDesc, primaryText: copyPrimary };
     } else {
@@ -267,6 +288,73 @@ export default function CampaignModalContent({ selected, selectedItems = [], onC
               <Radio value='carousel'>Carrusel</Radio>
             </HStack>
           </RadioGroup>
+        </HStack>
+        <Stack spacing={3} w='100%'>
+          <HStack>
+            <Text w={labelW}>Región objetivo</Text>
+            <Select value={targetRegion} onChange={(e) => setTargetRegion(e.target.value)} maxW='320px' {...commonInputProps}>
+              <option value=''>Todo México</option>
+              {MX_STATES.map((s) => (<option key={s} value={s}>{s}</option>))}
+            </Select>
+          </HStack>
+          <Box textAlign='left' borderWidth='1px' rounded='md' p={3} bg='white'>
+            <Text fontWeight='semibold' mb={2}>Municipios / Alcaldías (opcional, multi)</Text>
+            <Text fontSize='sm' color='gray.600' mb={3}>Si seleccionas ciudades, se usará esta lista en lugar de la región.</Text>
+            <Stack spacing={2} direction={{ base: 'column', md: 'row' }} align='start'>
+              <Box>
+                <HStack justify='space-between' mb={2}>
+                  <Text fontWeight='medium'>Querétaro</Text>
+                  <HStack>
+                    <Button size='xs' variant='outline' onClick={() => setTargetCities((prev) => Array.from(new Set([...prev, ...QUERETARO_MUNICIPIOS])))} rounded='0'>Todos</Button>
+                    <Button size='xs' variant='outline' onClick={() => setTargetCities((prev) => prev.filter((c) => !QUERETARO_MUNICIPIOS.includes(c)))} rounded='0'>Quitar</Button>
+                  </HStack>
+                </HStack>
+                <Stack spacing={1} maxH='180px' overflowY='auto' pr={2}>
+                  {QUERETARO_MUNICIPIOS.map((name) => (
+                    <HStack key={name} spacing={2}>
+                      <input
+                        type='checkbox'
+                        checked={targetCities.includes(name)}
+                        onChange={(e) => setTargetCities((prev) => e.target.checked ? [...prev, name] : prev.filter((x) => x !== name))}
+                      />
+                      <Text>{name}</Text>
+                    </HStack>
+                  ))}
+                </Stack>
+              </Box>
+              <Box>
+                <HStack justify='space-between' mb={2}>
+                  <Text fontWeight='medium'>CDMX</Text>
+                  <HStack>
+                    <Button size='xs' variant='outline' onClick={() => setTargetCities((prev) => Array.from(new Set([...prev, ...CDMX_ALCALDIAS])))} rounded='0'>Todos</Button>
+                    <Button size='xs' variant='outline' onClick={() => setTargetCities((prev) => prev.filter((c) => !CDMX_ALCALDIAS.includes(c)))} rounded='0'>Quitar</Button>
+                  </HStack>
+                </HStack>
+                <Stack spacing={1} maxH='180px' overflowY='auto' pr={2}>
+                  {CDMX_ALCALDIAS.map((name) => (
+                    <HStack key={name} spacing={2}>
+                      <input
+                        type='checkbox'
+                        checked={targetCities.includes(name)}
+                        onChange={(e) => setTargetCities((prev) => e.target.checked ? [...prev, name] : prev.filter((x) => x !== name))}
+                      />
+                      <Text>{name}</Text>
+                    </HStack>
+                  ))}
+                </Stack>
+              </Box>
+            </Stack>
+            {targetCities.length > 0 && (
+              <Text mt={2} fontSize='sm' color='gray.600'>Seleccionadas: {targetCities.join(', ')}</Text>
+            )}
+          </Box>
+        </Stack>
+        <HStack>
+          <Text w={labelW}>Estado inicial</Text>
+          <Select value={startActive ? 'ACTIVE' : 'PAUSED'} onChange={(e) => setStartActive(e.target.value === 'ACTIVE')} maxW='220px' {...commonInputProps}>
+            <option value='ACTIVE'>Activo</option>
+            <option value='PAUSED'>Pausado</option>
+          </Select>
         </HStack>
         <HStack>
           <Text w={labelW}>Idioma</Text>

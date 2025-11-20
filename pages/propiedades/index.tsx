@@ -14,6 +14,7 @@ import {
   BreadcrumbLink,
   Wrap,
   WrapItem,
+  Checkbox,
   InputGroup,
   InputLeftElement,
   Input,
@@ -35,6 +36,9 @@ import {
   RangeSliderFilledTrack,
   RangeSliderThumb,
   HStack,
+  Tag,
+  TagLabel,
+  TagCloseButton,
 } from "@chakra-ui/react";
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import { FiSliders } from "react-icons/fi";
@@ -44,12 +48,17 @@ import PropertyCard from "../../components/PropertyCard";
 type FiltersState = {
   q: string;
   city: string;
-  type?: string;
+  type?: string; // quick single-select
+  types?: string[]; // multi-select types (Casa, Departamento, ...)
   operation?: '' | 'sale' | 'rental';
   bedroomsMin?: number | '';
+  bedroomsExact?: number[]; // exact bedrooms multi-select
+  bathroomsExact?: number[]; // exact bathrooms multi-select
+  parkingExact?: number[]; // exact parking multi-select
   bathroomsMin?: number | '';
   parkingMin?: number | '';
-  colony?: string;
+  colony?: string; // legacy single colony (kept for compatibility)
+  colonies?: string[]; // multi-select colonias
   constructionMin?: number | '';
   constructionMax?: number | '';
   lotMin?: number | '';
@@ -92,7 +101,7 @@ export default function Propiedades() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allProperties, setAllProperties] = useState<any[]>([]);
-  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', parkingMin: '', colony: '', constructionMin: '', constructionMax: '', lotMin: '', lotMax: '', priceMin: '', priceMax: '' });
+  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", type: "", types: [], operation: '', bedroomsMin: '', bedroomsExact: [], bathroomsExact: [], parkingExact: [], bathroomsMin: '', parkingMin: '', colony: '', colonies: [], constructionMin: '', constructionMax: '', lotMin: '', lotMax: '', priceMin: '', priceMax: '' });
   const [qRaw, setQRaw] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   // Debounce más largo para filtros (suaviza la experiencia al teclear rápido)
@@ -179,6 +188,10 @@ export default function Propiedades() {
     if (typeof filters.lotMin === 'number') sp.set('min_lot_size', String(filters.lotMin));
     if (typeof filters.lotMax === 'number') sp.set('max_lot_size', String(filters.lotMax));
     if (qDebounced.trim()) sp.set('q', qDebounced.trim());
+    // pass property types multi-select to APIs (EB expects search[property_types][]) and DB can read repeated keys
+    (filters.types || []).forEach((t) => { sp.append('search[property_types][]', t); sp.append('search[property_types]', t); });
+    // pass selected colonias
+    (filters.colonies || []).forEach((c) => { sp.append('locations[]', c); sp.append('locations', c); });
     const [ebJson, dbJson] = await Promise.all([
       ebTarget
         ? (async () => {
@@ -229,13 +242,13 @@ export default function Propiedades() {
     if (!hasMore) return;
     if (loading || loadingMore) return;
     // No lookahead durante búsqueda/filtros activos
-    const hasActive = Boolean((qDebounced || '').trim() || filters.city || filters.type || filters.operation || filters.colony || filters.bedroomsMin || filters.bathroomsMin || filters.parkingMin || filters.constructionMin || filters.constructionMax || filters.lotMin || filters.lotMax || filters.priceMin || filters.priceMax);
+    const hasActive = Boolean((qDebounced || '').trim() || filters.city || filters.type || (filters.types && filters.types.length) || filters.operation || filters.colony || (filters.colonies && filters.colonies.length) || (filters.bedroomsExact && filters.bedroomsExact.length) || (filters.bathroomsExact && filters.bathroomsExact.length) || (filters.parkingExact && filters.parkingExact.length) || filters.bedroomsMin || filters.bathroomsMin || filters.parkingMin || filters.constructionMin || filters.constructionMax || filters.lotMin || filters.lotMax || filters.priceMin || filters.priceMax);
     if (hasActive) return;
     if (lookaheadRef.current === page) return; // ya precargado para este page base
     lookaheadRef.current = page; // marca el base actual
     // precargar la siguiente página en background sin mostrar skeleton
     fetchPageSilent(page + 1).catch(() => {});
-  }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax]);
+  }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.type, filters.operation, filters.colony, filters.colonies, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, filters.bedroomsExact, filters.bathroomsExact, filters.parkingExact]);
 
   async function fetchPage(nextBatch: number, limit = 18) {
     const map = new Map<string, any>();
@@ -265,6 +278,8 @@ export default function Propiedades() {
     if (typeof filters.lotMin === 'number') sp.set('min_lot_size', String(filters.lotMin));
     if (typeof filters.lotMax === 'number') sp.set('max_lot_size', String(filters.lotMax));
     if (qDebounced.trim()) sp.set('q', qDebounced.trim());
+    (filters.types || []).forEach((t) => { sp.append('search[property_types][]', t); sp.append('search[property_types]', t); });
+    (filters.colonies || []).forEach((c) => { sp.append('locations[]', c); sp.append('locations', c); });
     const [ebJson, dbJson] = await Promise.all([
       ebTarget
         ? (async () => {
@@ -790,6 +805,7 @@ export default function Propiedades() {
     const selectedMunicipio = canonicalMunicipio(filters.city || '') || '';
     const opFilterRaw = (filters.operation || '') as '' | 'sale' | 'rental';
     const colony = norm(filters.colony || "");
+    const colonies = Array.isArray(filters.colonies) ? filters.colonies.map((c) => norm(c)).filter(Boolean) : [];
     const bedroomsMin = typeof filters.bedroomsMin === 'number' ? filters.bedroomsMin : (parseInt(String(filters.bedroomsMin || ''), 10) || 0);
     const bathroomsMin = typeof filters.bathroomsMin === 'number' ? filters.bathroomsMin : (parseInt(String(filters.bathroomsMin || ''), 10) || 0);
     const min = typeof filters.priceMin === 'number' ? filters.priceMin : 0;
@@ -815,6 +831,7 @@ export default function Propiedades() {
 
       // filtro por tipo: usar etiqueta canónica tanto para param (?type=...) como para select
       const selectCanon = String(filters.type || '').trim();
+      const multiTypes = Array.isArray(filters.types) ? filters.types : [];
       const urlCanon = (() => {
         if (!typeParam) return '';
         const tokens = TYPE_HINTS[typeParam] || [];
@@ -829,8 +846,10 @@ export default function Propiedades() {
         if (tokens.some((t) => ['loft','penthouse','ph'].includes(t))) return 'Departamento';
         return '';
       })();
-      if (selectCanon || urlCanon) {
-        const canon = normalizeType((p as any)?.property_type);
+      const canon = normalizeType((p as any)?.property_type);
+      if (multiTypes.length > 0) {
+        if (!multiTypes.includes(canon)) return false;
+      } else if (selectCanon || urlCanon) {
         const okSelect = selectCanon ? canon === selectCanon : true;
         const okParam = urlCanon ? canon === urlCanon : true;
         if (!(okSelect && okParam)) return false;
@@ -870,16 +889,28 @@ export default function Propiedades() {
         if (!(typeof p?.parking_spaces === "number" && p.parking_spaces >= parsed.parking)) return false;
       }
 
-      // mínimos explícitos desde filtros avanzados
-      // Filtros exactos: habitaciones y baños
-      if (bedroomsMin > 0) {
+      // mínimos/exactos explícitos desde filtros avanzados
+      // Filtro de recámaras/baños/estacionamientos exactos (OR dentro del conjunto seleccionado)
+      const bedroomsExact = Array.isArray(filters.bedroomsExact) ? filters.bedroomsExact : [];
+      const bathroomsExact = Array.isArray(filters.bathroomsExact) ? filters.bathroomsExact : [];
+      const parkingExact = Array.isArray(filters.parkingExact) ? filters.parkingExact : [];
+      if (bedroomsExact.length > 0) {
+        const bVal = typeof p?.bedrooms === 'number' ? Math.floor(p.bedrooms as number) : NaN;
+        if (!(Number.isFinite(bVal) && bedroomsExact.includes(bVal))) return false;
+      } else if (bedroomsMin > 0) {
         if (!(typeof p?.bedrooms === 'number' && p.bedrooms >= bedroomsMin)) return false;
       }
-      if (bathroomsMin > 0) {
+      if (bathroomsExact.length > 0) {
+        const xVal = typeof p?.bathrooms === 'number' ? Math.floor(p.bathrooms as number) : NaN;
+        if (!(Number.isFinite(xVal) && bathroomsExact.includes(xVal))) return false;
+      } else if (bathroomsMin > 0) {
         const bVal = typeof p?.bathrooms === 'number' ? Math.floor(p.bathrooms as number) : null;
         if (!(typeof bVal === 'number' && bVal >= bathroomsMin)) return false;
       }
-      if (typeof filters.parkingMin === 'number' && filters.parkingMin > 0) {
+      if (parkingExact.length > 0) {
+        const xVal = typeof p?.parking_spaces === 'number' ? Math.floor(p.parking_spaces as number) : NaN;
+        if (!(Number.isFinite(xVal) && parkingExact.includes(xVal))) return false;
+      } else if (typeof filters.parkingMin === 'number' && filters.parkingMin > 0) {
         if (!(typeof p?.parking_spaces === 'number' && p.parking_spaces >= (filters.parkingMin as number))) return false;
       }
 
@@ -908,6 +939,10 @@ export default function Propiedades() {
       // colonia/barrio explícito
       if (colony) {
         if (!loc.includes(colony)) return false;
+      }
+      if (colonies.length > 0) {
+        const ok = colonies.some((c) => loc.includes(c));
+        if (!ok) return false;
       }
 
       // rango de precio
@@ -961,7 +996,7 @@ export default function Propiedades() {
     }
 
     return results;
-  }, [allProperties, filters.type, filters.city, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, qDebounced]);
+  }, [allProperties, filters.type, filters.types, filters.city, filters.operation, filters.colony, filters.colonies, filters.bedroomsExact, filters.bathroomsExact, filters.parkingExact, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, qDebounced]);
 
   const priceBounds = useMemo(() => ({
     min: PRICE_SLIDER_MIN,
@@ -1006,13 +1041,17 @@ export default function Propiedades() {
     if (typeof filters.lotMax === 'number') q.max_lot_size = filters.lotMax;
     if ((qDebounced || '').trim()) q.q = qDebounced.trim();
 
+    // Also include multi select types and colonies in the URL for shareability
+    if (Array.isArray(filters.types) && filters.types.length) q['search[property_types]'] = filters.types.join(',');
+    if (Array.isArray(filters.colonies) && filters.colonies.length) q['locations'] = filters.colonies.join(',');
+
     // Evitar replace innecesario si no cambia el querystring
     const next = new URLSearchParams(Object.entries(q).map(([k, v]) => [k, String(v)])).toString();
     const current = String((router.asPath.split('?')[1] || ''));
     if (next === current) return;
 
     try { router.replace({ pathname: '/propiedades', query: q }, undefined, { shallow: true }); } catch {}
-  }, [router.asPath, qDebounced, filters.operation, filters.priceMin, filters.priceMax, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax]);
+  }, [router.asPath, qDebounced, filters.operation, filters.priceMin, filters.priceMax, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.types, filters.colonies]);
 
   // Modo búsqueda completa: cuando el usuario aplica cualquier filtro/consulta,
   // pre-cargamos páginas sucesivas hasta cubrir todo el catálogo available,
@@ -1023,7 +1062,7 @@ export default function Propiedades() {
   // Deshabilitar prefetch masivo durante búsqueda/filtros para evitar bloqueos
   useEffect(() => {
     setPrefetchAll(false);
-  }, [qDebounced, filters.city, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax]);
+  }, [qDebounced, filters.city, filters.type, filters.types, filters.operation, filters.colony, filters.colonies, filters.bedroomsExact, filters.bathroomsExact, filters.parkingExact, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax]);
 
   useEffect(() => {}, [prefetchAll, page, hasMore, loading, loadingMore, isPrefetching]);
 
@@ -1046,7 +1085,7 @@ export default function Propiedades() {
   }, []);
 
   const clearFilters = async () => {
-    setFilters({ q: "", city: "", type: "", operation: '', bedroomsMin: '', bathroomsMin: '', parkingMin: '', colony: '', constructionMin: '', constructionMax: '', lotMin: '', lotMax: '', priceMin: '', priceMax: '' });
+    setFilters({ q: "", city: "", type: "", types: [], operation: '', bedroomsMin: '', bedroomsExact: [], bathroomsExact: [], parkingExact: [], bathroomsMin: '', parkingMin: '', colony: '', colonies: [], constructionMin: '', constructionMax: '', lotMin: '', lotMax: '', priceMin: '', priceMax: '' });
     setQRaw(""); setQDebounced("");
     // Limpiar query de tipo en la URL para evitar filtro residual
     try { await router.replace({ pathname: '/propiedades', query: {} }, undefined, { shallow: true }); } catch {}
@@ -1055,14 +1094,14 @@ export default function Propiedades() {
 
   // Al limpiar el searchbox (qDebounced vacío) y no hay filtros activos, restablecer listado normal
   React.useEffect(() => {
-    const noFilters = !(filters.city || filters.type || filters.operation || filters.colony || filters.bedroomsMin || filters.bathroomsMin || filters.parkingMin || filters.constructionMin || filters.constructionMax || filters.lotMin || filters.lotMax || filters.priceMin || filters.priceMax);
+    const noFilters = !(filters.city || filters.type || (filters.types && filters.types.length) || filters.operation || filters.colony || (filters.colonies && filters.colonies.length) || (filters.bedroomsExact && filters.bedroomsExact.length) || (filters.bathroomsExact && filters.bathroomsExact.length) || (filters.parkingExact && filters.parkingExact.length) || filters.bedroomsMin || filters.bathroomsMin || filters.parkingMin || filters.constructionMin || filters.constructionMax || filters.lotMin || filters.lotMax || filters.priceMin || filters.priceMax);
     if ((qDebounced || '').trim() === '' && noFilters) {
       // Evita rehacer si ya hay items cargados
       if (allProperties.length === 0) {
         resetListing().catch(() => {});
       }
     }
-  }, [qDebounced, filters.city, filters.type, filters.operation, filters.colony, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, allProperties.length, resetListing]);
+  }, [qDebounced, filters.city, filters.type, filters.types, filters.operation, filters.colony, filters.colonies, filters.bedroomsExact, filters.bathroomsExact, filters.parkingExact, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, allProperties.length, resetListing]);
 
   return (
     <Layout title="Propiedades">
@@ -1158,6 +1197,7 @@ export default function Propiedades() {
                   colonyOptions={colonyOptions}
                   clearFilters={clearFilters}
                   priceBounds={priceBounds}
+                  typeOptions={typeOptions}
                   onClose={() => setSidebarOpen(false)}
                 />
               </DrawerBody>
@@ -1319,21 +1359,27 @@ type FiltersSidebarContentProps = {
   colonyOptions: string[];
   clearFilters: () => void | Promise<void>;
   priceBounds: { min: number; max: number } | null;
+  typeOptions: string[];
   onClose?: () => void;
 };
 
-function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilters, priceBounds, onClose }: FiltersSidebarContentProps) {
+function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilters, priceBounds, typeOptions, onClose }: FiltersSidebarContentProps) {
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [draft, setDraft] = React.useState({
     bedroomsMin: filters.bedroomsMin || '',
-    bathroomsMin: filters.bathroomsMin || '',
-    parkingMin: filters.parkingMin || '',
-    colony: filters.colony || '',
+    bathroomsMin: filters.bathroomsMin || '', // legacy (not exposed in UI)
+    parkingMin: filters.parkingMin || '',     // legacy (not exposed in UI)
+    colony: filters.colony || '',             // legacy (not exposed in UI)
     constructionMin: filters.constructionMin || '',
     constructionMax: filters.constructionMax || '',
     lotMin: filters.lotMin || '',
     lotMax: filters.lotMax || '',
   });
+  const [draftTypes, setDraftTypes] = React.useState<string[]>(filters.types || []);
+  const [draftBedroomsExact, setDraftBedroomsExact] = React.useState<number[]>(filters.bedroomsExact || []);
+  const [draftBathroomsExact, setDraftBathroomsExact] = React.useState<number[]>(filters.bathroomsExact || []);
+  const [draftParkingExact, setDraftParkingExact] = React.useState<number[]>(filters.parkingExact || []);
+  const [draftColonies, setDraftColonies] = React.useState<string[]>(filters.colonies || []);
   const [constructionRange, setConstructionRange] = React.useState<[number, number]>([CONSTRUCTION_SLIDER_MIN, CONSTRUCTION_SLIDER_MAX]);
   const [lotRange, setLotRange] = React.useState<[number, number]>([LOT_SLIDER_MIN, LOT_SLIDER_MAX]);
 
@@ -1358,6 +1404,11 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
       lotMin: filters.lotMin || '',
       lotMax: filters.lotMax || '',
     });
+    setDraftTypes(Array.isArray(filters.types) ? filters.types : []);
+    setDraftBedroomsExact(Array.isArray(filters.bedroomsExact) ? filters.bedroomsExact : []);
+    setDraftBathroomsExact(Array.isArray(filters.bathroomsExact) ? filters.bathroomsExact : []);
+    setDraftParkingExact(Array.isArray(filters.parkingExact) ? filters.parkingExact : []);
+    setDraftColonies(Array.isArray(filters.colonies) ? filters.colonies : []);
     const nextConstructionMin = typeof filters.constructionMin === 'number' ? filters.constructionMin : CONSTRUCTION_SLIDER_MIN;
     const nextConstructionMax = typeof filters.constructionMax === 'number' ? filters.constructionMax : CONSTRUCTION_SLIDER_MAX;
     setConstructionRange([
@@ -1370,7 +1421,7 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
       clampLotValue(nextLotMin),
       clampLotValue(nextLotMax),
     ]);
-  }, [filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.colony, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, clampConstructionValue, clampLotValue]);
+  }, [filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.colony, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, clampConstructionValue, clampLotValue, filters.bedroomsExact, filters.bathroomsExact, filters.parkingExact, filters.colonies]);
 
   const effectiveBounds = React.useMemo(() => {
     if (priceBounds && Number.isFinite(priceBounds.min) && Number.isFinite(priceBounds.max) && priceBounds.max > priceBounds.min) {
@@ -1480,10 +1531,16 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
   const applyAdvanced = () => {
     setFilters((f) => ({
       ...f,
+      types: Array.isArray(draftTypes) ? draftTypes : [],
+      bedroomsExact: Array.isArray(draftBedroomsExact) ? draftBedroomsExact : [],
+      bathroomsExact: Array.isArray(draftBathroomsExact) ? draftBathroomsExact : [],
+      parkingExact: Array.isArray(draftParkingExact) ? draftParkingExact : [],
       bedroomsMin: draft.bedroomsMin === '' ? '' : Number(draft.bedroomsMin),
+      // legacy mins retained but UI focuses on exact multi
       bathroomsMin: draft.bathroomsMin === '' ? '' : Number(draft.bathroomsMin),
       parkingMin: draft.parkingMin === '' ? '' : Number(draft.parkingMin),
       colony: draft.colony || '',
+      colonies: Array.isArray(draftColonies) ? draftColonies : [],
       constructionMin: draft.constructionMin === '' ? '' : Number(draft.constructionMin),
       constructionMax: draft.constructionMax === '' ? '' : Number(draft.constructionMax),
       lotMin: draft.lotMin === '' ? '' : Number(draft.lotMin),
@@ -1511,6 +1568,32 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
           <option value='sale'>Venta</option>
           <option value='rental'>Renta</option>
         </Select>
+      </Stack>
+
+      {/* Tipos de propiedad (multi-selección) */}
+      <Stack spacing={2}>
+        <Text fontWeight="medium" color="gray.700">Tipos de propiedad</Text>
+        <Wrap>
+          {typeOptions.map((t) => {
+            const checked = draftTypes.includes(t);
+            return (
+              <WrapItem key={t}>
+                <Checkbox
+                  isChecked={checked}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setDraftTypes((prev) => {
+                      const next = on ? Array.from(new Set([...(prev || []), t])) : (prev || []).filter((x) => x !== t);
+                      // Aplicar inmediatamente al filtro activo para combinar selecciones (OR)
+                      setFilters((f) => ({ ...f, types: next }));
+                      return next;
+                    });
+                  }}
+                >{t}</Checkbox>
+              </WrapItem>
+            );
+          })}
+        </Wrap>
       </Stack>
 
       <Stack spacing={2}>
@@ -1613,39 +1696,112 @@ function FiltersSidebarContent({ filters, setFilters, colonyOptions, clearFilter
         </Button>
         <Collapse in={advancedOpen} animateOpacity>
           <Stack spacing={3} mt={2}>
-            <Select
-              bg="gray.50"
-              placeholder="Habitaciones mínimas"
-              value={draft.bedroomsMin as any}
-              onChange={(e) => setDraft((d) => ({ ...d, bedroomsMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-            >
-              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}</option>))}
-            </Select>
-            <Select
-              bg="gray.50"
-              placeholder="Baños mínimos"
-              value={draft.bathroomsMin as any}
-              onChange={(e) => setDraft((d) => ({ ...d, bathroomsMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-            >
-              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}</option>))}
-            </Select>
-            <Select
-              bg="gray.50"
-              placeholder="Estacionamientos mínimos"
-              value={draft.parkingMin as any}
-              onChange={(e) => setDraft((d) => ({ ...d, parkingMin: e.target.value === '' ? '' : Number(e.target.value) }))}
-            >
-              {[1,2,3,4,5].map((n) => (<option key={n} value={n}>{n}+</option>))}
-            </Select>
-            <Select
-              bg="gray.50"
-              placeholder="Colonia"
-              value={draft.colony || ''}
-              onChange={(e) => setDraft((d) => ({ ...d, colony: e.target.value }))}
-            >
-              <option value=''>Todas</option>
-              {colonyOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
-            </Select>
+            {/* Recámaras exactas (multi) */}
+            <Stack>
+              <Text color='gray.700'>Recámaras (exactas)</Text>
+              <Wrap>
+                {[1,2,3,4,5].map((n) => (
+                  <WrapItem key={n}>
+                    <Checkbox
+                      isChecked={draftBedroomsExact.includes(n)}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setDraftBedroomsExact((prev) => {
+                          const next = on ? Array.from(new Set([...(prev || []), n])) : (prev || []).filter((x) => x !== n);
+                          // Aplicar inmediatamente para que al seleccionar 3 y luego 5 se muestren ambos (3 OR 5)
+                          setFilters((f) => ({ ...f, bedroomsExact: next }));
+                          return next;
+                        });
+                      }}
+                    >{n}</Checkbox>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </Stack>
+            {/* Baños exactos (multi) */}
+            <Stack>
+              <Text color='gray.700'>Baños (exactos)</Text>
+              <Wrap>
+                {[1,2,3,4,5].map((n) => (
+                  <WrapItem key={n}>
+                    <Checkbox
+                      isChecked={draftBathroomsExact.includes(n)}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setDraftBathroomsExact((prev) => {
+                          const next = on ? Array.from(new Set([...(prev || []), n])) : (prev || []).filter((x) => x !== n);
+                          setFilters((f) => ({ ...f, bathroomsExact: next }));
+                          return next;
+                        });
+                      }}
+                    >{n}</Checkbox>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </Stack>
+
+            {/* Estacionamientos exactos (multi) */}
+            <Stack>
+              <Text color='gray.700'>Estacionamientos (exactos)</Text>
+              <Wrap>
+                {[1,2,3,4,5].map((n) => (
+                  <WrapItem key={n}>
+                    <Checkbox
+                      isChecked={draftParkingExact.includes(n)}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setDraftParkingExact((prev) => {
+                          const next = on ? Array.from(new Set([...(prev || []), n])) : (prev || []).filter((x) => x !== n);
+                          setFilters((f) => ({ ...f, parkingExact: next }));
+                          return next;
+                        });
+                      }}
+                    >{n}</Checkbox>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </Stack>
+
+            {/* Colonias: selector + badges */}
+            <Stack>
+              <Text color='gray.700'>Colonias</Text>
+              <Wrap mb={2}>
+                {(draftColonies || []).map((c) => (
+                  <WrapItem key={c}>
+                    <Tag size='sm' colorScheme='green' variant='subtle'>
+                      <TagLabel>{c}</TagLabel>
+                      <TagCloseButton onClick={() => {
+                        setDraftColonies((prev) => {
+                          const next = (prev || []).filter((x) => x !== c);
+                          setFilters((f) => ({ ...f, colonies: next }));
+                          return next;
+                        });
+                      }} />
+                    </Tag>
+                  </WrapItem>
+                ))}
+              </Wrap>
+              <Select
+                bg='gray.50'
+                placeholder='Agregar colonia'
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) return;
+                  setDraftColonies((prev) => {
+                    const next = Array.from(new Set([...(prev || []), val]));
+                    setFilters((f) => ({ ...f, colonies: next }));
+                    return next;
+                  });
+                  // reset selection to allow adding more
+                  try { e.target.selectedIndex = 0; } catch {}
+                }}
+              >
+                <option value=''>Seleccionar…</option>
+                {colonyOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </Select>
+            </Stack>
 
             <Stack spacing={2} bg="gray.50" p={3} rounded="md">
               <Text fontWeight="medium" color="gray.700" fontSize="sm">Construcción (m²)</Text>

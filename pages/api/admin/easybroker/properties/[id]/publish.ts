@@ -73,14 +73,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       if (prop.propertyImagesJson) {
         const arr = JSON.parse(prop.propertyImagesJson);
-        if (Array.isArray(arr)) return arr.map((it: any) => ({ url: toAbs(String(it?.url || ''), baseUrl) })).filter((it) => !!it.url);
+        if (Array.isArray(arr)) return arr.map((it: any) => ({ url: toAbs(String(it?.url || ''), baseUrl) })).filter((it: { url: string }) => !!it.url);
       }
     } catch {}
     try {
       if (prop.ebDetailJson) {
         const j = JSON.parse(prop.ebDetailJson);
         const arr = Array.isArray(j?.property_images) ? j.property_images : [];
-        return arr.map((it: any) => ({ url: toAbs(String(it?.url || ''), baseUrl) })).filter((it) => !!it.url);
+        return arr.map((it: any) => ({ url: toAbs(String(it?.url || ''), baseUrl) })).filter((it: { url: string }) => !!it.url);
       }
     } catch {}
     return [];

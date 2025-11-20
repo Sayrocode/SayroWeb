@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const perPage = Math.max(1, Math.min(parseInt(String(limit || '24'), 10) || 24, 100));
 
     const params = new URLSearchParams();
-    const arr = (v: any): string[] => Array.isArray(v) ? v.map(String) : (v != null ? [String(v)] : []);
+     const arr = (v: any): string[] => Array.isArray(v) ? v.map(String) : (v != null ? [String(v)] : []);
     Object.entries(rest).forEach(([k, v]) => {
       // Map helpful aliases to EasyBroker search params when present
       if (k === 'sources' || k === 'source' || k === 'searchSources' || k === 'search[sources]') {

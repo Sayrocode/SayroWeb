@@ -274,8 +274,8 @@ export default function AdminHome({ username }: Props) {
         if (!doc) return;
         if ('ResizeObserver' in window) {
           ro = new (window as any).ResizeObserver(() => resizeOnce());
-          if (doc.body) ro.observe(doc.body);
-          ro.observe(doc.documentElement);
+          if (doc.body) ro?.observe(doc.body);
+          ro?.observe(doc.documentElement);
         }
         mo = new MutationObserver(() => resizeOnce());
         mo.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
@@ -1006,6 +1006,9 @@ export default function AdminHome({ username }: Props) {
           <Wrap spacing={3} justify="center">
             <WrapItem>
               <Button colorScheme='green' onClick={() => setAddOpen(true)}>Agregar Propiedad</Button>
+            </WrapItem>
+            <WrapItem>
+              <Button as={Link} href='/admin/meta' variant='outline' colorScheme='green' size='sm'>Meta Token</Button>
             </WrapItem>
             {origin !== 'eb_mls' && (
             <WrapItem flex='1 1 260px' position='relative'>

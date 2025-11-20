@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../../../lib/prisma';
 import { requireAdmin, methodNotAllowed } from '../_utils';
 import { readMetaEnv, getBaseUrlFromReq } from '../../../../lib/meta';
+import { getPreferredMetaAccessToken, getPageAccessToken } from '../../../../lib/metaStore';
 
 type Body = {
   message: string;
@@ -20,8 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const env = readMetaEnv();
-  if (!env.accessToken || !env.pageId) {
-    return res.status(400).json({ ok: false, error: 'Faltan META_ACCESS_TOKEN o META_PAGE_ID' });
+  const userToken = await getPreferredMetaAccessToken();
+  if (!userToken || !env.pageId) {
+    return res.status(400).json({ ok: false, error: 'Faltan credenciales Meta (token o PAGE_ID)' });
   }
 
   let finalLink = (link || '').trim();
@@ -38,7 +40,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const params = new URLSearchParams();
-    params.append('access_token', env.accessToken!);
+    let tokenToUse = userToken;
+    try {
+      const pTok = await getPageAccessToken(env.pageId!, userToken);
+      if (pTok) tokenToUse = pTok;
+    } catch {}
+    params.append('access_token', tokenToUse);
     params.append('message', message);
     if (finalLink) params.append('link', finalLink);
     const r = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || 'v19.0'}/${env.pageId}/feed`, {
@@ -56,4 +63,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ ok: false, error: 'No se pudo publicar' });
   }
 }
-
