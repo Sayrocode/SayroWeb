@@ -58,18 +58,40 @@ async function postForm(path: string, form: Record<string, any>, token: string) 
 export type CreativeImage = { url: string; hash?: string };
 
 export async function uploadImages(adAccountId: string, token: string, images: CreativeImage[]): Promise<CreativeImage[]> {
-  const out: CreativeImage[] = [];
-  for (const img of images) {
-    try {
-      const resp = await postForm(`/act_${adAccountId}/adimages`, { url: img.url }, token);
-      const hash = resp?.images?.[Object.keys(resp.images)[0]]?.hash || resp?.hash;
-      out.push({ url: img.url, hash });
-    } catch (e) {
-      // if upload fails, keep url to use directly
-      out.push({ url: img.url });
+  // Prefer Facebook Business SDK
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const bizSdk = require('facebook-nodejs-business-sdk');
+    const api = bizSdk.FacebookAdsApi.init(token);
+    try { if (process.env.NODE_ENV !== 'production') api.setDebug(true); } catch {}
+    const AdAccount = bizSdk.AdAccount;
+    const account = new AdAccount(`act_${adAccountId}`);
+    const out: CreativeImage[] = [];
+    for (const img of images) {
+      try {
+        const resp = await account.createAdImage([], { url: img.url });
+        const hash = resp?.images?.[Object.keys(resp.images || {})[0]]?.hash || resp?.hash;
+        out.push({ url: img.url, hash });
+      } catch {
+        out.push({ url: img.url });
+      }
     }
+    return out;
+  } catch {
+    // Fallback to REST if SDK not available
+    const out: CreativeImage[] = [];
+    for (const img of images) {
+      try {
+        const resp = await postForm(`/act_${adAccountId}/adimages`, { url: img.url }, token);
+        const hash = resp?.images?.[Object.keys(resp.images)[0]]?.hash || resp?.hash;
+        out.push({ url: img.url, hash });
+      } catch (e) {
+        // if upload fails, keep url to use directly
+        out.push({ url: img.url });
+      }
+    }
+    return out;
   }
-  return out;
 }
 
 export async function createCampaign(params: {
@@ -83,6 +105,7 @@ export async function createCampaign(params: {
   pageId: string;
   token: string;
   storySpec: any; // object_story_spec
+  targeting?: any; // optional targeting override (e.g., regions)
 }) {
   const {
     name,
@@ -97,15 +120,23 @@ export async function createCampaign(params: {
     storySpec,
   } = params;
 
-  // 1) Campaign
-  const campaign = await postForm(`/act_${adAccountId}/campaigns`, {
+  // 1) Campaign (SDK)
+  // Prefer Node SDK for safety and stability
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const bizSdk = require('facebook-nodejs-business-sdk');
+  const api = bizSdk.FacebookAdsApi.init(token);
+  try { if (process.env.NODE_ENV !== 'production') api.setDebug(true); } catch {}
+  const AdAccount = bizSdk.AdAccount;
+  const account = new AdAccount(`act_${adAccountId}`);
+
+  const campaign = await account.createCampaign([], {
     name,
     objective,
-    status, // start paused by default
+    status,
     special_ad_categories: [],
-  }, token);
+  });
 
-  // 2) Ad Set
+  // 2) Ad Set (SDK)
   // Derivar optimization_goal a partir del objective (v19)
   const optimizationGoal = (() => {
     switch (objective) {
@@ -120,38 +151,38 @@ export async function createCampaign(params: {
     }
   })();
 
-  const adset = await postForm(`/act_${adAccountId}/adsets`, {
+  const defaultTargeting = {
+    geo_locations: { countries: ['MX'] },
+    publisher_platforms: ['facebook', 'instagram'],
+    facebook_positions: ['feed'],
+    instagram_positions: ['stream'],
+  };
+  const adset = await account.createAdSet([], {
     name: `${name} - AdSet`,
     campaign_id: campaign.id,
     billing_event: 'IMPRESSIONS',
     optimization_goal: optimizationGoal,
-    // Para evitar errores de puja requeridos, usar estrategia de menor costo sin tope
     bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     daily_budget: String(dailyBudgetMinor),
     start_time: startTime,
     end_time: endTime,
-    targeting: {
-      geo_locations: { countries: ['MX'] },
-      publisher_platforms: ['facebook', 'instagram'],
-      facebook_positions: ['feed'],
-      instagram_positions: ['stream'],
-    },
+    targeting: params.targeting || defaultTargeting,
     status,
-  }, token);
+  });
 
-  // 3) Creative
-  const creative = await postForm(`/act_${adAccountId}/adcreatives`, {
+  // 3) Creative (SDK)
+  const creative = await account.createAdCreative([], {
     name: `${name} Creative`,
     object_story_spec: storySpec,
-  }, token);
+  });
 
-  // 4) Ad
-  const ad = await postForm(`/act_${adAccountId}/ads`, {
+  // 4) Ad (SDK)
+  const ad = await account.createAd([], {
     name: `${name} Ad`,
     adset_id: adset.id,
     creative: { creative_id: creative.id },
     status,
-  }, token);
+  });
 
   return { campaign, adset, creative, ad };
 }
@@ -159,4 +190,72 @@ export async function createCampaign(params: {
 export function limitText(s: string, max: number): string {
   const str = (s || '').replace(/\s+/g, ' ').trim();
   return str.length > max ? str.slice(0, max - 1).trimEnd() + '…' : str;
+}
+
+// --- Geo helpers for Ads targeting ---
+function normAscii(s: string): string {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+async function getJson(pathWithQuery: string) {
+  const r = await fetch(`${GRAPH}${pathWithQuery}`);
+  const txt = await r.text();
+  try { return JSON.parse(txt); } catch { throw new Error(`Meta API GET ${pathWithQuery} → ${txt}`); }
+}
+
+export async function resolveMXRegionTargeting(regionName: string, token: string) {
+  const q = encodeURIComponent(regionName);
+  const url = `/search?type=adgeolocation&location_types=["region"]&q=${q}&country_code=MX&access_token=${encodeURIComponent(token)}`;
+  try {
+    const j = await getJson(url);
+    const data: any[] = Array.isArray(j?.data) ? j.data : [];
+    const normTarget = normAscii(regionName);
+    const match = data.find((it: any) => normAscii(it?.name || '').includes(normTarget) && (it?.type === 'region' || it?.type === 'region_key'))
+      || data[0];
+    if (match && match.key) {
+      return {
+        geo_locations: {
+          countries: ['MX'],
+          regions: [{ key: String(match.key) }],
+          location_types: ['home', 'recent'],
+        },
+        publisher_platforms: ['facebook', 'instagram'],
+        facebook_positions: ['feed'],
+        instagram_positions: ['stream'],
+      };
+    }
+  } catch (e) {
+    // ignore and use default
+  }
+  return null;
+}
+
+// Resolve a list of Mexican cities (municipios/alcaldías) into targeting keys
+export async function resolveMXCitiesTargeting(cityNames: string[], token: string) {
+  const cities: { key: string }[] = [];
+  for (const name of cityNames) {
+    const q = encodeURIComponent(name);
+    const url = `/search?type=adgeolocation&location_types=["city"]&q=${q}&country_code=MX&limit=25&access_token=${encodeURIComponent(token)}`;
+    try {
+      const j = await getJson(url);
+      const data: any[] = Array.isArray(j?.data) ? j.data : [];
+      const normTarget = normAscii(name);
+      const match = data.find((it: any) => normAscii(it?.name || '').includes(normTarget) && (it?.type === 'city' || it?.type === 'city_key'))
+        || data[0];
+      if (match?.key) cities.push({ key: String(match.key) });
+    } catch {}
+  }
+  if (cities.length) {
+    return {
+      geo_locations: {
+        countries: ['MX'],
+        cities,
+        location_types: ['home', 'recent'],
+      },
+      publisher_platforms: ['facebook', 'instagram'],
+      facebook_positions: ['feed'],
+      instagram_positions: ['stream'],
+    };
+  }
+  return null;
 }
