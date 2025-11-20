@@ -3,6 +3,7 @@ const isProd = process.env.NODE_ENV === 'production';
 const withBundleAnalyzer = (() => {
   try { return require('@next/bundle-analyzer')({ enabled: process.env.ANALYZE === 'true' }); } catch { return (cfg) => cfg; }
 })();
+const path = require('path');
 const nextConfig = {
     reactStrictMode: true,
     // Tell Next the app root explicitly to avoid picking parent workspace
@@ -13,6 +14,18 @@ const nextConfig = {
       formats: ['image/avif', 'image/webp'],
       deviceSizes: [360, 640, 750, 828, 1080, 1200, 1600, 1920],
       imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    },
+    webpack: (config) => {
+      config.resolve = config.resolve || {};
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        components: path.join(__dirname, 'src/components'),
+        lib: path.join(__dirname, 'src/lib'),
+        utils: path.join(__dirname, 'src/utils'),
+        theme: path.join(__dirname, 'src/theme'),
+        styles: path.join(__dirname, 'src/styles'),
+      };
+      return config;
     },
     compiler: {
       removeConsole: process.env.NODE_ENV === 'production',
