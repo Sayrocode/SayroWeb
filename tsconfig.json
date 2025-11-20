@@ -1,32 +1,22 @@
 {
-  "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["dom", "dom.iterable", "es2020"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": false,
-    "noEmit": true,
-    "incremental": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "baseUrl": ".",
-    "paths": {
-      "components/*": ["./components/*", "../src/components/*"],
-      "lib/*": ["./lib/*", "../src/lib/*"],
-      "utils/*": ["./utils/*", "../src/utils/*"],
-      "styles/*": ["../src/styles/*"],
-      "theme": ["./theme/index.ts", "./theme", "../src/theme/index.ts", "../src/theme"],
-      "theme/*": ["../src/theme/*"],
-      "pages/*": ["../src/pages/*"]
-    }
-  },
-  "include": [
-    "pages",
-    "next-env.d.ts"
-  ],
-  "exclude": ["node_modules"]
-}
+    "compilerOptions": {
+      "target": "es6",
+      "lib": ["dom", "dom.iterable", "esnext"],
+      "allowJs": true,
+      "skipLibCheck": true,
+      "strict": true,
+      "forceConsistentCasingInFileNames": true,
+      "noEmit": true,
+      "esModuleInterop": true,
+      "module": "esnext",
+      "moduleResolution": "node",
+      "resolveJsonModule": true,
+      "isolatedModules": true,
+      "jsx": "preserve",
+      "incremental": true,
+      "baseUrl": "src"
+    },
+    "include": ["next-env.d.ts", "src/**/*", "next.config.js"],
+    "exclude": ["node_modules"]
+  }
+  

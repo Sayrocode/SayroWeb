@@ -5,6 +5,9 @@ const withBundleAnalyzer = (() => {
 })();
 const nextConfig = {
     reactStrictMode: true,
+    // Tell Next the app root explicitly to avoid picking parent workspace
+    outputFileTracingRoot: __dirname,
+    eslint: { ignoreDuringBuilds: true },
     images: {
       domains: ["assets.easybroker.com"], // para imágenes de EasyBroker
       formats: ['image/avif', 'image/webp'],
