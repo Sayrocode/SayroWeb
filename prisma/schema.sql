@@ -72,6 +72,44 @@ CREATE TABLE "Lead" (
 );
 
 -- CreateTable
+CREATE TABLE "News" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "slug" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "excerpt" TEXT,
+    "coverUrl" TEXT,
+    "content" TEXT NOT NULL,
+    "tagsJson" TEXT,
+    "publishedAt" DATETIME,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "NewsComment" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "newsId" INTEGER NOT NULL,
+    "anonId" TEXT NOT NULL,
+    "displayName" TEXT,
+    "content" TEXT NOT NULL,
+    "ip" TEXT,
+    "userAgent" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "NewsComment_newsId_fkey" FOREIGN KEY ("newsId") REFERENCES "News" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "NewsLike" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "newsId" INTEGER NOT NULL,
+    "anonId" TEXT NOT NULL,
+    "ip" TEXT,
+    "userAgent" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "NewsLike_newsId_fkey" FOREIGN KEY ("newsId") REFERENCES "News" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
 CREATE TABLE "EgoContact" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "personId" TEXT,
@@ -119,6 +157,30 @@ CREATE INDEX "Lead_propertyId_idx" ON "Lead"("propertyId");
 
 -- CreateIndex
 CREATE INDEX "Lead_utm_source_utm_campaign_idx" ON "Lead"("utm_source", "utm_campaign");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "News_slug_key" ON "News"("slug");
+
+-- CreateIndex
+CREATE INDEX "News_slug_idx" ON "News"("slug");
+
+-- CreateIndex
+CREATE INDEX "News_publishedAt_idx" ON "News"("publishedAt");
+
+-- CreateIndex
+CREATE INDEX "News_createdAt_idx" ON "News"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "NewsComment_newsId_idx" ON "NewsComment"("newsId");
+
+-- CreateIndex
+CREATE INDEX "NewsLike_newsId_idx" ON "NewsLike"("newsId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NewsLike_newsId_anonId_key" ON "NewsLike"("newsId", "anonId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EgoContact_personId_key" ON "EgoContact"("personId");
 
 -- CreateIndex
 CREATE INDEX "EgoContact_personId_idx" ON "EgoContact"("personId");

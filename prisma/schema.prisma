@@ -177,3 +177,5 @@ model EgoContact {
   @@index([email])
   @@index([phone])
 }
+
+// Meta/Facebook token storage for server-managed access tokens
