@@ -19,18 +19,18 @@ if (!url) {
   process.exit(1);
 }
 
-// Ensure we have schema SQL (generate if missing)
+// Always generate a fresh SQL script from the current Prisma schema to avoid
+// stale schema.sql drifting from the datamodel.
 const schemaPath = path.resolve(process.cwd(), 'prisma', 'schema.sql');
-let sqlScript = '';
-if (fs.existsSync(schemaPath)) {
-  sqlScript = fs.readFileSync(schemaPath, 'utf8');
-} else {
-  console.log('→ Generating SQL from Prisma schema…');
-  const out = execSync(
-    'npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script',
-    { encoding: 'utf8' },
-  );
-  sqlScript = out;
+console.log('→ Generating SQL from Prisma schema…');
+const sqlScript = execSync(
+  'npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script',
+  { encoding: 'utf8' },
+);
+try {
+  fs.writeFileSync(schemaPath, sqlScript, 'utf8');
+} catch (e) {
+  console.warn('⚠️  Could not write prisma/schema.sql. Continuing with in-memory script.', e);
 }
 
 // Split SQL into individual statements
@@ -53,4 +53,3 @@ for (const stmt of stmts) {
 
 console.log('✓ Schema applied to Turso');
 process.exit(0);
-
