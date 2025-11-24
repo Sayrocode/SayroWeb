@@ -36,9 +36,10 @@ import {
   CardBody,
   CardFooter,
   useColorModeValue,
+  IconButton,
 } from "@chakra-ui/react";
-import { useMemo, useState } from "react";
-import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, FiShield, FiCheckCircle, FiGrid, FiMaximize, FiKey } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, FiShield, FiCheckCircle, FiGrid, FiMaximize, FiKey, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { FaWhatsapp, FaHeart, FaShare } from 'react-icons/fa';
 import { CONTACT_EMAIL, waHref } from "../../lib/site";
 import PropertyContactPanel from "../../components/PropertyContactPanel";
@@ -199,28 +200,45 @@ export default function PropertyDetail({
 
   // Normalizamos ubicación para TODO el render
   const locationText = getLocationText(property.location);
-// Galería: usar imágenes de EasyBroker si están disponibles (URLs absolutas) y/o locales
-const gallery = useMemo(() => {
-  const urls: string[] = [];
-  const add = (u?: string | null) => {
-    if (!u) return;
-    if (typeof u !== 'string') return;
-    if (!urls.includes(u)) urls.push(u);
-  };
-  add(property.title_image_full as any);
-  add(property.title_image_thumb as any);
-  if (Array.isArray(property.property_images)) {
-    for (const img of property.property_images) add(img?.url || undefined);
-  }
-  // Fallback si nada válido
-  if (!urls.length) urls.push('/image3.jpg');
-  const cover = urls[0];
-  const thumbs = urls.slice(1, 13);
-  return { cover, thumbs };
-}, [property]);
+  // Galería: usar imágenes de EasyBroker si están disponibles (URLs absolutas) y/o locales
+  const gallery = useMemo(() => {
+    const urls: string[] = [];
+    const add = (u?: string | null) => {
+      if (!u) return;
+      if (typeof u !== 'string') return;
+      if (!urls.includes(u)) urls.push(u);
+    };
+    add(property.title_image_full as any);
+    add(property.title_image_thumb as any);
+    if (Array.isArray(property.property_images)) {
+      for (const img of property.property_images) add(img?.url || undefined);
+    }
+    // Fallback si nada válido
+    if (!urls.length) urls.push('/image3.jpg');
+    const maxImages = 20;
+    const items = urls.slice(0, maxImages);
+    const cover = items[0] || '/image3.jpg';
+    return { cover, thumbs: items, items };
+  }, [property]);
 
-// el estado arranca con la portada calculada
-const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  useEffect(() => setCurrentIndex(0), [gallery.cover]);
+
+  const totalImages = gallery.items.length || 1;
+  const coverSrc = gallery.items[currentIndex] || gallery.cover;
+
+  const goPrev = () => {
+    if (totalImages <= 1) return;
+    setCurrentIndex((idx) => (idx - 1 + totalImages) % totalImages);
+  };
+  const goNext = () => {
+    if (totalImages <= 1) return;
+    setCurrentIndex((idx) => (idx + 1) % totalImages);
+  };
+  const handleThumbClick = (src: string) => {
+    const idx = gallery.items.indexOf(src);
+    if (idx >= 0) setCurrentIndex(idx);
+  };
 
   const price = pickPrice(property.operations);
   const cleanDesc = stripHtml(property.description);
@@ -428,29 +446,85 @@ const [coverSrc, setCoverSrc] = useState<string>(gallery.cover);
                   blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnPjxyZWN0IHdpZHRoPScxMDAlJyBoZWlnaHQ9JzEwMCUnIGZpbGw9JyNFQUVFRTAnLz48L3N2Zz4="
                   style={{ objectFit: 'cover' }}
                 />
+                {totalImages > 1 && (
+                  <>
+                    <IconButton
+                      aria-label="Imagen anterior"
+                      icon={<FiChevronLeft />}
+                      size="sm"
+                      variant="solid"
+                      colorScheme="blackAlpha"
+                      position="absolute"
+                      top="50%"
+                      left={3}
+                      transform="translateY(-50%)"
+                      rounded="full"
+                      onClick={goPrev}
+                    />
+                    <IconButton
+                      aria-label="Imagen siguiente"
+                      icon={<FiChevronRight />}
+                      size="sm"
+                      variant="solid"
+                      colorScheme="blackAlpha"
+                      position="absolute"
+                      top="50%"
+                      right={3}
+                      transform="translateY(-50%)"
+                      rounded="full"
+                      onClick={goNext}
+                    />
+                  </>
+                )}
               </Box>
             </AspectRatio>
 
             {gallery.thumbs.length > 0 && (
               <SimpleGrid columns={{ base: 3, sm: 4, md: 5 }} spacing={2}>
-                {gallery.thumbs.map((u, i) => (
-                  <AspectRatio key={i} ratio={1}>
-                    <ChakraImage
-                      src={u}
-                      alt={`${property.title || "Propiedad"} - ${i + 1}`}
-                      objectFit="cover"
-                      fallbackSrc="/image3.jpg"
-                      onError={(e: any) => (e.currentTarget.src = "/image3.jpg")}
-                      referrerPolicy="no-referrer"
-                      rounded="md"
-                      cursor="pointer"
-                      _hover={{ opacity: 0.9 }}
-                      onClick={() => setCoverSrc(u)}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </AspectRatio>
-                ))}
+                {gallery.thumbs.map((u, i) => {
+                  const isActive = coverSrc === u;
+                  return (
+                    <AspectRatio key={u || i} ratio={1}>
+                      <Box
+                        borderWidth={isActive ? '2px' : '1px'}
+                        borderColor={isActive ? 'green.500' : 'transparent'}
+                        rounded="md"
+                        overflow="hidden"
+                        position="relative"
+                        cursor="pointer"
+                        onClick={() => handleThumbClick(u)}
+                        boxShadow={isActive ? '0 0 0 2px rgba(56, 161, 105, 0.35)' : 'none'}
+                        aria-current={isActive ? 'true' : undefined}
+                      >
+                        <ChakraImage
+                          src={u}
+                          alt={`${property.title || "Propiedad"} - ${i + 1}`}
+                          objectFit="cover"
+                          fallbackSrc="/image3.jpg"
+                          onError={(e: any) => (e.currentTarget.src = "/image3.jpg")}
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                          decoding="async"
+                          w="100%"
+                          h="100%"
+                        />
+                        {isActive && (
+                          <Badge
+                            position="absolute"
+                            top={1.5}
+                            left={1.5}
+                            colorScheme="green"
+                            fontSize="0.65rem"
+                            rounded="sm"
+                            px={1.5}
+                          >
+                            Principal
+                          </Badge>
+                        )}
+                      </Box>
+                    </AspectRatio>
+                  );
+                })}
               </SimpleGrid>
             )}
           </Box>

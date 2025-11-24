@@ -98,6 +98,7 @@ export default function AdminPropertyEdit() {
     // Prefer highest-quality URLs from EB payloads
     .map((img: any) => img?.url_full || img?.title_image_full || img?.url)
     .filter(Boolean) as string[], [data]);
+  const isEasyBroker = Boolean(data?.publicId && String(data.publicId).toUpperCase().startsWith('EB-'));
 
   const gallery = useMemo(() => {
     const all = [...localUrls.map((o) => o.url), ...ebUrls];
@@ -494,7 +495,9 @@ export default function AdminPropertyEdit() {
 
             <Box mt={4}>
               <HStack mb={2}>
-                <Button onClick={publishToEasyBroker} isLoading={publishing} colorScheme='purple'>Publicar en EasyBroker</Button>
+                {!isEasyBroker && (
+                  <Button onClick={publishToEasyBroker} isLoading={publishing} colorScheme='purple'>Publicar en EasyBroker</Button>
+                )}
               </HStack>
               <Input type="file" ref={fileRef} multiple accept="image/*" onChange={(e) => uploadFiles(e.target.files)} />
             </Box>
