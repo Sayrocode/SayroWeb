@@ -15,18 +15,31 @@ const nextConfig = {
       deviceSizes: [360, 640, 750, 828, 1080, 1200, 1600, 1920],
       imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     },
-    webpack: (config) => {
+    webpack: (config, { isServer }) => {
       config.resolve = config.resolve || {};
       config.resolve.alias = {
         ...(config.resolve.alias || {}),
-        components: path.join(__dirname, 'components'),
-        lib: path.join(__dirname, 'lib'),
-        utils: path.join(__dirname, 'utils'),
-        theme: path.join(__dirname, 'theme'),
-        styles: path.join(__dirname, 'styles'),
+        components: path.join(__dirname, 'src/components'),
+        lib: path.join(__dirname, 'src/lib'),
+        utils: path.join(__dirname, 'src/utils'),
+        theme: path.join(__dirname, 'src/theme'),
+        styles: path.join(__dirname, 'src/styles'),
       };
+      // Permitir importar .md y archivos de licencia/texto que algunas dependencias exponen en package exports
+      config.module.rules.push(
+        { test: /\.md$/, type: 'asset/source' },
+        { test: /\.d\.ts$/, type: 'asset/source' },
+        { test: /\.(license|txt)$/i, type: 'asset/source' },
+      );
+      // Evitar que Next intente empacar clientes de Turso/libsql (sólo se usan en server runtime)
+      if (isServer) {
+        config.externals = config.externals || [];
+        const externals = Array.isArray(config.externals) ? config.externals : [];
+        config.externals = [...externals, '@libsql/client', '@libsql/core', '@libsql/hrana-client'];
+      }
       return config;
     },
+
     compiler: {
       removeConsole: process.env.NODE_ENV === 'production',
     },
