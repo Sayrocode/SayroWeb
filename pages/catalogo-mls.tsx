@@ -51,8 +51,9 @@ export default function CatalogoMLSPage() {
         // ResizeObserver on body/html
         if ('ResizeObserver' in window) {
           ro = new (window as any).ResizeObserver(() => resizeOnce());
-          if (doc.body) ro.observe(doc.body);
-          ro.observe(doc.documentElement);
+          const obs = ro;
+          if (obs && doc.body) obs.observe(doc.body);
+          obs?.observe(doc.documentElement);
         }
         // MutationObserver as fallback
         mo = new MutationObserver(() => resizeOnce());

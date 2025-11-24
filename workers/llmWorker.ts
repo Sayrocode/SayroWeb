@@ -1,3 +1,4 @@
+/// <reference lib="webworker" />
 /*
   Minimal WebWorker scaffold to host a WASM LLM. For now, it falls back to a
   lightweight JS template generator but keeps the init/generate protocol so you
@@ -115,4 +116,3 @@ self.onmessage = async (ev: MessageEvent<LlmReq>) => {
     self.postMessage(resp);
   }
 };
-
