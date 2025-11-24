@@ -95,7 +95,7 @@ function validateBody(body: any) {
   const ops = Array.isArray(body.operations) ? body.operations : [];
   if (!ops.length) issues.push('operations vacío (precio requerido)');
   else {
-    const ok = ops.some((o) => typeof o.amount === 'number' && o.amount > 0 && (o.type === 'sale' || o.type === 'rental'));
+    const ok = ops.some((o: any) => typeof o.amount === 'number' && o.amount > 0 && (o.type === 'sale' || o.type === 'rental'));
     if (!ok) issues.push('operations inválido (type/amount)');
   }
   // location at least name or street
