@@ -6,8 +6,13 @@ import {
 } from "./homepage-content";
 
 export async function getHomepageContentFromDb() {
+  const pageContent = (prisma as any).pageContent;
+  if (!pageContent) {
+    console.error("[homepage-content] Prisma client missing PageContent model. Run `prisma generate` to refresh the client.");
+    return defaultHomepageContent;
+  }
   try {
-    const row = await prisma.pageContent.findUnique({ where: { page: "home" } });
+    const row = await pageContent.findUnique({ where: { page: "home" } });
     if (row?.dataJson) {
       try {
         const parsed = JSON.parse(row.dataJson);
@@ -23,8 +28,10 @@ export async function getHomepageContentFromDb() {
 }
 
 export async function saveHomepageContent(content: HomepageContent) {
+  const pageContent = (prisma as any).pageContent;
+  if (!pageContent) throw new Error("Prisma client missing PageContent model. Run `prisma generate` so it includes PageContent.");
   const normalized = normalizeHomepageContent(content);
-  const stored = await prisma.pageContent.upsert({
+  const stored = await pageContent.upsert({
     where: { page: "home" },
     update: { dataJson: JSON.stringify(normalized) },
     create: { page: "home", dataJson: JSON.stringify(normalized) },
