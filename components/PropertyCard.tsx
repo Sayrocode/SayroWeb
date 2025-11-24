@@ -7,7 +7,11 @@ import { FiMapPin, FiHome, FiDroplet, FiMaximize } from "react-icons/fi";
 import Image from 'next/image';
 
 type EBOperation = {
-  prices?: { amount?: number; currency?: string; formatted_amount?: string }[];
+  type?: string; // 'sale' | 'rental' | ...
+  amount?: number;
+  currency?: string;
+  prices?: { amount?: number; currency?: string; formatted_amount?: string; price_per_m2?: boolean }[];
+  price_per_m2?: boolean;
 };
 
 type EBProperty = {
@@ -28,21 +32,44 @@ type EBProperty = {
 
 type Props = { property: EBProperty; priority?: boolean; sizes?: string };
 
-function formatPrice(p?: EBOperation) {
-  const formatted = p?.prices?.[0]?.formatted_amount;
-  if (formatted) return formatted;
+function formatPriceFromOps(ops?: EBOperation[]): { main: string; note?: string; type?: string; perM2?: boolean } {
+  if (!Array.isArray(ops) || ops.length === 0) return { main: "Precio a consultar" };
+  const pick = () => {
+    const normType = (t?: string) => String(t || '').toLowerCase();
+    const sale = ops.find((o) => normType(o?.type) === 'sale');
+    if (sale) return sale;
+    const rental = ops.find((o) => normType(o?.type) === 'rental');
+    return rental || ops[0];
+  };
+  const op = pick();
+  const opType = String(op?.type || '').toLowerCase();
+  const label = opType === 'sale' ? 'EN VENTA' : opType === 'rental' ? 'EN RENTA' : '';
 
-  const amount = p?.prices?.[0]?.amount;
-  const currency = p?.prices?.[0]?.currency || "MXN";
-  if (typeof amount === "number") {
-    const f = new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-    return f;
+  // Prefer formatted_amount if present
+  const formatted = op?.prices?.[0]?.formatted_amount;
+  const rawFmt = typeof formatted === 'string' ? formatted : '';
+  const perM2 =
+    rawFmt.toLowerCase().includes('m2') ||
+    rawFmt.toLowerCase().includes('m²') ||
+    Boolean(op?.price_per_m2) ||
+    Boolean(op?.prices?.[0]?.price_per_m2);
+  // Then explicit amount on op / prices
+  const amount = typeof op?.amount === 'number' ? op!.amount : op?.prices?.[0]?.amount;
+  const currency = op?.currency || op?.prices?.[0]?.currency || 'MXN';
+
+  if (formatted) {
+    const main = perM2 ? rawFmt.replace(/m2/gi, "m²") : formatted;
+    const note = label || undefined;
+    return { main, note, type: opType, perM2 };
   }
-  return "Precio a consultar";
+  if (typeof amount === 'number') {
+    const inferredPerM2 = !perM2 && amount > 0 && amount <= 2000; // heurística: precios muy bajos suelen ser por m²
+    const fmt = new Intl.NumberFormat('es-MX', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+    const main = (perM2 || inferredPerM2) ? `${fmt} por m²` : fmt;
+    const note = label || undefined;
+    return { main, note, type: opType, perM2: perM2 || inferredPerM2 };
+  }
+  return { main: 'Precio a consultar', type: opType, perM2 };
 }
 
 //
@@ -59,7 +86,7 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
   const rawImg = property.title_image_full || property.title_image_thumb || "";
   const isAbs = typeof rawImg === 'string' && /^https?:\/\//i.test(rawImg);
   const img = (typeof rawImg === 'string' && (rawImg.startsWith("/") || isAbs)) ? rawImg : "/image3.jpg";
-  const price = formatPrice(property?.operations?.[0]);
+  const priceInfo = formatPriceFromOps(property?.operations);
   const zoom = (typeof (property as any)?.cover_zoom === 'number' && isFinite((property as any).cover_zoom!)
     && (property as any).cover_zoom! >= 1.0 && (property as any).cover_zoom! <= 2.0)
     ? (property as any).cover_zoom!
@@ -164,9 +191,16 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
         </HStack>
         {/* Spacer to push price to bottom so all cards align */}
         <Box flex="1 1 auto" />
-        <Text fontWeight="semibold" color="green.700" fontSize="lg" mt={1}>
-          {price}
-        </Text>
+        <Stack spacing={0}>
+          <Text fontWeight="semibold" color="green.700" fontSize="lg" mt={1}>
+            {priceInfo.main}
+          </Text>
+          {priceInfo.note && (
+            <Text fontSize="sm" color="gray.600" textTransform="uppercase" letterSpacing="wide">
+              {priceInfo.note}
+            </Text>
+          )}
+        </Stack>
       </Stack>
       </LinkBox>
     </NextLink>

@@ -189,6 +189,9 @@ type DualCTASectionProps = {
   acquireImage?: string;
   parallaxStrength?: number;
   fullBleed?: boolean;
+  heading?: string;
+  advertiseTitle?: string;
+  acquireTitle?: string;
 };
 
 export default function DualCTASection({
@@ -198,6 +201,9 @@ export default function DualCTASection({
   acquireImage = "/adquiere.png",
   parallaxStrength = 0.24,
   fullBleed = false,
+  heading = "ANUNCIANTES Y ADQUIERENTES",
+  advertiseTitle = "¿VENDES\nO\nRENTAS?",
+  acquireTitle = "¿ADQUIERES?",
 }: DualCTASectionProps) {
   const bg = useColorModeValue("#FBF6E9", "gray.900"); // crema
   const titleColor = useColorModeValue("black", "white");
@@ -238,13 +244,13 @@ export default function DualCTASection({
           textTransform="uppercase"
 
         >
-          ANUNCIANTES Y ADQUIERENTES
+          {heading}
         </Heading>
       </Stack>
 
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={{ base: 4, md: 8 }}>
           <ClickCard
-            title={"¿VENDES\nO\nRENTAS?"}
+            title={advertiseTitle}
             href={advertiseHref}
             imgSrc={advertiseImage}
             imgAlt="Anuncia tu propiedad"
@@ -255,7 +261,7 @@ export default function DualCTASection({
             prefersReduced={prefersReduced}
           />
           <ClickCard
-            title={"¿ADQUIERES?"}
+            title={acquireTitle}
             href={acquireHref}
             imgSrc={acquireImage}
             imgAlt="Encuentra tu próxima propiedad"

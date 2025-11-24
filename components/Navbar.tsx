@@ -44,6 +44,7 @@ export default function Navbar() {
   // Solo mostramos navegación de admin cuando NO estamos en la pantalla de login
   const isAdmin = router.pathname.startsWith("/admin") && router.pathname !== "/admin/login";
   const adminLinks = [
+    { name: "Página", href: "/admin/homepage" },
     { name: "Propiedades", href: "/admin" },
     { name: "Leads", href: "/admin/leads" },
     { name: "Noticias", href: "/admin/noticias" },
@@ -75,8 +76,16 @@ export default function Navbar() {
     "linear-gradient(to bottom, rgba(17,24,39,0.90), rgba(17,24,39,0.72))"
   );
 
-  const isActive = (href: string) =>
-    href === "/" ? router.pathname === "/" : router.pathname.startsWith(href);
+  const isActive = (href: string) => {
+    const path = router.pathname;
+    // Reglas específicas para admin para evitar subrayar Propiedades cuando estamos en Página
+    if (isAdmin) {
+      if (href === "/admin/homepage") return path.startsWith("/admin/homepage");
+      if (href === "/admin") return path === "/admin" || path.startsWith("/admin/properties");
+      return path === href || path.startsWith(`${href}/`);
+    }
+    return href === "/" ? path === "/" : path.startsWith(href);
+  };
 
   function prewarmContactoAssets() {
     if (typeof window === 'undefined') return;

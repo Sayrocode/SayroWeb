@@ -17,10 +17,18 @@ const MotionBox = motion(Box);
 
 type HeroProps = {
   backgroundUrl?: string;
+  title?: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
 };
 
 export default function Hero({
   backgroundUrl = "/hero.png",
+  title = "Sayro Bienes Raíces",
+  subtitle = "El mejor precio, rápido y seguro.",
+  ctaLabel = "Ver propiedades",
+  ctaHref = "/propiedades",
 }: HeroProps) {
   const router = useRouter();
   // Prefetch catálogo para clic instantáneo
@@ -76,7 +84,7 @@ export default function Hero({
                 // Usa Binggo Wood si está disponible; si no, cae a Cinzel
                 fontFamily="'Binggo Wood', heading"
               >
-                Sayro Bienes Raíces
+                {title}
               </Heading>
 
               <Text
@@ -87,13 +95,13 @@ export default function Hero({
                 letterSpacing="widest"
                 className="text-shiny-white"
               >
-                El mejor precio, rápido y seguro.
+                {subtitle}
               </Text>
             </MotionBox>
 
             <Button
               as={NextLink}
-              href="/propiedades"
+              href={ctaHref || "/propiedades"}
               variant="link"
               color="whiteAlpha.900"
               fontWeight="semibold"
@@ -104,7 +112,7 @@ export default function Hero({
               _hover={{ opacity: 0.9, textDecoration: "none" }}
               className="text-shiny-white"
             >
-              Ver Propiedades
+              {ctaLabel}
             </Button>
           </VStack>
         </Container>

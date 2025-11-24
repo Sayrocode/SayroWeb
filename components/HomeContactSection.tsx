@@ -19,8 +19,39 @@ import { FaFacebook, FaInstagram } from "react-icons/fa";
 
 const GREEN = "#013927"; // unificado con About/WhatWeDo/Services
 
-export default function HomeContactSection() {
+export type HomeContactSectionProps = {
+  heading?: string;
+  name?: string;
+  role?: string;
+  addressLines?: string[];
+  phone?: string;
+  schedule?: string;
+  directorImage?: string;
+  buildingImage?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+};
+
+function digitsOnly(s?: string) {
+  if (!s) return "";
+  const d = String(s).replace(/\D+/g, "");
+  return d.startsWith("52") ? d : `52${d}`;
+}
+
+export default function HomeContactSection({
+  heading = "CONTACTO",
+  name = "Raul Martín Salamanca Riba",
+  role = "Director",
+  addressLines = ["Av. Circunvalación 11-5", "Col. Diligencias C.P. 76020 Qro. Qro."],
+  phone = "(442)213-30-30",
+  schedule = "9:00 a 17:00 (lunes a viernes)",
+  directorImage = "/director.jpg",
+  buildingImage = "/contactohero.jpg?v=1",
+  facebookUrl = "https://facebook.com/",
+  instagramUrl = "https://instagram.com/",
+}: HomeContactSectionProps) {
   const sectionBg = useColorModeValue("#fffcf1", "gray.900");
+  const telDigits = digitsOnly(phone);
 
   return (
     <Box
@@ -69,12 +100,12 @@ export default function HomeContactSection() {
                 textTransform="uppercase"
                 mb={{ base: 5, md: 6 }}
               >
-                CONTACTO
+                {heading}
               </Heading>
 
               {/* Retrato del asesor: arriba del texto en mobile y tablet; flotante a la derecha en desktop */}
               <ChakraImage
-                src="/director.jpg"
+                src={directorImage}
                 alt="Retrato"
                 position={{ base: 'relative', md: 'relative', lg: 'absolute' }}
                 top={{ base: 'auto', md: 'auto', lg: '16%' }}
@@ -98,25 +129,24 @@ export default function HomeContactSection() {
               {/* Acerca el texto al retrato; reserva ~mitad de la foto + pequeño margen */}
               <VStack align={{ base: 'center', md: 'start' }} textAlign={{ base: 'center', md: 'left' }} spacing={{ base: 1.5, md: 2 }} pr={{ base: 0, md: 28 }}>
                 <Text fontSize={{ base: "lg", md: "2xl" }}>
-                  Raul Martín Salamanca Riba
+                  {name}
                 </Text>
                 <Text fontSize={{ base: "md", md: "xl" }} fontStyle="italic" fontWeight="semibold">
-                  Director
+                  {role}
                 </Text>
 
                 <Box h={{ base: 2, md: 4 }} />
 
+                {addressLines.map((line, idx) => (
+                  <Text key={idx} fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
+                    {line}
+                  </Text>
+                ))}
                 <Text fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
-                  Av. Circunvalación 11-5
+                  <Link href={`tel:${telDigits || phone}`} _hover={{ textDecoration: 'underline' }}>{phone}</Link>
                 </Text>
                 <Text fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
-                  Col. Diligencias C.P. 76020 Qro. Qro.
-                </Text>
-                <Text fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
-                  <Link href="tel:+524422133030" _hover={{ textDecoration: 'underline' }}>(442)213-30-30</Link>
-                </Text>
-                <Text fontSize={{ base: "sm", md: "lg" }} fontStyle="italic">
-                  9:00 a 17:00 (lunes a viernes)
+                  {schedule}
                 </Text>
               </VStack>
 
@@ -126,10 +156,10 @@ export default function HomeContactSection() {
                   Síguenos
                 </Text>
                 <HStack spacing={4}>
-                  <Link href="https://facebook.com/" isExternal aria-label="Facebook">
+                  <Link href={facebookUrl} isExternal aria-label="Facebook">
                     <Icon as={FaFacebook} boxSize={6} />
                   </Link>
-                  <Link href="https://instagram.com/" isExternal aria-label="Instagram">
+                  <Link href={instagramUrl} isExternal aria-label="Instagram">
                     <Icon as={FaInstagram} boxSize={6} />
                   </Link>
                 </HStack>
@@ -157,7 +187,7 @@ export default function HomeContactSection() {
               h="full"
             >
               <ChakraImage
-                src="/contactohero.jpg?v=1" // imagen del edificio
+                src={buildingImage} // imagen del edificio
                 alt="Fachada"
                 w="100%"
                 h="100%"
