@@ -398,6 +398,7 @@ export default function AdminPropertyEdit() {
                     alt={data.title || `Propiedad ${data.publicId}`}
                     objectFit="cover"
                     fallbackSrc="/image3.jpg"
+                    referrerPolicy="no-referrer"
                     w="100%"
                     h="100%"
                     transform={`scale(${getZoom(coverSrc)})`}
@@ -452,6 +453,7 @@ export default function AdminPropertyEdit() {
                           alt={`${data.title || 'Propiedad'} - ${i + 1}`}
                           objectFit="cover"
                           fallbackSrc="/image3.jpg"
+                           referrerPolicy="no-referrer"
                           w="100%"
                           h="100%"
                           loading="lazy"

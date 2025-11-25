@@ -32,6 +32,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     } catch {}
 
+    // If EB property has no cached images/details, fetch directly from EasyBroker to hydrate
+    if (!ebImages.length && prop.publicId?.toUpperCase().startsWith('EB-') && process.env.EASYBROKER_API_KEY) {
+      try {
+        const ebRes = await fetch(`https://api.easybroker.com/v1/properties/${encodeURIComponent(prop.publicId)}`, {
+          headers: {
+            accept: 'application/json',
+            'X-Authorization': process.env.EASYBROKER_API_KEY as string,
+          },
+        });
+        if (ebRes.ok) {
+          const ebDetail = await ebRes.json();
+          const imgs = Array.isArray(ebDetail?.property_images) ? ebDetail.property_images
+            : Array.isArray(ebDetail?.images) ? ebDetail.images
+            : [];
+          if (imgs.length) ebImages = imgs;
+          if ((!operations || operations.length === 0) && Array.isArray(ebDetail?.operations)) operations = ebDetail.operations;
+          if (!description && typeof ebDetail?.description === 'string') description = ebDetail.description;
+          // Persist fetched detail for future calls (best-effort)
+          const data: any = {};
+          try { data.ebDetailJson = JSON.stringify(ebDetail); } catch {}
+          try { if (imgs.length) data.propertyImagesJson = JSON.stringify(imgs); } catch {}
+          if (Object.keys(data).length) {
+            await prisma.property.update({ where: { id }, data });
+          }
+        }
+      } catch (e) {
+        // Swallow EB fetch errors to avoid breaking admin read
+      }
+    }
+
     return res.status(200).json({
       id: prop.id,
       publicId: prop.publicId,
