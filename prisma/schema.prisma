@@ -179,3 +179,12 @@ model EgoContact {
 }
 
 // Meta/Facebook token storage for server-managed access tokens
+
+// Contenido editable de la página principal
+model PageContent {
+  id        Int      @id @default(autoincrement())
+  page      String   @unique
+  dataJson  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

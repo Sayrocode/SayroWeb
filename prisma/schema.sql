@@ -125,6 +125,15 @@ CREATE TABLE "EgoContact" (
     "updatedAt" DATETIME NOT NULL
 );
 
+-- CreateTable
+CREATE TABLE "PageContent" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "page" TEXT NOT NULL,
+    "dataJson" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Property_publicId_key" ON "Property"("publicId");
 
@@ -190,4 +199,7 @@ CREATE INDEX "EgoContact_email_idx" ON "EgoContact"("email");
 
 -- CreateIndex
 CREATE INDEX "EgoContact_phone_idx" ON "EgoContact"("phone");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PageContent_page_key" ON "PageContent"("page");
 
