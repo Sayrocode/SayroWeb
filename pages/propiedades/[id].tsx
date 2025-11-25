@@ -49,7 +49,8 @@ import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, F
 import { FaWhatsapp, FaHeart, FaShare } from 'react-icons/fa';
 import { CONTACT_EMAIL, waHref } from "../../lib/site";
 import PropertyContactPanel from "../../components/PropertyContactPanel";
-import { usePropertyQuery } from "../../lib/queries/properties";
+import { propertyQueryKey, usePropertyQuery } from "../../lib/queries/properties";
+import { dehydrate, QueryClient, type DehydratedState } from "@tanstack/react-query";
 // import MobileStickyActions from "../../components/MobileStickyActions";
 
 /* =============================
@@ -103,6 +104,7 @@ type PageProps = {
   related: EBListItem[];
   uniqueCandidates: EBListItem[];
   canonicalUrl: string;
+  dehydratedState?: DehydratedState;
 };
 
 // Estados publicables (local DB y EB)
@@ -811,6 +813,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (context)
   const { id } = context.query as { id: string };
   const base = getBaseUrl(context);
   const canonicalUrl = `${base}/propiedades/${encodeURIComponent(id)}`;
+  const queryClient = new QueryClient();
 
   try {
     // Prioridad: EasyBroker primero
@@ -856,8 +859,13 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (context)
     const { related, uniqueCandidates } = await fetchRelated(base, property);
 
     // Public page: enable CDN caching with revalidation
+    if (property) {
+      queryClient.setQueryData(propertyQueryKey(id), property);
+    }
+    const dehydratedState = dehydrate(queryClient);
+
     (context.res as any).setHeader?.('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
-    return { props: { property, related, uniqueCandidates, canonicalUrl } };
+    return { props: { property, related, uniqueCandidates, canonicalUrl, dehydratedState } };
   } catch (e: any) {
     console.error("Error SSR detalle propiedad:", e?.message || e);
     return { props: { property: null, related: [], uniqueCandidates: [], canonicalUrl } };
