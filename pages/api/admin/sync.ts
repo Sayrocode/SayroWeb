@@ -84,8 +84,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return val ? JSON.stringify(val) : null;
           })(),
           propertyImagesJson: (() => {
-            const val = (detail.property_images && Array.isArray(detail.property_images)) ? detail.property_images : null;
-            return val ? JSON.stringify(val) : null;
+            const arr = Array.isArray(detail.property_images)
+              ? detail.property_images
+              : (Array.isArray((detail as any).images) ? (detail as any).images : null);
+            return arr && arr.length ? JSON.stringify(arr) : null;
           })(),
           ebDetailJson: detail ? JSON.stringify(detail) : null,
         };
@@ -100,4 +102,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ ok: true, imported: okCount, errors });
 }
-

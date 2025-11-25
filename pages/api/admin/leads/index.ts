@@ -63,5 +63,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  return methodNotAllowed(res, ['GET']);
+  if (req.method === 'DELETE') {
+    const id = parseInt(String(req.query.id || req.body?.id || ''), 10);
+    if (!id) return res.status(400).json({ error: 'invalid_id' });
+    await prisma.lead.delete({ where: { id } });
+    return res.status(200).json({ ok: true });
+  }
+
+  if (req.method === 'PUT') {
+    const id = parseInt(String(req.query.id || req.body?.id || ''), 10);
+    if (!id) return res.status(400).json({ error: 'invalid_id' });
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+    const data: any = {};
+    ['name', 'email', 'phone', 'message', 'propertyPublicId'].forEach((k) => {
+      if (k in body) data[k] = body[k];
+    });
+    await prisma.lead.update({ where: { id }, data });
+    return res.status(200).json({ ok: true });
+  }
+
+  return methodNotAllowed(res, ['GET', 'DELETE', 'PUT']);
 }

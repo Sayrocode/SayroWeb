@@ -37,12 +37,19 @@ import {
   CardFooter,
   useColorModeValue,
   IconButton,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure,
 } from "@chakra-ui/react";
 import { useEffect, useMemo, useState } from "react";
 import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, FiShield, FiCheckCircle, FiGrid, FiMaximize, FiKey, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { FaWhatsapp, FaHeart, FaShare } from 'react-icons/fa';
 import { CONTACT_EMAIL, waHref } from "../../lib/site";
 import PropertyContactPanel from "../../components/PropertyContactPanel";
+import { usePropertyQuery } from "../../lib/queries/properties";
 // import MobileStickyActions from "../../components/MobileStickyActions";
 
 /* =============================
@@ -177,14 +184,17 @@ function getLocationKeyword(loc: unknown): string {
  * Página
  * ============================= */
 export default function PropertyDetail({
-  property,
+  property: initialProperty,
   related,
   uniqueCandidates,
   canonicalUrl,
 }: PageProps) {
   const toast = useToast();
+  const propertyId = initialProperty?.public_id;
+  const { data: liveProperty } = usePropertyQuery(propertyId || '', initialProperty || undefined);
+  const effectiveProperty = liveProperty || initialProperty;
 
-  if (!property) {
+  if (!effectiveProperty) {
     return (
       <Layout title="Propiedad no encontrada">
         <Container py={16}>
@@ -197,6 +207,8 @@ export default function PropertyDetail({
       </Layout>
     );
   }
+
+  const property = effectiveProperty;
 
   // Normalizamos ubicación para TODO el render
   const locationText = getLocationText(property.location);
@@ -223,6 +235,7 @@ export default function PropertyDetail({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   useEffect(() => setCurrentIndex(0), [gallery.cover]);
+  const { isOpen: lightboxOpen, onOpen: openLightbox, onClose: closeLightbox } = useDisclosure();
 
   const totalImages = gallery.items.length || 1;
   const coverSrc = gallery.items[currentIndex] || gallery.cover;
@@ -434,7 +447,15 @@ export default function PropertyDetail({
           {/* Galería de imágenes - lado izquierdo */}
           <Box flex={{ base: "none", lg: "3" }}>
             <AspectRatio ratio={16 / 9} mb={3}>
-              <Box position="relative" w="100%" h="100%" overflow="hidden" rounded="lg">
+              <Box
+                position="relative"
+                w="100%"
+                h="100%"
+                overflow="hidden"
+                rounded="lg"
+                cursor="zoom-in"
+                onClick={openLightbox}
+              >
                 <Image
                   src={coverSrc}
                   alt={property.title || `Propiedad ${property.public_id}`}
@@ -478,6 +499,54 @@ export default function PropertyDetail({
                 )}
               </Box>
             </AspectRatio>
+            <Modal isOpen={lightboxOpen} onClose={closeLightbox} size="6xl" isCentered>
+              <ModalOverlay />
+              <ModalContent bg="black" maxW="90vw">
+                <ModalCloseButton color="whiteAlpha.900" />
+                <ModalBody p={0} position="relative">
+                  <Box position="relative" w="100%" h={{ base: "70vh", md: "80vh" }}>
+                    <Image
+                      src={coverSrc}
+                      alt={property.title || `Propiedad ${property.public_id}`}
+                      fill
+                      sizes="90vw"
+                      style={{ objectFit: 'contain' }}
+                      priority
+                    />
+                    {totalImages > 1 && (
+                      <>
+                        <IconButton
+                          aria-label="Imagen anterior"
+                          icon={<FiChevronLeft />}
+                          size="md"
+                          variant="ghost"
+                          colorScheme="whiteAlpha"
+                          position="absolute"
+                          top="50%"
+                          left={3}
+                          transform="translateY(-50%)"
+                          rounded="full"
+                          onClick={goPrev}
+                        />
+                        <IconButton
+                          aria-label="Imagen siguiente"
+                          icon={<FiChevronRight />}
+                          size="md"
+                          variant="ghost"
+                          colorScheme="whiteAlpha"
+                          position="absolute"
+                          top="50%"
+                          right={3}
+                          transform="translateY(-50%)"
+                          rounded="full"
+                          onClick={goNext}
+                        />
+                      </>
+                    )}
+                  </Box>
+                </ModalBody>
+              </ModalContent>
+            </Modal>
 
             {gallery.thumbs.length > 0 && (
               <SimpleGrid columns={{ base: 3, sm: 4, md: 5 }} spacing={2}>

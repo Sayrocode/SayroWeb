@@ -20,16 +20,12 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
   useToast,
   IconButton,
 } from '@chakra-ui/react';
 import { SearchIcon } from '@chakra-ui/icons';
 import { FaWhatsapp } from 'react-icons/fa';
-import { FiMail, FiPhone, FiChevronDown, FiCopy } from 'react-icons/fi';
+import { FiMail, FiPhone, FiCopy } from 'react-icons/fi';
 import Link from 'next/link';
 import { PHONE_CALL_SCHEME } from '../../lib/site';
 import { SWRConfig } from 'swr';
@@ -70,43 +66,114 @@ function CallMenu({ phone }: { phone?: string | null }) {
   const toast = useToast();
   if (!phone) return null;
   const digits = digitsOnly(phone);
-  const primaryHref = `${PHONE_CALL_SCHEME}:${digits}`;
   return (
-    <Menu>
-      <MenuButton as={Button} size='xs' colorScheme='green' rightIcon={<FiChevronDown />} leftIcon={<FiPhone />} rounded='full'>
+    <Box display="flex" alignItems="center" columnGap={2} rowGap={2}>
+      <Button
+        size='xs'
+        colorScheme='green'
+        rounded='full'
+        onClick={() => { try { window.location.href = `tel:${digits}`; } catch {} }}
+      >
         Llamar
-      </MenuButton>
-      <MenuList>
-        <MenuItem as='a' href={primaryHref}>Predeterminado ({PHONE_CALL_SCHEME})</MenuItem>
-        <MenuItem as='a' href={`tel:${digits}`}>Teléfono (tel:)</MenuItem>
-        <MenuItem as='a' href={`sip:${digits}`}>VoIP (sip:)</MenuItem>
-        <MenuItem as='a' href={`callto:${digits}`}>Callto</MenuItem>
-        <MenuItem onClick={async () => {
+      </Button>
+      <Button
+        size='xs'
+        variant='outline'
+        onClick={async () => {
           try { await navigator.clipboard.writeText(phone); toast({ title: 'Copiado', status: 'success', duration: 1500 }); }
           catch { toast({ title: 'No se pudo copiar', status: 'error', duration: 1500 }); }
-        }} icon={<FiCopy />}>Copiar número</MenuItem>
-      </MenuList>
-    </Menu>
+        }}
+      >
+        Copiar
+      </Button>
+    </Box>
   );
 }
 
 function LeadCard({ l }: { l: Lead }) {
+  const toast = useToast();
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState<Lead>({ ...l });
+
+  const saveEdit = async () => {
+    try {
+      const r = await fetch(`/api/admin/leads?id=${l.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: draft.name,
+          email: draft.email,
+          phone: draft.phone,
+          message: draft.message,
+          propertyPublicId: draft.propertyPublicId,
+        }),
+      });
+      if (!r.ok) throw new Error('No se pudo guardar');
+      toast({ title: 'Lead actualizado', status: 'success', duration: 1200 });
+      setEditing(false);
+    } catch (e) {
+      toast({ title: 'Error al guardar', status: 'error', duration: 1500 });
+    }
+  };
+
+  const deleteLead = async () => {
+    if (!confirm('¿Eliminar este lead?')) return;
+    try {
+      const r = await fetch(`/api/admin/leads?id=${l.id}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error('No se pudo eliminar');
+      toast({ title: 'Lead eliminado', status: 'success', duration: 1200 });
+      // remove from UI by reloading page state
+      window.dispatchEvent(new CustomEvent('leads:refresh'));
+    } catch (e) {
+      toast({ title: 'Error al eliminar', status: 'error', duration: 1500 });
+    }
+  };
+
   const msg = `Hola ${l.name || ''}. Vi tu interés en ${l.property?.title || l.propertyPublicId || 'nuestra propiedad'}.`;
   return (
     <Box borderWidth='1px' rounded='lg' bg='white' p={4}>
-      <HStack mb={1} spacing={2} color='gray.600' fontSize='sm'>
+      <Box display="flex" alignItems="center" columnGap={2} mb={1} color='gray.600' fontSize='sm'>
         <Badge variant='subtle' colorScheme={l.source === 'meta' ? 'purple' : 'gray'} textTransform='none'>{l.source}</Badge>
         <Spacer />
         <Text>{new Date(l.createdAt).toLocaleString()}</Text>
-      </HStack>
-      <Heading as='h3' size='md' mb={1} noOfLines={1}>{l.name || 'Sin nombre'}</Heading>
-      {l.message && (
-        <Text mb={3} color='gray.700' noOfLines={3}>{l.message}</Text>
+      </Box>
+      <Heading as='h3' size='md' mb={1} isTruncated>
+        {editing ? (
+          <Input
+            size='sm'
+            value={draft.name || ''}
+            onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+            placeholder='Nombre'
+          />
+        ) : (
+          l.name || 'Sin nombre'
+        )}
+      </Heading>
+      {(l.message || editing) && (
+        <Box mb={3}>
+          {editing ? (
+            <Input
+              size='sm'
+              value={draft.message || ''}
+              onChange={(e) => setDraft((d) => ({ ...d, message: e.target.value }))}
+              placeholder='Mensaje'
+            />
+          ) : (
+            <Text color='gray.700'>{l.message}</Text>
+          )}
+        </Box>
       )}
       <Stack spacing={2} color='gray.700'>
         <Stack direction={{ base: 'column', sm: 'row' }} spacing={2} align={{ base: 'stretch', sm: 'center' }}>
           <FiPhone />
-          {l.phone ? (
+          {editing ? (
+            <Input
+              size='sm'
+              value={draft.phone || ''}
+              onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
+              placeholder='Teléfono'
+            />
+          ) : l.phone ? (
             <CLink href={`tel:${digitsOnly(l.phone)}`} color='green.700' wordBreak='break-word'>
               {l.phone}
             </CLink>
@@ -114,7 +181,7 @@ function LeadCard({ l }: { l: Lead }) {
             <Text color='gray.500'>-</Text>
           )}
           <Spacer display={{ base: 'none', sm: 'block' }} />
-          <HStack spacing={2}>
+          <Box display="flex" alignItems="center" columnGap={2}>
             <CallMenu phone={l.phone} />
             {l.phone && (
               <Button
@@ -133,11 +200,18 @@ function LeadCard({ l }: { l: Lead }) {
                 WhatsApp
               </Button>
             )}
-          </HStack>
+          </Box>
         </Stack>
         <Stack direction={{ base: 'column', sm: 'row' }} spacing={2} align={{ base: 'stretch', sm: 'center' }}>
           <FiMail />
-          {l.email ? (
+          {editing ? (
+            <Input
+              size='sm'
+              value={draft.email || ''}
+              onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
+              placeholder='Email'
+            />
+          ) : l.email ? (
             <CLink href={`mailto:${l.email}?subject=${encodeURIComponent('Seguimiento — Sayro Bienes Raíces')}&body=${encodeURIComponent(`Hola ${l.name || ''}, sobre ${l.property?.title || l.propertyPublicId || 'tu consulta'}:`)}`} color='blue.600'>
               {l.email}
             </CLink>
@@ -160,21 +234,43 @@ function LeadCard({ l }: { l: Lead }) {
             </Button>
           )}
         </Stack>
-        <HStack spacing={2}>
+        <Box display="flex" alignItems="center" columnGap={2}>
           <Text fontSize='sm' color='gray.600'>Propiedad:</Text>
-          {l.property?.publicId || l.propertyPublicId ? (
+          {editing ? (
+            <Input
+              size='sm'
+              value={draft.propertyPublicId || ''}
+              onChange={(e) => setDraft((d) => ({ ...d, propertyPublicId: e.target.value }))}
+              placeholder='ID propiedad'
+            />
+          ) : l.property?.publicId || l.propertyPublicId ? (
             <Link href={`/propiedades/${l.property?.publicId || l.propertyPublicId}`} target='_blank'>
               {l.property?.title || l.propertyPublicId}
             </Link>
           ) : (<Text color='gray.500'>-</Text>)}
-        </HStack>
+        </Box>
         {(l.utm_source || l.utm_campaign) && (
-          <Box fontSize='xs' color='gray.600'>
+          <Box fontSize='xs' color='gray.600' display="flex" columnGap={2} rowGap={2} flexWrap="wrap">
             {l.utm_source && <Badge mr={1}>{l.utm_source}</Badge>}
             {l.utm_campaign && <Badge mr={1} variant='outline'>{l.utm_campaign}</Badge>}
           </Box>
         )}
       </Stack>
+      {l.source === 'website' && (
+        <Box display="flex" columnGap={2} rowGap={2} mt={3}>
+          {editing ? (
+            <>
+              <Button size='sm' colorScheme='green' onClick={saveEdit}>Guardar</Button>
+              <Button size='sm' variant='outline' onClick={() => { setEditing(false); setDraft({ ...l }); }}>Cancelar</Button>
+            </>
+          ) : (
+            <>
+              <Button size='sm' variant='outline' onClick={() => setEditing(true)}>Editar</Button>
+              <Button size='sm' colorScheme='red' onClick={deleteLead}>Eliminar</Button>
+            </>
+          )}
+        </Box>
+      )}
     </Box>
   );
 }
@@ -225,6 +321,13 @@ export default function LeadsPage() {
   const [lookahead, setLookahead] = React.useState(false);
   const prefetchGuard = React.useRef<number>(0);
   const [pendingMore, setPendingMore] = React.useState(false);
+  React.useEffect(() => {
+    const onRefresh = () => {
+      setSize(1);
+    };
+    window.addEventListener('leads:refresh', onRefresh as any);
+    return () => window.removeEventListener('leads:refresh', onRefresh as any);
+  }, [setSize]);
   React.useEffect(() => { setSize(1); }, [q, source, setSize]);
   // Evitar re-crear el observer en cada render; usar refs para flags dinámicos
   const loadingRef = React.useRef(isLoadingMore);
@@ -315,18 +418,18 @@ export default function LeadsPage() {
     <Layout title='Leads'>
       <Container maxW='7xl' py={{ base: 4, md: 10 }}>
         <Stack direction={{ base: 'column', md: 'row' }} spacing={{ base: 3, md: 4 }} align={{ base: 'stretch', md: 'center' }} mb={4}>
-          <HStack spacing={2} align='center'>
+          <Box display="flex" alignItems="center" columnGap={2}>
             <Heading size='lg'>Leads</Heading>
             <Badge colorScheme='gray' variant='subtle'>{badgeCount} total</Badge>
-          </HStack>
+          </Box>
           <Spacer display={{ base: 'none', md: 'block' }} />
-          <HStack spacing={2} overflowX={{ base: 'auto', md: 'visible' }} py={{ base: 1, md: 0 }} px={{ base: 1, md: 0 }} sx={{ '::-webkit-scrollbar': { display: 'none' } }}>
+          <Box display="flex" columnGap={2} overflowX={{ base: 'auto', md: 'visible' }} py={{ base: 1, md: 0 }} px={{ base: 1, md: 0 }} sx={{ '::-webkit-scrollbar': { display: 'none' } }}>
             <Button size='sm' variant={source === '' ? 'solid' : 'outline'} onClick={() => setSource('')}>Todos</Button>
             <Button size='sm' variant={source === 'meta' ? 'solid' : 'outline'} onClick={() => setSource('meta')}>Meta</Button>
             <Button size='sm' variant={source === 'website' ? 'solid' : 'outline'} onClick={() => setSource('website')}>Website</Button>
             <Button size='sm' variant={source === 'easybroker' ? 'solid' : 'outline'} onClick={() => setSource('easybroker')}>EasyBroker</Button>
             <Button size='sm' variant={source === 'ego' ? 'solid' : 'outline'} onClick={() => setSource('ego')}>EGO</Button>
-          </HStack>
+          </Box>
           <InputGroup w={{ base: 'full', md: '320px' }}>
             <InputLeftElement pointerEvents='none'><SearchIcon color='gray.400' /></InputLeftElement>
             <Input placeholder='Buscar nombre, email, teléfono, mensaje' value={qInput} onChange={(e) => setQInput(e.target.value)} bg='white' />

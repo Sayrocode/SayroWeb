@@ -57,13 +57,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     if (prop.ebDetailJson) {
       const j = JSON.parse(prop.ebDetailJson);
-      if (Array.isArray(j?.property_images)) urls = j.property_images.map((i: any) => i?.url).filter(Boolean);
+      if (Array.isArray(j?.property_images)) urls = j.property_images.map((i: any) => i?.url_full || i?.url).filter(Boolean);
+      else if (Array.isArray((j as any)?.images)) urls = (j as any).images.map((i: any) => i?.url_full || i?.url).filter(Boolean);
     }
   } catch {}
   if (!urls.length && prop.propertyImagesJson) {
     try {
       const j = JSON.parse(prop.propertyImagesJson);
-      if (Array.isArray(j)) urls = j.map((i: any) => i?.url).filter(Boolean);
+      if (Array.isArray(j)) urls = j.map((i: any) => i?.url_full || i?.url).filter(Boolean);
     } catch {}
   }
 

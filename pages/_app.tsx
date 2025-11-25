@@ -1,4 +1,5 @@
 import { ChakraProvider, Box, VStack, Spinner, Text } from "@chakra-ui/react";
+import { Global } from "@emotion/react";
 import Head from "next/head";
 import type { AppProps } from "next/app";
 import theme from "../theme";
@@ -9,6 +10,7 @@ import { FB_PIXEL_ID } from "../lib/fbpixel";
 import type { NextWebVitalsMetric } from 'next/app';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
+import { QueryProvider } from "../lib/queryClient";
 
 function MyApp({ Component, pageProps }: AppProps) {
   // Global route-change loader overlay
@@ -49,52 +51,55 @@ function MyApp({ Component, pageProps }: AppProps) {
     try { if (!routeLoading) window.dispatchEvent(new CustomEvent('app:route-loading-done')); } catch {}
   }, [routeLoading]);
   return (
-    <ChakraProvider theme={theme}>
-      <Head>
-        {/* Preconnect for Google Fonts */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Cinzel (heading fallback) + Montserrat (body) */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Montserrat:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </Head>
-      <Script id="force-light-mode" strategy="beforeInteractive">{`
-        try{localStorage.setItem('chakra-ui-color-mode','light');}catch(e){}
-      `}</Script>
-      {process.env.NEXT_PUBLIC_FB_PIXEL_ID && (
-        <>
-          <Script id="fb-pixel-init" strategy="afterInteractive">
-            {`
-              !function(f,b,e,v,n,t,s)
-              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-              n.queue=[];t=b.createElement(e);t.async=!0;
-              t.src=v;s=b.getElementsByTagName(e)[0];
-              s.parentNode.insertBefore(t,s)}(window, document,'script',
-              'https://connect.facebook.net/en_US/fbevents.js');
-              fbq('init', '${FB_PIXEL_ID}');
-              fbq('track', 'PageView');
-            `}
-          </Script>
-          <noscript>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img height="1" width="1" style={{ display: 'none' }} src={`https://www.facebook.com/tr?id=${FB_PIXEL_ID}&ev=PageView&noscript=1`} alt="" />
-          </noscript>
-        </>
-      )}
-      <Component {...pageProps} />
-      {routeLoading && (
-        <Box position="fixed" inset={0} bg="whiteAlpha.900" zIndex={3000} display="flex" alignItems="center" justifyContent="center">
-          <VStack spacing={3}>
-            <Spinner thickness="4px" speed="0.7s" emptyColor="gray.200" color="green.600" size="xl" />
-            <Text color="gray.700" fontWeight="medium">Cargando…</Text>
-          </VStack>
-        </Box>
-      )}
-    </ChakraProvider>
+    <QueryProvider dehydratedState={(pageProps as any)?.dehydratedState}>
+      <ChakraProvider theme={theme}>
+        <Global styles={{ html: { scrollBehavior: 'smooth' }, body: { scrollBehavior: 'smooth' } }} />
+        <Head>
+          {/* Preconnect for Google Fonts */}
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          {/* Cinzel (heading fallback) + Montserrat (body) */}
+          <link
+            href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Montserrat:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+          />
+        </Head>
+        <Script id="force-light-mode" strategy="beforeInteractive">{`
+          try{localStorage.setItem('chakra-ui-color-mode','light');}catch(e){}
+        `}</Script>
+        {process.env.NEXT_PUBLIC_FB_PIXEL_ID && (
+          <>
+            <Script id="fb-pixel-init" strategy="afterInteractive">
+              {`
+                !function(f,b,e,v,n,t,s)
+                {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                n.queue=[];t=b.createElement(e);t.async=!0;
+                t.src=v;s=b.getElementsByTagName(e)[0];
+                s.parentNode.insertBefore(t,s)}(window, document,'script',
+                'https://connect.facebook.net/en_US/fbevents.js');
+                fbq('init', '${FB_PIXEL_ID}');
+                fbq('track', 'PageView');
+              `}
+            </Script>
+            <noscript>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img height="1" width="1" style={{ display: 'none' }} src={`https://www.facebook.com/tr?id=${FB_PIXEL_ID}&ev=PageView&noscript=1`} alt="" />
+            </noscript>
+          </>
+        )}
+        <Component {...pageProps} />
+        {routeLoading && (
+          <Box position="fixed" inset={0} bg="whiteAlpha.900" zIndex={3000} display="flex" alignItems="center" justifyContent="center">
+            <VStack spacing={3}>
+              <Spinner thickness="4px" speed="0.7s" emptyColor="gray.200" color="green.600" size="xl" />
+              <Text color="gray.700" fontWeight="medium">Cargando…</Text>
+            </VStack>
+          </Box>
+        )}
+      </ChakraProvider>
+    </QueryProvider>
   );
 }
 

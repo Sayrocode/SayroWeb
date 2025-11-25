@@ -69,6 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           images = j.property_images
             .map((i: any) => i?.url_full || i?.url)
             .filter(Boolean);
+        } else if (Array.isArray((j as any)?.images)) {
+          images = (j as any).images
+            .map((i: any) => i?.url_full || i?.url)
+            .filter(Boolean);
         }
       }
     } catch {}

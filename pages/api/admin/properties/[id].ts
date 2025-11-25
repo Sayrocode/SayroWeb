@@ -20,6 +20,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const detail = prop.ebDetailJson ? JSON.parse(prop.ebDetailJson) : null;
       if (detail) {
+        if (!ebImages.length && Array.isArray(detail.property_images)) ebImages = detail.property_images;
+        else if (!ebImages.length && Array.isArray(detail.images)) ebImages = detail.images;
         if (Array.isArray(detail.operations)) operations = detail.operations;
         if (typeof detail.description === 'string') description = detail.description;
       }
