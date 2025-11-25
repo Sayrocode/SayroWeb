@@ -15,7 +15,10 @@ function createClient() {
         staleTime: 60_000, // general default; override per-query as needed
         gcTime: 30 * 60_000, // survive route hops
         refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        refetchOnMount: false,
         retry: 1,
+        notifyOnChangeProps: ['data', 'status'],
       },
     },
   });

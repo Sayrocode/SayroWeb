@@ -23,6 +23,10 @@ export function usePropertyQuery(id: string | number, initialData?: PropertyResp
     gcTime: defaultDetailGc,
     initialData,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    keepPreviousData: true,
+    notifyOnChangeProps: ['data', 'status'],
     enabled: Boolean(id),
   });
 }
