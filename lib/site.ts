@@ -1,4 +1,10 @@
-export const WA_PHONE = process.env.NEXT_PUBLIC_WA_PHONE || '521234567890';
+const sanitizePhone = (raw?: string | null) => {
+  if (!raw) return "";
+  const digits = String(raw).replace(/[^\d]/g, "");
+  return digits;
+};
+
+export const WA_PHONE = sanitizePhone(process.env.NEXT_PUBLIC_WA_PHONE) || '521234567890';
 export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'hola@tu-dominio.com';
 // Preferred phone call scheme for desktop handlers: 'tel' | 'sip' | 'callto'
 export const PHONE_CALL_SCHEME = (process.env.NEXT_PUBLIC_PHONE_SCHEME || 'tel').toLowerCase();

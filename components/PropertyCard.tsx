@@ -2,9 +2,10 @@ import React from 'react';
 import { Box, Stack, Text, Badge, HStack, Icon, LinkBox, AspectRatio, useColorModeValue } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import { navStart } from "../lib/nav";
 import { FiMapPin, FiHome, FiDroplet, FiMaximize } from "react-icons/fi";
 import Image from 'next/image';
+import { useQueryClient } from '@tanstack/react-query';
+import { prefetchProperty } from '../lib/queries/properties';
 
 type EBOperation = {
   type?: string; // 'sale' | 'rental' | ...
@@ -83,6 +84,7 @@ function getLocationText(loc: unknown): string {
 
 function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const rawImg = property.title_image_full || property.title_image_thumb || "";
   const isAbs = typeof rawImg === 'string' && /^https?:\/\//i.test(rawImg);
   const img = (typeof rawImg === 'string' && (rawImg.startsWith("/") || isAbs)) ? rawImg : "/image3.jpg";
@@ -100,6 +102,10 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
   //
 
   const href = `/propiedades/${encodeURIComponent(property.public_id)}`;
+  const prefetch = () => {
+    if (!property.public_id) return;
+    prefetchProperty(queryClient, property.public_id).catch(() => {});
+  };
 
   return (
     <NextLink href={href} passHref>
@@ -117,6 +123,8 @@ function PropertyCard({ property, priority = false, sizes = "(max-width: 768px) 
         h="100%"
         display="flex"
         flexDirection="column"
+        onMouseEnter={prefetch}
+        onFocus={prefetch}
       >
 
       <AspectRatio ratio={16 / 9}>
