@@ -293,7 +293,7 @@ export default function PropertyDetail({
     listingAgent: property.broker?.name
       ? { "@type": "RealEstateAgent", name: property.broker.name }
       : undefined,
-    offers: property.operations?.map((op) => ({
+    offers: property.operations?.map((op: EBOperation) => ({
       "@type": "Offer",
       price: typeof op.amount === "number" ? op.amount : undefined,
       priceCurrency: op.currency || "MXN",
