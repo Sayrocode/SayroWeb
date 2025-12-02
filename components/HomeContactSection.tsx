@@ -47,8 +47,8 @@ export default function HomeContactSection({
   schedule = "9:00 a 17:00 (lunes a viernes)",
   directorImage = "/director.jpg",
   buildingImage = "/contactohero.jpg?v=1",
-  facebookUrl = "https://facebook.com/",
-  instagramUrl = "https://instagram.com/",
+  facebookUrl = "https://www.facebook.com/sayrobr",
+  instagramUrl = "https://www.instagram.com/sayrobienes/",
 }: HomeContactSectionProps) {
   const sectionBg = useColorModeValue("#fffcf1", "gray.900");
   const telDigits = digitsOnly(phone);

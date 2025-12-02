@@ -125,8 +125,8 @@ export const defaultHomepageContent: HomepageContent = {
     imageSrc: "/know.png",
     imageAlt: "Atención profesional inmobiliaria",
     imageObjectPosition: "center right",
-    instagramUrl: "https://www.instagram.com/",
-    facebookUrl: "https://www.facebook.com/",
+    instagramUrl: "https://www.instagram.com/sayrobienes/",
+    facebookUrl: "https://www.facebook.com/sayrobr",
     brandName: "Sayro Bienes Raíces",
     reverseDesktop: false,
   },
@@ -142,8 +142,8 @@ export const defaultHomepageContent: HomepageContent = {
     schedule: "9:00 a 17:00 (lunes a viernes)",
     directorImage: "/director.jpg",
     buildingImage: "/contactohero.jpg?v=1",
-    facebookUrl: "https://facebook.com/",
-    instagramUrl: "https://instagram.com/",
+    facebookUrl: "https://www.facebook.com/sayrobr",
+    instagramUrl: "https://www.instagram.com/sayrobienes/",
   },
 };
 

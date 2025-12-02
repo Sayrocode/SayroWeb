@@ -210,7 +210,7 @@ export default function Footer() {
             textAlign={{ base: "center", md: "left", lg: "right" }}
           >
             <HStack justify={{ base: "center", md: "flex-start", lg: "flex-end" }} spacing={4} mb={3}>
-              {[{ href: 'https://facebook.com', icon: FiFacebook, label: 'Facebook' }, { href: 'https://instagram.com', icon: FiInstagram, label: 'Instagram' }, { href: 'https://linkedin.com', icon: FiLinkedin, label: 'LinkedIn' }].map((s) => (
+              {[{ href: 'https://www.facebook.com/sayrobr', icon: FiFacebook, label: 'Facebook' }, { href: 'https://www.instagram.com/sayrobienes/', icon: FiInstagram, label: 'Instagram' }, { href: 'https://www.linkedin.com/in/raul-salamanca-riba-a844313a', icon: FiLinkedin, label: 'LinkedIn' }].map((s) => (
                 <Link key={s.label} href={s.href} isExternal aria-label={s.label} _focus={{ boxShadow: '0 0 0 2px rgba(255,255,255,0.6)', borderRadius: 'md' }}>
                   <Button variant="ghost" color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }} p={3} minW="unset" borderRadius="md">
                     <Icon as={s.icon} boxSize={{ base: 5, md: iconSize }} />

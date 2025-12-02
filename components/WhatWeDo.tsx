@@ -50,8 +50,8 @@ export default function WhatWeDo({
   imageSrc,
   imageAlt = "Atención profesional inmobiliaria",
   imageObjectPosition = "center right",
-  instagramUrl = "https://www.instagram.com/",
-  facebookUrl = "https://www.facebook.com/",
+  instagramUrl = "https://www.instagram.com/sayrobienes/",
+  facebookUrl = "https://www.facebook.com/sayrobr",
   brandName = "Sayro Bienes Raíces",
   reverseDesktop = false,
 }: WhatWeDoProps) {
