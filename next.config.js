@@ -19,11 +19,11 @@ const nextConfig = {
       config.resolve = config.resolve || {};
       config.resolve.alias = {
         ...(config.resolve.alias || {}),
-        components: path.join(__dirname, 'components'),
-        lib: path.join(__dirname, 'lib'),
-        utils: path.join(__dirname, 'utils'),
-        theme: path.join(__dirname, 'theme'),
-        styles: path.join(__dirname, 'styles'),
+        components: path.join(__dirname, 'src', 'components'),
+        lib: path.join(__dirname, 'src', 'lib'),
+        utils: path.join(__dirname, 'src', 'utils'),
+        theme: path.join(__dirname, 'src', 'theme'),
+        styles: path.join(__dirname, 'src', 'styles'),
       };
       return config;
     },
