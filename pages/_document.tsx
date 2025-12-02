@@ -10,6 +10,7 @@ export default class MyDocument extends Document {
           <meta name="color-scheme" content="light" />
           <meta name="supported-color-schemes" content="light" />
           <meta name="theme-color" content="#ffffff" />
+          <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         </Head>
         <body>
           <ColorModeScript initialColorMode={theme.config.initialColorMode} />
@@ -20,4 +21,3 @@ export default class MyDocument extends Document {
     );
   }
 }
-

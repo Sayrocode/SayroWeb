@@ -1,6 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '../../lib/prisma';
 
+const NAME_REGEX = /^[a-zA-ZÀ-ÿ\u00f1\u00d1'`´.-]{2,80}(?: [a-zA-ZÀ-ÿ\u00f1\u00d1'`´.-]{2,80}){0,4}$/;
+const PHONE_REGEX = /^[+]?[\d\s().-]{7,20}$/;
+const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const SUSPICIOUS_PAYLOAD = /(<\s*script|javascript:|data:text\/html|onerror\s*=|onload\s*=)/i;
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const rateLimits = new Map<string, { count: number; expiresAt: number }>();
+
 function pick<T extends string>(obj: Record<string, any>, keys: T[]): Partial<Record<T, any>> {
   const o: any = {};
   keys.forEach((k) => {
@@ -9,14 +17,79 @@ function pick<T extends string>(obj: Record<string, any>, keys: T[]): Partial<Re
   return o;
 }
 
+function clientIp(req: NextApiRequest): string {
+  const xf = req.headers['x-forwarded-for'];
+  const raw = Array.isArray(xf) ? xf[0] : xf?.split(',')[0];
+  return (raw || req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown').toString();
+}
+
+function checkRateLimit(ip: string) {
+  const now = Date.now();
+  if (rateLimits.size > 5000) {
+    for (const [key, value] of rateLimits.entries()) {
+      if (value.expiresAt < now) rateLimits.delete(key);
+    }
+  }
+  const entry = rateLimits.get(ip);
+  if (!entry || entry.expiresAt < now) {
+    rateLimits.set(ip, { count: 1, expiresAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return true;
+  entry.count += 1;
+  rateLimits.set(ip, entry);
+  return false;
+}
+
+function cleanText(value: unknown, max = 160) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[<>]/g, ' ').replace(/[\u0000-\u001F]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function sanitizeMessage(value: unknown, max = 2000) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/<[^>]*>/g, ' ').replace(/[\u0000-\u001F]+/g, ' ').trim().slice(0, max);
+}
+
+function validateLead(body: any) {
+  const name = cleanText(body.name, 120);
+  const phone = cleanText(body.phone, 40);
+  const email = cleanText(body.email, 160);
+  const message = sanitizeMessage(body.message, 2000);
+
+  if (!name || !NAME_REGEX.test(name)) return { error: 'invalid_name' };
+  if (!phone && !email) return { error: 'contact_required' };
+  if (phone && !PHONE_REGEX.test(phone)) return { error: 'invalid_phone' };
+  if (email && !EMAIL_REGEX.test(email)) return { error: 'invalid_email' };
+  if (SUSPICIOUS_PAYLOAD.test(String(body.message || '')) || SUSPICIOUS_PAYLOAD.test(name) || SUSPICIOUS_PAYLOAD.test(email)) {
+    return { error: 'suspicious_payload' };
+  }
+
+  return { data: { name, phone, email, message } };
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  const ip = clientIp(req);
+  if (checkRateLimit(ip)) {
+    return res.status(429).json({ ok: false, error: 'rate_limited', message: 'Too many submissions. Please try again later.' });
+  }
+
   try {
     const body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) || {};
+
+    if (typeof body.botField === 'string' && body.botField.trim().length > 0) {
+      return res.status(400).json({ ok: false, error: 'bot_detected' });
+    }
+
+    const { data: safe, error: validationError } = validateLead(body);
+    if (validationError) {
+      return res.status(400).json({ ok: false, error: validationError });
+    }
 
     // Derive attribution
     const q = req.query || {};
@@ -27,10 +100,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const lead = await prisma.lead.create({
       data: {
         source,
-        name: body.name?.slice(0, 120) || null,
-        email: body.email?.slice(0, 160) || null,
-        phone: body.phone?.slice(0, 40) || null,
-        message: body.message?.slice(0, 2000) || null,
+        name: safe?.name || null,
+        email: safe?.email || null,
+        phone: safe?.phone || null,
+        message: safe?.message || null,
         propertyPublicId: body.propertyPublicId || null,
         propertyId: typeof body.propertyId === 'number' ? body.propertyId : null,
         campaignId: body.campaignId || null,
@@ -55,11 +128,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const origin = (req.headers.host || '').replace(/^https?:\/\//, '');
         const site = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_BASE_URL || origin || 'website';
         const payload = {
-          name: body.name || undefined,
-          phone: body.phone || undefined,
-          email: body.email || undefined,
+          name: safe?.name || undefined,
+          phone: safe?.phone || undefined,
+          email: safe?.email || undefined,
           property_id: ebId,
-          message: body.message || undefined,
+          message: safe?.message || undefined,
           source: String(site).replace(/^https?:\/\//, '').replace(/\/$/, ''),
         } as any;
         // No bloquear la respuesta del usuario si EB tarda: timeout suave

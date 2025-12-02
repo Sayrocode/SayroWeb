@@ -214,11 +214,11 @@ export default function ContactoPage() {
                   Síguenos
                 </Heading>
                 <HStack spacing={{ base: 5, md: 4 }}>
-                  <Link href="https://facebook.com/" isExternal aria-label="Facebook" _hover={{ opacity: 0.9 }}>
+                  <Link href="https://www.facebook.com/sayrobr" isExternal aria-label="Facebook" _hover={{ opacity: 0.9 }}>
                     <Icon as={FaFacebook} boxSize={{ base: 7, md: 6 }} />
                     <VisuallyHidden>Facebook</VisuallyHidden>
                   </Link>
-                  <Link href="https://instagram.com/" isExternal aria-label="Instagram" _hover={{ opacity: 0.9 }}>
+                  <Link href="https://www.instagram.com/sayrobienes/" isExternal aria-label="Instagram" _hover={{ opacity: 0.9 }}>
                     <Icon as={FaInstagram} boxSize={{ base: 7, md: 6 }} />
                     <VisuallyHidden>Instagram</VisuallyHidden>
                   </Link>
