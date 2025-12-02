@@ -4,6 +4,15 @@ const withBundleAnalyzer = (() => {
   try { return require('@next/bundle-analyzer')({ enabled: process.env.ANALYZE === 'true' }); } catch { return (cfg) => cfg; }
 })();
 const path = require('path');
+const fs = require('fs');
+
+function resolveAlias(name) {
+  const srcPath = path.join(__dirname, 'src', name);
+  if (fs.existsSync(srcPath)) {
+    return srcPath;
+  }
+  return path.join(__dirname, name);
+}
 const nextConfig = {
     reactStrictMode: true,
     // Tell Next the app root explicitly to avoid picking parent workspace
@@ -19,11 +28,11 @@ const nextConfig = {
       config.resolve = config.resolve || {};
       config.resolve.alias = {
         ...(config.resolve.alias || {}),
-        components: path.join(__dirname, 'src', 'components'),
-        lib: path.join(__dirname, 'src', 'lib'),
-        utils: path.join(__dirname, 'src', 'utils'),
-        theme: path.join(__dirname, 'src', 'theme'),
-        styles: path.join(__dirname, 'src', 'styles'),
+        components: resolveAlias('components'),
+        lib: resolveAlias('lib'),
+        utils: resolveAlias('utils'),
+        theme: resolveAlias('theme'),
+        styles: resolveAlias('styles'),
       };
       return config;
     },
