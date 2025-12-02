@@ -25,7 +25,7 @@ export function usePropertyQuery(id: string | number, initialData?: PropertyResp
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: false,
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
     notifyOnChangeProps: ['data', 'status'],
     enabled: Boolean(id),
   });
