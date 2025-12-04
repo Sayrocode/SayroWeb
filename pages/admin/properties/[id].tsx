@@ -59,7 +59,7 @@ export default function AdminPropertyEdit() {
   const [dlLoading, setDlLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
-  const [publishing, setPublishing] = useState(false);
+  const [syncingEB, setSyncingEB] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -334,19 +334,27 @@ export default function AdminPropertyEdit() {
     }
   };
 
-  const publishToEasyBroker = async () => {
+  const syncEasyBroker = async () => {
     if (!id) return;
-    if (!confirm('Enviar esta propiedad a EasyBroker usando las imágenes locales?')) return;
-    setPublishing(true);
+    const updating = isEasyBroker;
+    const prompt = updating
+      ? 'Actualizar esta propiedad en EasyBroker con los datos locales?'
+      : 'Enviar esta propiedad a EasyBroker usando las imágenes locales?';
+    if (!confirm(prompt)) return;
+    setSyncingEB(true);
     try {
-      const r = await fetch(`/api/admin/easybroker/properties/${id}/publish`, { method: 'POST' });
+      const method = updating ? 'PUT' : 'POST';
+      const r = await fetch(`/api/admin/easybroker/properties/${id}/publish`, { method });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j?.ok) throw new Error(j?.error || 'No se pudo publicar');
-      toast({ title: 'Publicada en EasyBroker', status: 'success', duration: 2000 });
+      if (!r.ok || !j?.ok) {
+        const detail = (Array.isArray(j?.issues) ? j.issues.join(', ') : '') || j?.error || j?.message;
+        throw new Error(detail || 'No se pudo sincronizar con EasyBroker');
+      }
+      toast({ title: updating ? 'Actualizada en EasyBroker' : 'Publicada en EasyBroker', status: 'success', duration: 2000 });
     } catch (e: any) {
-      toast({ title: 'Error al publicar', description: e?.message || String(e), status: 'error', duration: 2500 });
+      toast({ title: 'Error con EasyBroker', description: e?.message || String(e), status: 'error', duration: 2500 });
     } finally {
-      setPublishing(false);
+      setSyncingEB(false);
     }
   };
 
@@ -497,9 +505,9 @@ export default function AdminPropertyEdit() {
 
             <Box mt={4}>
               <HStack mb={2}>
-                {!isEasyBroker && (
-                  <Button onClick={publishToEasyBroker} isLoading={publishing} colorScheme='purple'>Publicar en EasyBroker</Button>
-                )}
+                <Button onClick={syncEasyBroker} isLoading={syncingEB} colorScheme='purple'>
+                  {isEasyBroker ? 'Actualizar en EasyBroker' : 'Publicar en EasyBroker'}
+                </Button>
               </HStack>
               <Input type="file" ref={fileRef} multiple accept="image/*" onChange={(e) => uploadFiles(e.target.files)} />
             </Box>
@@ -609,13 +617,27 @@ export default function AdminPropertyEdit() {
 
                 try {
                   setSaving(true);
+                  console.log('[Admin] Updating local price', { id, newOps });
                   const r = await fetch(`/api/admin/properties/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ operations: newOps }),
                   });
                   if (!r.ok) throw new Error('No se pudo actualizar el precio');
-                  toast({ title: 'Precio actualizado', status: 'success', duration: 1200 });
+                  // Sync with EasyBroker if this is an EB property
+                  if (isEasyBroker) {
+                    console.log('[Admin] Syncing price to EasyBroker', { id, publicId: data.publicId });
+                    const ebResp = await fetch(`/api/admin/easybroker/properties/${id}/publish`, { method: 'PUT' });
+                    const ebData = await ebResp.json().catch(() => ({}));
+                    console.log('[Admin] EasyBroker sync response', { status: ebResp.status, ok: ebResp.ok, ebData });
+                    if (!ebResp.ok || !ebData?.ok) {
+                      const detail = Array.isArray(ebData?.issues) ? ebData.issues.join(', ') : (ebData?.error || ebData?.message);
+                      throw new Error(detail || 'EasyBroker rechazó la actualización');
+                    }
+                    toast({ title: 'Precio actualizado en EasyBroker', status: 'success', duration: 1500 });
+                  } else {
+                    toast({ title: 'Precio actualizado', status: 'success', duration: 1200 });
+                  }
                 } catch (e: any) {
                   toast({ title: e?.message || 'Error al actualizar', status: 'error', duration: 1500 });
                 } finally {
