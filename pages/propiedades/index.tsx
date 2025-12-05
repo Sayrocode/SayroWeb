@@ -44,6 +44,7 @@ import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import { FiSliders } from "react-icons/fi";
 import Link from "next/link";
 import PropertyCard from "../../components/PropertyCard";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 
 type FiltersState = {
   q: string;
@@ -65,6 +66,28 @@ type FiltersState = {
   lotMax?: number | '';
   priceMin?: number | '';
   priceMax?: number | '';
+};
+
+const DEFAULT_FILTERS: FiltersState = {
+  q: "",
+  city: "",
+  type: "",
+  types: [],
+  operation: "",
+  bedroomsMin: "",
+  bedroomsExact: [],
+  bathroomsExact: [],
+  parkingExact: [],
+  bathroomsMin: "",
+  parkingMin: "",
+  colony: "",
+  colonies: [],
+  constructionMin: "",
+  constructionMax: "",
+  lotMin: "",
+  lotMax: "",
+  priceMin: "",
+  priceMax: "",
 };
 
 const PRICE_FORMATTER = new Intl.NumberFormat('es-MX', {
@@ -97,237 +120,280 @@ const CONSTRUCTION_SLIDER_MAX = 5_000;
 const LOT_SLIDER_MIN = 0;
 const LOT_SLIDER_MAX = 20_000;
 
+type FetchFilters = Pick<
+  FiltersState,
+  | "operation"
+  | "priceMin"
+  | "priceMax"
+  | "bedroomsMin"
+  | "bathroomsMin"
+  | "parkingMin"
+  | "constructionMin"
+  | "constructionMax"
+  | "lotMin"
+  | "lotMax"
+  | "types"
+  | "colonies"
+> & { q?: string };
+
+type PropertiesPageResult = {
+  items: any[];
+  page: number;
+  ebPage: number | null;
+  ebTotalPages: number | null;
+  dbPage: number;
+  dbTotalPages: number | null;
+  hasMore: boolean;
+  ebDone: boolean;
+};
+
+function normalizeId(raw: unknown): string {
+  return String(raw || "").toUpperCase();
+}
+
+function isPublicableStatus(status: any): boolean {
+  if (!status) return false;
+  const t = String(status)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  return [
+    "available",
+    "disponible",
+    "active",
+    "activa",
+    "published",
+    "publicada",
+    "en venta",
+    "en renta",
+  ].includes(t);
+}
+
+function reorderByPriority(arr: any[]) {
+  const items = Array.isArray(arr) ? arr : [];
+  const id = (p: any) => normalizeId(p?.public_id);
+  const eb = items.filter((p) => id(p).startsWith("EB-"));
+  const others = items.filter((p) => !id(p).startsWith("EB-"));
+  return [...eb, ...others];
+}
+
+function buildSearchParams(filters: FetchFilters) {
+  const sp = new URLSearchParams();
+  if (filters.operation) sp.set("operation_type", filters.operation);
+  if (typeof filters.priceMin === "number") sp.set("min_price", String(filters.priceMin));
+  if (typeof filters.priceMax === "number") sp.set("max_price", String(filters.priceMax));
+  if (typeof filters.bedroomsMin === "number") sp.set("min_bedrooms", String(filters.bedroomsMin));
+  if (typeof filters.bathroomsMin === "number") sp.set("min_bathrooms", String(filters.bathroomsMin));
+  if (typeof filters.parkingMin === "number") sp.set("min_parking_spaces", String(filters.parkingMin));
+  if (typeof filters.constructionMin === "number")
+    sp.set("min_construction_size", String(filters.constructionMin));
+  if (typeof filters.constructionMax === "number")
+    sp.set("max_construction_size", String(filters.constructionMax));
+  if (typeof filters.lotMin === "number") sp.set("min_lot_size", String(filters.lotMin));
+  if (typeof filters.lotMax === "number") sp.set("max_lot_size", String(filters.lotMax));
+  if ((filters.q || "").trim()) sp.set("q", String(filters.q || "").trim());
+  (filters.types || []).forEach((t) => {
+    sp.append("search[property_types][]", t);
+    sp.append("search[property_types]", t);
+  });
+  (filters.colonies || []).forEach((c) => {
+    sp.append("locations[]", c);
+    sp.append("locations", c);
+  });
+  return sp;
+}
+
+async function fetchPropertiesPage({
+  page,
+  filters,
+  skipEb = false,
+  limit = 18,
+}: {
+  page: number;
+  filters: FetchFilters;
+  skipEb?: boolean;
+  limit?: number;
+}): Promise<PropertiesPageResult> {
+  const map = new Map<string, any>();
+  const sp = buildSearchParams(filters);
+  const ebTarget = skipEb ? null : page;
+  const dbTarget = page;
+
+  const [ebJson, dbJson] = await Promise.all([
+    ebTarget
+      ? (async () => {
+          const primary = await fetch(
+            `/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`
+          );
+          if (primary.ok) return primary.json();
+          const alt = await fetch(
+            `/api/easybroker?endpoint=properties&limit=${limit}&page=${ebTarget}&${sp.toString()}`
+          );
+          if (alt.ok) return alt.json();
+          return { content: [], pagination: { total_pages: ebTarget } };
+        })()
+      : Promise.resolve(null),
+    fetch(`/api/properties?limit=${limit}&page=${dbTarget}&${sp.toString()}`).then((r) =>
+      r.ok ? r.json() : { content: [], pagination: { total_pages: dbTarget } }
+    ),
+  ]);
+
+  let ebTotal = 0;
+  let dbTotal = 0;
+
+  if (ebJson) {
+    const ebList = Array.isArray(ebJson.content) ? ebJson.content : [];
+    for (const p of ebList) {
+      const id = normalizeId(p?.public_id);
+      if (!id) continue;
+      const isEbId = id.startsWith("EB-");
+      if (!isEbId && !isPublicableStatus(p?.status)) continue;
+      if (!map.has(id)) map.set(id, p);
+    }
+    ebTotal =
+      parseInt(String(ebJson?.pagination?.total_pages ?? "")) ||
+      (ebList.length < limit ? (ebTarget as number) : (ebTarget as number) + 1);
+  }
+
+  if (dbJson) {
+    const dbList = Array.isArray(dbJson.content) ? dbJson.content : [];
+    for (const p of dbList) {
+      const id = normalizeId(p?.public_id);
+      if (!id) continue;
+      if (!isPublicableStatus(p?.status)) continue;
+      if (!map.has(id)) map.set(id, p);
+    }
+    dbTotal =
+      parseInt(String(dbJson?.pagination?.total_pages ?? "")) ||
+      (dbList.length < limit ? dbTarget : dbTarget + 1);
+  }
+
+  const merged = reorderByPriority(Array.from(map.values()));
+  const ebHasMore = ebTarget ? (ebTotal ? (ebTarget as number) < ebTotal : false) : false;
+  const dbHasMore = dbTotal ? dbTarget < dbTotal : false;
+
+  return {
+    items: merged,
+    page,
+    ebPage: ebTarget,
+    ebTotalPages: ebTotal || null,
+    dbPage: dbTarget,
+    dbTotalPages: dbTotal || null,
+    hasMore: ebHasMore || dbHasMore,
+    ebDone: skipEb || !ebHasMore,
+  };
+}
+
 export default function Propiedades() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [allProperties, setAllProperties] = useState<any[]>([]);
-  const [filters, setFilters] = useState<FiltersState>({ q: "", city: "", type: "", types: [], operation: '', bedroomsMin: '', bedroomsExact: [], bathroomsExact: [], parkingExact: [], bathroomsMin: '', parkingMin: '', colony: '', colonies: [], constructionMin: '', constructionMax: '', lotMin: '', lotMax: '', priceMin: '', priceMax: '' });
+  const queryClient = useQueryClient();
+  const [filters, setFilters] = useState<FiltersState>(() => ({ ...DEFAULT_FILTERS }));
   const [qRaw, setQRaw] = useState("");
   const [qDebounced, setQDebounced] = useState("");
-  // Debounce más largo para filtros (suaviza la experiencia al teclear rápido)
-  useEffect(() => { const h = setTimeout(() => setQDebounced(qRaw), 950); return () => clearTimeout(h); }, [qRaw]);
-  // Debounce mayor para sugerencias (evita consultas mientras se escribe)
+  useEffect(() => {
+    const h = setTimeout(() => setQDebounced(qRaw), 950);
+    return () => clearTimeout(h);
+  }, [qRaw]);
   const [qSuggest, setQSuggest] = useState("");
-  useEffect(() => { const h = setTimeout(() => setQSuggest(qRaw), 750); return () => clearTimeout(h); }, [qRaw]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [pendingMore, setPendingMore] = useState(false);
+  useEffect(() => {
+    const h = setTimeout(() => setQSuggest(qRaw), 750);
+    return () => clearTimeout(h);
+  }, [qRaw]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
-  // Refs para evitar cierres obsoletos dentro del IntersectionObserver
-  const pageRef = useRef(page);
-  const hasMoreRef = useRef(hasMore);
-  const loadingMoreRef = useRef(loadingMore);
-  useEffect(() => { pageRef.current = page; }, [page]);
-  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
-  useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
 
-  // Session cache: restore list + scroll instantly on back navigation
-  // Utilidad: prioriza EB-* al tope; el resto conserva su orden
-  const reorderByPriority = (arr: any[]) => {
-    const items = Array.isArray(arr) ? arr : [];
-    const id = (p: any) => String(p?.public_id || '').toUpperCase();
-    const eb = items.filter((p) => id(p).startsWith('EB-'));
-    const others = items.filter((p) => !id(p).startsWith('EB-'));
-    return [...eb, ...others];
-  };
+  const normalizedFilters = useMemo(
+    () => ({
+      operation: filters.operation || "",
+      priceMin: typeof filters.priceMin === "number" ? filters.priceMin : "",
+      priceMax: typeof filters.priceMax === "number" ? filters.priceMax : "",
+      bedroomsMin: typeof filters.bedroomsMin === "number" ? filters.bedroomsMin : "",
+      bathroomsMin: typeof filters.bathroomsMin === "number" ? filters.bathroomsMin : "",
+      parkingMin: typeof filters.parkingMin === "number" ? filters.parkingMin : "",
+      constructionMin: typeof filters.constructionMin === "number" ? filters.constructionMin : "",
+      constructionMax: typeof filters.constructionMax === "number" ? filters.constructionMax : "",
+      lotMin: typeof filters.lotMin === "number" ? filters.lotMin : "",
+      lotMax: typeof filters.lotMax === "number" ? filters.lotMax : "",
+      q: (qDebounced || "").trim(),
+      types: Array.isArray(filters.types) ? [...filters.types].sort() : [],
+      colonies: Array.isArray(filters.colonies) ? [...filters.colonies].sort() : [],
+    }),
+    [
+      filters.operation,
+      filters.priceMin,
+      filters.priceMax,
+      filters.bedroomsMin,
+      filters.bathroomsMin,
+      filters.parkingMin,
+      filters.constructionMin,
+      filters.constructionMax,
+      filters.lotMin,
+      filters.lotMax,
+      filters.types,
+      filters.colonies,
+      qDebounced,
+    ]
+  );
 
-  useEffect(() => {
-    // Evitar restaurar estados antiguos que mezclen DB antes de EB;
-    // siempre iniciamos con carga fresca de EB primero.
-    return () => {
-      try {
-        sessionStorage.setItem('public.props.list.v1', JSON.stringify({ all: allProperties, page, hasMore }));
-        sessionStorage.setItem('public.props.scroll', String(window.scrollY || 0));
-      } catch {}
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const {
+    data,
+    status,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery<PropertiesPageResult, Error, PropertiesPageResult, any, { page: number; skipEb?: boolean }>({
+    queryKey: ["properties", "list", normalizedFilters],
+    queryFn: ({ pageParam }) =>
+      fetchPropertiesPage({
+        page: (pageParam as any)?.page || 1,
+        filters: normalizedFilters,
+        skipEb: Boolean((pageParam as any)?.skipEb),
+        limit: 18,
+      }),
+    initialPageParam: { page: 1, skipEb: false },
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? { page: lastPage.page + 1, skipEb: lastPage.ebDone } : undefined,
+    staleTime: 4 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    keepPreviousData: true,
+  });
 
-  // Lookahead prefetch (dos fases): primero EB, luego DB
-  const lookaheadRef = useRef<number>(0);
-  const isLookaheadRef = useRef(false);
-  const ebPageRef = useRef(0);
-  const ebTotalPagesRef = useRef<number | null>(null);
-  const ebDoneRef = useRef(false);
-  const dbPageRef = useRef(0);
-  const dbTotalPagesRef = useRef<number | null>(null);
+  const loading = status === "pending" && !data;
+  const loadingMore = isFetchingNextPage;
+  const hasMore = Boolean(hasNextPage);
 
-  function computeHasMore(): boolean {
-    const ebTotal = ebTotalPagesRef.current;
-    const ebMore = !ebDoneRef.current && (ebTotal == null || ebPageRef.current < ebTotal);
-    const dbTotal = dbTotalPagesRef.current;
-    const dbMore = dbTotal == null || dbPageRef.current < dbTotal;
-    return ebMore || dbMore;
-  }
-
-  async function fetchPageSilent(nextBatch: number, limit = 18) {
-    try {
-      isLookaheadRef.current = true;
-      const map = new Map<string, any>();
-      for (const p of allProperties) map.set(String(p?.public_id || ''), p);
-      const isPublicable = (s: any) => {
-        if (!s) return false;
-        const t = String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-        return [ 'available', 'disponible', 'active', 'activa', 'published', 'publicada', 'en venta', 'en renta' ].includes(t);
-      };
-
-      const ebTarget = !ebDoneRef.current ? ebPageRef.current + 1 : null;
-      const dbTarget = dbPageRef.current + 1;
-
-    const sp = new URLSearchParams();
-    if (filters.operation) sp.set('operation_type', filters.operation);
-    if (typeof filters.priceMin === 'number') sp.set('min_price', String(filters.priceMin));
-    if (typeof filters.priceMax === 'number') sp.set('max_price', String(filters.priceMax));
-    if (typeof filters.bedroomsMin === 'number') sp.set('min_bedrooms', String(filters.bedroomsMin));
-    if (typeof filters.bathroomsMin === 'number') sp.set('min_bathrooms', String(filters.bathroomsMin));
-    if (typeof filters.parkingMin === 'number') sp.set('min_parking_spaces', String(filters.parkingMin));
-    if (typeof filters.constructionMin === 'number') sp.set('min_construction_size', String(filters.constructionMin));
-    if (typeof filters.constructionMax === 'number') sp.set('max_construction_size', String(filters.constructionMax));
-    if (typeof filters.lotMin === 'number') sp.set('min_lot_size', String(filters.lotMin));
-    if (typeof filters.lotMax === 'number') sp.set('max_lot_size', String(filters.lotMax));
-    if (qDebounced.trim()) sp.set('q', qDebounced.trim());
-    // pass property types multi-select to APIs (EB expects search[property_types][]) and DB can read repeated keys
-    (filters.types || []).forEach((t) => { sp.append('search[property_types][]', t); sp.append('search[property_types]', t); });
-    // pass selected colonias
-    (filters.colonies || []).forEach((c) => { sp.append('locations[]', c); sp.append('locations', c); });
-    const [ebJson, dbJson] = await Promise.all([
-      ebTarget
-        ? (async () => {
-            const primary = await fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`);
-            if (primary.ok) return primary.json();
-            const alt = await fetch(`/api/easybroker?endpoint=properties&limit=${limit}&page=${ebTarget}&${sp.toString()}`);
-            if (alt.ok) return alt.json();
-            return { content: [], pagination: { total_pages: ebPageRef.current } };
-          })()
-        : Promise.resolve(null),
-      fetch(`/api/properties?limit=${limit}&page=${dbTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
-    ]);
-
-      if (ebJson) {
-        const ebList = Array.isArray(ebJson.content) ? ebJson.content : [];
-        for (const p of ebList) {
-          const id = String(p?.public_id || ''); if (!id) continue;
-          const isEbId = id.toUpperCase().startsWith('EB-');
-          if (!isEbId && !isPublicable(p?.status)) continue;
-          if (!map.has(id)) map.set(id, p);
-        }
-        const total = parseInt(String(ebJson?.pagination?.total_pages ?? '')) || (ebList.length < limit ? (ebTarget as number) : (ebTarget as number) + 1);
-        ebTotalPagesRef.current = total;
-        ebPageRef.current = ebTarget as number;
-        if (!ebList.length || ebPageRef.current >= total) ebDoneRef.current = true;
-      }
-
-      if (dbJson) {
-        const dbList = Array.isArray(dbJson.content) ? dbJson.content : [];
-        for (const p of dbList) {
-          const id = String(p?.public_id || ''); if (!id) continue; if (!isPublicable(p?.status)) continue; if (!map.has(id)) map.set(id, p);
-        }
-        const totalDb = parseInt(String(dbJson?.pagination?.total_pages ?? '')) || (dbList.length < limit ? dbTarget : dbTarget + 1);
-        dbTotalPagesRef.current = totalDb;
-        dbPageRef.current = dbTarget;
-      }
-
-      const merged = Array.from(map.values());
-      setAllProperties(reorderByPriority(merged));
-      setPage(nextBatch);
-      setHasMore(computeHasMore());
-    } finally {
-      isLookaheadRef.current = false;
-    }
-  }
-
-  useEffect(() => {
-    if (!hasMore) return;
-    if (loading || loadingMore) return;
-    // No lookahead durante búsqueda/filtros activos
-    const hasActive = Boolean((qDebounced || '').trim() || filters.city || filters.type || (filters.types && filters.types.length) || filters.operation || filters.colony || (filters.colonies && filters.colonies.length) || (filters.bedroomsExact && filters.bedroomsExact.length) || (filters.bathroomsExact && filters.bathroomsExact.length) || (filters.parkingExact && filters.parkingExact.length) || filters.bedroomsMin || filters.bathroomsMin || filters.parkingMin || filters.constructionMin || filters.constructionMax || filters.lotMin || filters.lotMax || filters.priceMin || filters.priceMax);
-    if (hasActive) return;
-    if (lookaheadRef.current === page) return; // ya precargado para este page base
-    lookaheadRef.current = page; // marca el base actual
-    // precargar la siguiente página en background sin mostrar skeleton
-    fetchPageSilent(page + 1).catch(() => {});
-  }, [page, hasMore, loading, loadingMore, qDebounced, filters.city, filters.type, filters.operation, filters.colony, filters.colonies, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, filters.bedroomsExact, filters.bathroomsExact, filters.parkingExact]);
-
-  async function fetchPage(nextBatch: number, limit = 18) {
+  const allProperties = useMemo(() => {
     const map = new Map<string, any>();
-    // Index existing
-    for (const p of allProperties) map.set(String(p?.public_id || ""), p);
-    // Aceptar solo propiedades con estatus publicable (available y variantes)
-    const isPublicable = (s: any) => {
-      if (!s) return false;
-      const t = String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-      return [
-        'available', 'disponible', 'active', 'activa', 'published', 'publicada', 'en venta', 'en renta',
-      ].includes(t);
-    };
-
-    const ebTarget = !ebDoneRef.current ? ebPageRef.current + 1 : null;
-    const dbTarget = dbPageRef.current + 1;
-
-    const sp = new URLSearchParams();
-    if (filters.operation) sp.set('operation_type', filters.operation);
-    if (typeof filters.priceMin === 'number') sp.set('min_price', String(filters.priceMin));
-    if (typeof filters.priceMax === 'number') sp.set('max_price', String(filters.priceMax));
-    if (typeof filters.bedroomsMin === 'number') sp.set('min_bedrooms', String(filters.bedroomsMin));
-    if (typeof filters.bathroomsMin === 'number') sp.set('min_bathrooms', String(filters.bathroomsMin));
-    if (typeof filters.parkingMin === 'number') sp.set('min_parking_spaces', String(filters.parkingMin));
-    if (typeof filters.constructionMin === 'number') sp.set('min_construction_size', String(filters.constructionMin));
-    if (typeof filters.constructionMax === 'number') sp.set('max_construction_size', String(filters.constructionMax));
-    if (typeof filters.lotMin === 'number') sp.set('min_lot_size', String(filters.lotMin));
-    if (typeof filters.lotMax === 'number') sp.set('max_lot_size', String(filters.lotMax));
-    if (qDebounced.trim()) sp.set('q', qDebounced.trim());
-    (filters.types || []).forEach((t) => { sp.append('search[property_types][]', t); sp.append('search[property_types]', t); });
-    (filters.colonies || []).forEach((c) => { sp.append('locations[]', c); sp.append('locations', c); });
-    const [ebJson, dbJson] = await Promise.all([
-      ebTarget
-        ? (async () => {
-            const primary = await fetch(`/api/easybroker/properties?limit=${limit}&page=${ebTarget}&${sp.toString()}`);
-            if (primary.ok) return primary.json();
-            const alt = await fetch(`/api/easybroker?endpoint=properties&limit=${limit}&page=${ebTarget}&${sp.toString()}`);
-            if (alt.ok) return alt.json();
-            return { content: [], pagination: { total_pages: ebPageRef.current } };
-          })()
-        : Promise.resolve(null),
-      fetch(`/api/properties?limit=${limit}&page=${dbTarget}&${sp.toString()}`).then((r) => r.ok ? r.json() : ({ content: [], pagination: { total_pages: dbPageRef.current } })),
-    ]);
-
-    if (ebJson) {
-      const ebList = Array.isArray(ebJson.content) ? ebJson.content : [];
-      for (const p of ebList) {
-        const id = String(p?.public_id || ""); if (!id) continue;
-        const isEbId = id.toUpperCase().startsWith('EB-');
-        if (!isEbId && !isPublicable(p?.status)) continue;
-        if (!map.has(id)) map.set(id, p);
-      }
-      const total = parseInt(String(ebJson?.pagination?.total_pages ?? '')) || (ebList.length < limit ? (ebTarget as number) : (ebTarget as number) + 1);
-      ebTotalPagesRef.current = total;
-      ebPageRef.current = ebTarget as number;
-      if (!ebList.length || ebPageRef.current >= total) ebDoneRef.current = true;
-    }
-
-    if (dbJson) {
-      const dbList = Array.isArray(dbJson.content) ? dbJson.content : [];
-      for (const p of dbList) {
-        const id = String(p?.public_id || ""); if (!id) continue; if (!isPublicable(p?.status)) continue; if (!map.has(id)) map.set(id, p);
-      }
-      const totalDb = parseInt(String(dbJson?.pagination?.total_pages ?? '')) || (dbList.length < limit ? dbTarget : dbTarget + 1);
-      dbTotalPagesRef.current = totalDb;
-      dbPageRef.current = dbTarget;
-    }
-    const merged = Array.from(map.values());
-    setAllProperties(reorderByPriority(merged));
-    setPage(nextBatch);
-    const more = computeHasMore();
-    setHasMore(more);
-    try { sessionStorage.setItem('public.props.list.v1', JSON.stringify({ all: merged, page: nextBatch, hasMore: more })); } catch {}
-  }
+    const ordered: any[] = [];
+    (data?.pages || []).forEach((p) => {
+      p.items.forEach((item) => {
+        const id = normalizeId((item as any)?.public_id);
+        if (!id || map.has(id)) return;
+        map.set(id, item);
+        ordered.push(item);
+      });
+    });
+    return reorderByPriority(ordered);
+  }, [data?.pages]);
 
   useEffect(() => {
-    (async () => { try { await fetchPage(1); } finally { setLoading(false); } })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const el = loaderRef.current;
+    if (!el || !hasNextPage) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (!e?.isIntersecting) return;
+        if (!hasNextPage || isFetchingNextPage) return;
+        fetchNextPage().catch(() => {});
+      },
+      { root: null, rootMargin: "0px 0px 600px 0px", threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // Track scroll direction; don't trigger heavy work while scrolling up
   const lastYRef = useRef(0);
@@ -354,30 +420,6 @@ export default function Propiedades() {
       if (ctaTimerRef.current) clearTimeout(ctaTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const el = loaderRef.current; if (!el) return;
-    const io = new IntersectionObserver(async (entries) => {
-      const e = entries[0];
-      if (!e?.isIntersecting) return;
-      if (!hasMoreRef.current) return;
-      if (loadingMoreRef.current) return;
-      if (!scrollingDownRef.current) return;
-      loadingMoreRef.current = true;
-      setPendingMore(true);
-      setLoadingMore(true);
-      try {
-        await Promise.resolve().then(() => fetchPage(pageRef.current + 1));
-      } finally {
-        loadingMoreRef.current = false;
-        setLoadingMore(false);
-        setPendingMore(false);
-      }
-    }, { root: null, rootMargin: '0px 0px 800px 0px', threshold: 0 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [loading, hasMore, allProperties.length]);
 
   // Opciones de municipio (lista completa de Querétaro)
   // Nota: se define después de las utilidades de municipios para evitar el TDZ.
@@ -1053,55 +1095,14 @@ export default function Propiedades() {
     try { router.replace({ pathname: '/propiedades', query: q }, undefined, { shallow: true }); } catch {}
   }, [router.asPath, qDebounced, filters.operation, filters.priceMin, filters.priceMax, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.types, filters.colonies]);
 
-  // Modo búsqueda completa: cuando el usuario aplica cualquier filtro/consulta,
-  // pre-cargamos páginas sucesivas hasta cubrir todo el catálogo available,
-  // para que la búsqueda se ejecute sobre el conjunto completo aun sin scroll.
-  const [isPrefetching, setIsPrefetching] = useState(false);
-  const [prefetchAll, setPrefetchAll] = useState(false);
-
-  // Deshabilitar prefetch masivo durante búsqueda/filtros para evitar bloqueos
-  useEffect(() => {
-    setPrefetchAll(false);
-  }, [qDebounced, filters.city, filters.type, filters.types, filters.operation, filters.colony, filters.colonies, filters.bedroomsExact, filters.bathroomsExact, filters.parkingExact, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax]);
-
-  useEffect(() => {}, [prefetchAll, page, hasMore, loading, loadingMore, isPrefetching]);
-
-  // Reinicia paginación/estado y recarga desde la primera página (modo normal)
-  const resetListing = React.useCallback(async () => {
-    try {
-      // Reset paginación/flags
-      ebPageRef.current = 0; ebTotalPagesRef.current = null; ebDoneRef.current = false;
-      dbPageRef.current = 0; dbTotalPagesRef.current = null;
-      lookaheadRef.current = 0; isLookaheadRef.current = false;
-      // Reset items y página
-      setAllProperties([]);
-      setPage(1);
-      setHasMore(true);
-      setLoading(true);
-      await fetchPage(1);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const clearFilters = async () => {
-    setFilters({ q: "", city: "", type: "", types: [], operation: '', bedroomsMin: '', bedroomsExact: [], bathroomsExact: [], parkingExact: [], bathroomsMin: '', parkingMin: '', colony: '', colonies: [], constructionMin: '', constructionMax: '', lotMin: '', lotMax: '', priceMin: '', priceMax: '' });
-    setQRaw(""); setQDebounced("");
+    setFilters(() => ({ ...DEFAULT_FILTERS }));
+    setQRaw("");
+    setQDebounced("");
     // Limpiar query de tipo en la URL para evitar filtro residual
     try { await router.replace({ pathname: '/propiedades', query: {} }, undefined, { shallow: true }); } catch {}
-    await resetListing();
+    queryClient.removeQueries({ queryKey: ["properties", "list"] });
   };
-
-  // Al limpiar el searchbox (qDebounced vacío) y no hay filtros activos, restablecer listado normal
-  React.useEffect(() => {
-    const noFilters = !(filters.city || filters.type || (filters.types && filters.types.length) || filters.operation || filters.colony || (filters.colonies && filters.colonies.length) || (filters.bedroomsExact && filters.bedroomsExact.length) || (filters.bathroomsExact && filters.bathroomsExact.length) || (filters.parkingExact && filters.parkingExact.length) || filters.bedroomsMin || filters.bathroomsMin || filters.parkingMin || filters.constructionMin || filters.constructionMax || filters.lotMin || filters.lotMax || filters.priceMin || filters.priceMax);
-    if ((qDebounced || '').trim() === '' && noFilters) {
-      // Evita rehacer si ya hay items cargados
-      if (allProperties.length === 0) {
-        resetListing().catch(() => {});
-      }
-    }
-  }, [qDebounced, filters.city, filters.type, filters.types, filters.operation, filters.colony, filters.colonies, filters.bedroomsExact, filters.bathroomsExact, filters.parkingExact, filters.bedroomsMin, filters.bathroomsMin, filters.parkingMin, filters.constructionMin, filters.constructionMax, filters.lotMin, filters.lotMax, filters.priceMin, filters.priceMax, allProperties.length, resetListing]);
 
   return (
     <Layout title="Propiedades">
@@ -1223,7 +1224,7 @@ export default function Propiedades() {
                 </SimpleGrid>
               </Box>
             ) : (() => {
-              const showEmpty = !loading && !loadingMore && !pendingMore && !isPrefetching && allProperties.length > 0 && filtered.length === 0;
+              const showEmpty = !loading && !loadingMore && allProperties.length > 0 && filtered.length === 0;
               return showEmpty ? (
                 <Center py={20}>
                   <Text color="gray.500">No encontramos propiedades con esos filtros.</Text>
@@ -1234,19 +1235,25 @@ export default function Propiedades() {
                 <Text mb={3} color="gray.600">
                   {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
                 </Text>
-                {/* Virtualización simple por ventanas para catálogos grandes */}
-                <VirtualizedGrid items={filtered} estimateRowHeight={360} gap={24} />
-                {/* Sentinel para infinito: altura mayor para intersección más confiable */}
+                <SimpleGrid columns={[1, 2, 3]} spacing={6}>
+                  {filtered.map((p: any, i: number) => (
+                    <PropertyCard
+                      key={p.public_id}
+                      property={p}
+                      priority={i < 3}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
+                  ))}
+                </SimpleGrid>
                 <Box ref={loaderRef} h="32px" />
-                {/* Fallback manual si el observer falla por cualquier razón */}
                 {hasMore && !loadingMore && (
                   <Center mt={4}>
-                    <Button onClick={() => fetchPage(page + 1)} variant="outline" colorScheme="green">
+                    <Button onClick={() => fetchNextPage()} variant="outline" colorScheme="green">
                       Cargar más
                     </Button>
                   </Center>
                 )}
-                {(pendingMore || loadingMore) && (
+                {loadingMore && (
                   <Box mt={6}>
                     <SimpleGrid columns={[1, 2, 3]} spacing={6}>
                       {Array.from({ length: 3 }).map((_, i) => (
@@ -1277,79 +1284,6 @@ export default function Propiedades() {
         </Box>
       </SlideFade>
     </Layout>
-  );
-}
-
-// Componente: grid virtualizado simple con padding arriba/abajo
-function VirtualizedGrid({ items, estimateRowHeight = 360, gap = 24 }: { items: any[]; estimateRowHeight?: number; gap?: number }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [cols, setCols] = useState(3);
-  const [start, setStart] = useState(0);
-  const [end, setEnd] = useState(0);
-  const [topPad, setTopPad] = useState(0);
-  const [bottomPad, setBottomPad] = useState(0);
-
-  // Resolver columnas según width (acorde a SimpleGrid columns={[1,2,3]})
-  const resolveCols = () => {
-    const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    if (w < 640) return 1;
-    if (w < 1024) return 2;
-    return 3;
-  };
-
-  useEffect(() => {
-    const onResize = () => setCols(resolveCols());
-    onResize();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  useEffect(() => {
-    const onScroll = () => {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const viewportH = window.innerHeight || 0;
-      const rowH = estimateRowHeight + gap;
-      const firstRowTop = rect.top + window.scrollY; // posición del inicio del grid
-      const scrollY = window.scrollY;
-      const offset = Math.max(0, scrollY - firstRowTop);
-      const startRow = Math.floor(offset / rowH);
-      const visibleRows = Math.ceil(viewportH / rowH) + 2; // overscan 2 filas
-      const totalRows = Math.ceil(items.length / Math.max(cols, 1));
-      const s = Math.max(0, Math.min(items.length, startRow * cols));
-      const e = Math.max(s, Math.min(items.length, (startRow + visibleRows) * cols));
-      setStart(s);
-      setEnd(e);
-      setTopPad(Math.max(0, startRow * rowH));
-      const rowsAfter = Math.max(0, totalRows - Math.ceil(e / Math.max(cols, 1)));
-      setBottomPad(rowsAfter * rowH);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); };
-  }, [items.length, cols, estimateRowHeight, gap]);
-
-  // Si pocos elementos, no virtualizar
-  const useVirtual = items.length >= 60;
-  const slice = useVirtual ? items.slice(start, end) : items;
-
-  return (
-    <Box ref={containerRef}>
-      {useVirtual && <Box style={{ height: `${topPad}px` }} />}
-      <SimpleGrid columns={[1, 2, 3]} spacing={6}>
-        {slice.map((p: any, i: number) => (
-          <PropertyCard
-            key={p.public_id}
-            property={p}
-            priority={i < 3}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          />
-        ))}
-      </SimpleGrid>
-      {useVirtual && <Box style={{ height: `${bottomPad}px` }} />}
-    </Box>
   );
 }
 

@@ -333,7 +333,6 @@ function EditableHero({ hero, onChange }: EditableHeroProps) {
               _hover={{ bg: "whiteAlpha.100" }}
               _active={{ bg: "whiteAlpha.200" }}
               fontWeight="semibold"
-              textTransform="uppercase"
               letterSpacing="widest"
               fontSize="sm"
               {...editableProps("ctaLabel")}
