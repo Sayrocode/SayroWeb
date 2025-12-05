@@ -39,6 +39,7 @@ import {
   Tag,
   TagLabel,
   TagCloseButton,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import { FiSliders } from "react-icons/fi";
@@ -400,6 +401,7 @@ export default function Propiedades() {
   const scrollingDownRef = useRef(true);
   const [showScrollCTA, setShowScrollCTA] = useState(false);
   const ctaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showCtaDesktop = useBreakpointValue({ base: false, md: true });
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY || 0;
@@ -1276,8 +1278,15 @@ export default function Propiedades() {
       </Box>
 
       {/* CTA flotante mientras se hace scroll */}
-      <SlideFade in={showScrollCTA} offsetY="24px" style={{ pointerEvents: 'none' }}>
-        <Box position="fixed" left="50%" transform="translateX(-50%)" bottom={{ base: 24, md: 10 }} zIndex={40}>
+      <SlideFade in={Boolean(showCtaDesktop && showScrollCTA)} offsetY="24px" style={{ pointerEvents: 'none' }}>
+        <Box
+          position="fixed"
+          left="50%"
+          transform="translateX(-50%)"
+          bottom={{ base: 24, md: 10 }}
+          zIndex={40}
+          display={{ base: "none", md: "block" }}
+        >
           <Button as={Link} href="/contacto" bg="#0E3B30" _hover={{ bg: "#0B2B23" }} color="white" size="lg" px={8} py={6} rounded="full" shadow="xl" fontWeight="semibold" letterSpacing="wide" style={{ pointerEvents: 'auto' }}>
             ¿No encontraste lo que buscabas?
           </Button>
