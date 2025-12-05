@@ -43,6 +43,7 @@ import {
   ModalBody,
   ModalCloseButton,
   useDisclosure,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, FiShield, FiCheckCircle, FiGrid, FiMaximize, FiKey, FiChevronLeft, FiChevronRight } from "react-icons/fi";
@@ -195,6 +196,7 @@ export default function PropertyDetail({
   const propertyId = initialProperty?.public_id;
   const { data: liveProperty } = usePropertyQuery(propertyId || '', initialProperty || undefined);
   const effectiveProperty = liveProperty || initialProperty;
+  const isSwipeEnabled = useBreakpointValue({ base: true, md: true, lg: false }) ?? false; // swipe only mobile/tablet
 
   if (!effectiveProperty) {
     return (
@@ -511,27 +513,37 @@ export default function PropertyDetail({
                     <IconButton
                       aria-label="Imagen anterior"
                       icon={<FiChevronLeft />}
-                      size="sm"
+                      size={{ base: "sm", md: "md" }}
                       variant="solid"
-                      colorScheme="blackAlpha"
+                      bg="rgba(0,0,0,0.55)"
+                      color="white"
+                      _hover={{ bg: "rgba(0,0,0,0.75)" }}
+                      _active={{ bg: "rgba(0,0,0,0.9)" }}
                       position="absolute"
                       top="50%"
                       left={3}
                       transform="translateY(-50%)"
                       rounded="full"
+                      boxShadow="0 6px 20px rgba(0,0,0,0.35)"
+                      backdropFilter="blur(2px)"
                       onClick={goPrev}
                     />
                     <IconButton
                       aria-label="Imagen siguiente"
                       icon={<FiChevronRight />}
-                      size="sm"
+                      size={{ base: "sm", md: "md" }}
                       variant="solid"
-                      colorScheme="blackAlpha"
+                      bg="rgba(0,0,0,0.55)"
+                      color="white"
+                      _hover={{ bg: "rgba(0,0,0,0.75)" }}
+                      _active={{ bg: "rgba(0,0,0,0.9)" }}
                       position="absolute"
                       top="50%"
                       right={3}
                       transform="translateY(-50%)"
                       rounded="full"
+                      boxShadow="0 6px 20px rgba(0,0,0,0.35)"
+                      backdropFilter="blur(2px)"
                       onClick={goNext}
                     />
                   </>
@@ -546,10 +558,11 @@ export default function PropertyDetail({
                   <Box
                     ref={lightboxSliderRef}
                     display="flex"
-                    overflowX="auto"
+                    overflowX={isSwipeEnabled ? "auto" : "hidden"}
                     h={{ base: "70vh", md: "80vh" }}
-                    scrollSnapType="x mandatory"
-                    onScroll={handleLightboxScroll}
+                    scrollSnapType={isSwipeEnabled ? "x mandatory" : "none"}
+                    onScroll={isSwipeEnabled ? handleLightboxScroll : undefined}
+                    touchAction="pan-x pan-y pinch-zoom"
                     sx={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
                   >
                     {gallery.items.map((u, idx) => (
@@ -558,7 +571,7 @@ export default function PropertyDetail({
                         position="relative"
                         minW="100%"
                         h="100%"
-                        scrollSnapAlign="center"
+                        scrollSnapAlign={isSwipeEnabled ? "center" : "none"}
                       >
                         <Image
                           src={u}
@@ -576,27 +589,37 @@ export default function PropertyDetail({
                       <IconButton
                         aria-label="Imagen anterior"
                         icon={<FiChevronLeft />}
-                        size="md"
-                        variant="ghost"
-                        colorScheme="whiteAlpha"
+                        size={{ base: "md", lg: "lg" }}
+                        variant="solid"
+                        bg="rgba(0,0,0,0.6)"
+                        color="white"
+                        _hover={{ bg: "rgba(0,0,0,0.8)" }}
+                        _active={{ bg: "rgba(0,0,0,0.95)" }}
                         position="absolute"
                         top="50%"
                         left={3}
                         transform="translateY(-50%)"
                         rounded="full"
+                        boxShadow="0 10px 28px rgba(0,0,0,0.45)"
+                        backdropFilter="blur(3px)"
                         onClick={goPrev}
                       />
                       <IconButton
                         aria-label="Imagen siguiente"
                         icon={<FiChevronRight />}
-                        size="md"
-                        variant="ghost"
-                        colorScheme="whiteAlpha"
+                        size={{ base: "md", lg: "lg" }}
+                        variant="solid"
+                        bg="rgba(0,0,0,0.6)"
+                        color="white"
+                        _hover={{ bg: "rgba(0,0,0,0.8)" }}
+                        _active={{ bg: "rgba(0,0,0,0.95)" }}
                         position="absolute"
                         top="50%"
                         right={3}
                         transform="translateY(-50%)"
                         rounded="full"
+                        boxShadow="0 10px 28px rgba(0,0,0,0.45)"
+                        backdropFilter="blur(3px)"
                         onClick={goNext}
                       />
                     </>
