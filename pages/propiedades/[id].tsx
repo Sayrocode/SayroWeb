@@ -44,7 +44,7 @@ import {
   ModalCloseButton,
   useDisclosure,
 } from "@chakra-ui/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FiMapPin, FiHome, FiDroplet, FiCopy, FiExternalLink, FiMail, FiClock, FiShield, FiCheckCircle, FiGrid, FiMaximize, FiKey, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { FaWhatsapp, FaHeart, FaShare } from 'react-icons/fa';
 import { CONTACT_EMAIL, waHref } from "../../lib/site";
@@ -238,9 +238,33 @@ export default function PropertyDetail({
   const [currentIndex, setCurrentIndex] = useState(0);
   useEffect(() => setCurrentIndex(0), [gallery.cover]);
   const { isOpen: lightboxOpen, onOpen: openLightbox, onClose: closeLightbox } = useDisclosure();
+  const lightboxSliderRef = useRef<HTMLDivElement | null>(null);
+  const lightboxScrollRaf = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (lightboxScrollRaf.current) cancelAnimationFrame(lightboxScrollRaf.current);
+    };
+  }, []);
 
   const totalImages = gallery.items.length || 1;
   const coverSrc = gallery.items[currentIndex] || gallery.cover;
+
+  const syncLightboxToIndex = (behavior: ScrollBehavior = "smooth") => {
+    if (!lightboxOpen || !lightboxSliderRef.current) return;
+    const node = lightboxSliderRef.current;
+    const target = node.clientWidth * currentIndex;
+    if (Math.abs(node.scrollLeft - target) < 4) return;
+    node.scrollTo({ left: target, behavior });
+  };
+
+  useEffect(() => {
+    syncLightboxToIndex("auto");
+  }, [lightboxOpen]);
+
+  useEffect(() => {
+    syncLightboxToIndex("smooth");
+  }, [currentIndex, lightboxOpen]);
 
   const goPrev = () => {
     if (totalImages <= 1) return;
@@ -253,6 +277,19 @@ export default function PropertyDetail({
   const handleThumbClick = (src: string) => {
     const idx = gallery.items.indexOf(src);
     if (idx >= 0) setCurrentIndex(idx);
+  };
+
+  const handleLightboxScroll = () => {
+    if (!lightboxOpen || !lightboxSliderRef.current) return;
+    if (lightboxScrollRaf.current) cancelAnimationFrame(lightboxScrollRaf.current);
+    lightboxScrollRaf.current = requestAnimationFrame(() => {
+      const node = lightboxSliderRef.current;
+      if (!node) return;
+      const width = node.clientWidth || 1;
+      const idx = Math.round(node.scrollLeft / width);
+      const clamped = Math.max(0, Math.min(totalImages - 1, idx));
+      if (clamped !== currentIndex) setCurrentIndex(clamped);
+    });
   };
 
   const price = pickPrice(property.operations);
@@ -506,46 +543,64 @@ export default function PropertyDetail({
               <ModalContent bg="black" maxW="90vw">
                 <ModalCloseButton color="whiteAlpha.900" />
                 <ModalBody p={0} position="relative">
-                  <Box position="relative" w="100%" h={{ base: "70vh", md: "80vh" }}>
-                    <Image
-                      src={coverSrc}
-                      alt={property.title || `Propiedad ${property.public_id}`}
-                      fill
-                      sizes="90vw"
-                      style={{ objectFit: 'contain' }}
-                      priority
-                    />
-                    {totalImages > 1 && (
-                      <>
-                        <IconButton
-                          aria-label="Imagen anterior"
-                          icon={<FiChevronLeft />}
-                          size="md"
-                          variant="ghost"
-                          colorScheme="whiteAlpha"
-                          position="absolute"
-                          top="50%"
-                          left={3}
-                          transform="translateY(-50%)"
-                          rounded="full"
-                          onClick={goPrev}
+                  <Box
+                    ref={lightboxSliderRef}
+                    display="flex"
+                    overflowX="auto"
+                    h={{ base: "70vh", md: "80vh" }}
+                    scrollSnapType="x mandatory"
+                    onScroll={handleLightboxScroll}
+                    sx={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
+                  >
+                    {gallery.items.map((u, idx) => (
+                      <Box
+                        key={u || idx}
+                        position="relative"
+                        minW="100%"
+                        h="100%"
+                        scrollSnapAlign="center"
+                      >
+                        <Image
+                          src={u}
+                          alt={`${property.title || `Propiedad ${property.public_id}`} - ${idx + 1}`}
+                          fill
+                          sizes="90vw"
+                          style={{ objectFit: 'contain' }}
+                          priority={idx === currentIndex}
                         />
-                        <IconButton
-                          aria-label="Imagen siguiente"
-                          icon={<FiChevronRight />}
-                          size="md"
-                          variant="ghost"
-                          colorScheme="whiteAlpha"
-                          position="absolute"
-                          top="50%"
-                          right={3}
-                          transform="translateY(-50%)"
-                          rounded="full"
-                          onClick={goNext}
-                        />
-                      </>
-                    )}
+                      </Box>
+                    ))}
                   </Box>
+                  {totalImages > 1 && (
+                    <>
+                      <IconButton
+                        aria-label="Imagen anterior"
+                        icon={<FiChevronLeft />}
+                        size="md"
+                        variant="ghost"
+                        colorScheme="whiteAlpha"
+                        position="absolute"
+                        top="50%"
+                        left={3}
+                        transform="translateY(-50%)"
+                        rounded="full"
+                        onClick={goPrev}
+                      />
+                      <IconButton
+                        aria-label="Imagen siguiente"
+                        icon={<FiChevronRight />}
+                        size="md"
+                        variant="ghost"
+                        colorScheme="whiteAlpha"
+                        position="absolute"
+                        top="50%"
+                        right={3}
+                        transform="translateY(-50%)"
+                        rounded="full"
+                        onClick={goNext}
+                      />
+                    </>
+                  )}
                 </ModalBody>
               </ModalContent>
             </Modal>
