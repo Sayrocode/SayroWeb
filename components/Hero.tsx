@@ -101,7 +101,7 @@ export default function Hero({
 
             <Button
               as={NextLink}
-              href={ctaHref || "/propiedades"}
+              href={"/propiedades"}
               variant="link"
               color="whiteAlpha.900"
               fontWeight="semibold"
