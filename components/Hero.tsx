@@ -105,7 +105,6 @@ export default function Hero({
               variant="link"
               color="whiteAlpha.900"
               fontWeight="semibold"
-              textTransform="uppercase"
               letterSpacing="widest"
               fontSize="sm"
               mt={{ base: 1, md: 2 }}
