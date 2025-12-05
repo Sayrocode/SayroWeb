@@ -293,7 +293,6 @@ function EditableHero({ hero, onChange }: EditableHeroProps) {
         <VStack spacing={{ base: 4, md: 6 }} align="center" textAlign="center">
           <Heading
             as="h1"
-            textTransform="uppercase"
             color="#013927"
             fontWeight="extrabold"
             fontSize={{ base: "4xl", md: "6xl", lg: "7xl" }}
@@ -313,7 +312,6 @@ function EditableHero({ hero, onChange }: EditableHeroProps) {
             mt={{ base: 2, md: 3 }}
             color="whiteAlpha.900"
             fontSize={{ base: "md", md: "lg" }}
-            textTransform="uppercase"
             letterSpacing="widest"
             className="text-shiny-white"
             {...editableProps("subtitle")}
@@ -463,7 +461,6 @@ function EditableDualCta({ dualCta, onChange }: EditableDualCtaProps) {
                 fontSize={{ base: "2xl", md: "3xl" }}
                 color="white"
                 letterSpacing="widest"
-                textTransform="uppercase"
                 fontWeight="bold"
                 lineHeight="1.1"
                 {...editable(side === "left" ? "advertiseTitle" : "acquireTitle")}
@@ -484,7 +481,6 @@ function EditableDualCta({ dualCta, onChange }: EditableDualCtaProps) {
         <Heading
           as="h2"
           fontSize={{ base: "2xl", md: "3xl" }}
-          textTransform="uppercase"
           letterSpacing="wide"
           fontWeight="extrabold"
           {...editable("heading")}
@@ -930,7 +926,6 @@ function EditableContact({ contact, onChange }: EditableContactProps) {
               fontFamily="'Binggo Wood', heading"
               fontWeight="700"
               fontSize={{ base: "2.2rem", md: "3rem" }}
-              textTransform="uppercase"
               letterSpacing=".03em"
               {...editable("heading")}
               cursor="text"
