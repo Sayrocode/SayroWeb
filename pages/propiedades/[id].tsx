@@ -562,7 +562,7 @@ export default function PropertyDetail({
                     h={{ base: "70vh", md: "80vh" }}
                     scrollSnapType={isSwipeEnabled ? "x mandatory" : "none"}
                     onScroll={isSwipeEnabled ? handleLightboxScroll : undefined}
-                    touchAction="pan-x pan-y pinch-zoom"
+                    touchAction={isSwipeEnabled ? "pan-x pinch-zoom" : "auto"}
                     sx={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
                   >
                     {gallery.items.map((u, idx) => (
