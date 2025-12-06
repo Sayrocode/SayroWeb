@@ -4,23 +4,13 @@ const withBundleAnalyzer = (() => {
   try { return require('@next/bundle-analyzer')({ enabled: process.env.ANALYZE === 'true' }); } catch { return (cfg) => cfg; }
 })();
 const path = require('path');
-const fs = require('fs');
-
-function resolveAlias(name) {
-  // Prefer project root (no src) but allow src fallback for local dev
-  const rootPath = path.join(__dirname, name);
-  if (fs.existsSync(rootPath)) return rootPath;
-  const srcPath = path.join(__dirname, 'src', name);
-  if (fs.existsSync(srcPath)) return srcPath;
-  return rootPath;
-}
 
 const aliases = {
-  components: resolveAlias('components'),
-  lib: resolveAlias('lib'),
-  utils: resolveAlias('utils'),
-  theme: resolveAlias('theme'),
-  styles: resolveAlias('styles'),
+  components: path.join(__dirname, 'components'),
+  lib: path.join(__dirname, 'lib'),
+  utils: path.join(__dirname, 'utils'),
+  theme: path.join(__dirname, 'theme'),
+  styles: path.join(__dirname, 'styles'),
 };
 const nextConfig = {
     reactStrictMode: true,
@@ -36,10 +26,20 @@ const nextConfig = {
       imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     },
     // Turbopack (Next 16) needs explicit aliases; keep parity with webpack aliases below.
-    experimental: { turbo: { resolveAlias: aliases } },
+    experimental: {
+      turbo: {
+        resolveAlias: aliases,
+        resolveGlobalFallbacks: true,
+      },
+    },
     webpack: (config) => {
       config.resolve = config.resolve || {};
       config.resolve.alias = { ...(config.resolve.alias || {}), ...aliases };
+      config.resolve.modules = [
+        path.resolve(__dirname),
+        'node_modules',
+        ...(config.resolve.modules || []),
+      ];
       return config;
     },
     compiler: {
