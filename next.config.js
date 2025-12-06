@@ -3,16 +3,7 @@ const isProd = process.env.NODE_ENV === 'production';
 const withBundleAnalyzer = (() => {
   try { return require('@next/bundle-analyzer')({ enabled: process.env.ANALYZE === 'true' }); } catch { return (cfg) => cfg; }
 })();
-const path = require('path');
-const fs = require('fs');
-
-function resolveAlias(name) {
-  const srcPath = path.join(__dirname, 'src', name);
-  if (fs.existsSync(srcPath)) {
-    return srcPath;
-  }
-  return path.join(__dirname, name);
-}
+const { aliases, resolveAlias } = require('./path-aliases');
 const nextConfig = {
     reactStrictMode: true,
     // Enable Turbopack (Next 16) with default settings; keep webpack config for webpack builds.
@@ -26,16 +17,11 @@ const nextConfig = {
       deviceSizes: [360, 640, 750, 828, 1080, 1200, 1600, 1920],
       imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     },
+    // Turbopack (Next 16) needs explicit aliases; keep parity with webpack aliases below.
+    experimental: { turbo: { resolveAlias: aliases } },
     webpack: (config) => {
       config.resolve = config.resolve || {};
-      config.resolve.alias = {
-        ...(config.resolve.alias || {}),
-        components: resolveAlias('components'),
-        lib: resolveAlias('lib'),
-        utils: resolveAlias('utils'),
-        theme: resolveAlias('theme'),
-        styles: resolveAlias('styles'),
-      };
+      config.resolve.alias = { ...(config.resolve.alias || {}), ...aliases };
       return config;
     },
     compiler: {
