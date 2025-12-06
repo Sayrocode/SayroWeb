@@ -15,6 +15,8 @@ function resolveAlias(name) {
 }
 const nextConfig = {
     reactStrictMode: true,
+    // Enable Turbopack (Next 16) with default settings; keep webpack config for webpack builds.
+    turbopack: {},
     // Tell Next the app root explicitly to avoid picking parent workspace
     outputFileTracingRoot: __dirname,
     eslint: { ignoreDuringBuilds: true },
