@@ -3,7 +3,25 @@ const isProd = process.env.NODE_ENV === 'production';
 const withBundleAnalyzer = (() => {
   try { return require('@next/bundle-analyzer')({ enabled: process.env.ANALYZE === 'true' }); } catch { return (cfg) => cfg; }
 })();
-const { aliases, resolveAlias } = require('./path-aliases');
+const path = require('path');
+const fs = require('fs');
+
+function resolveAlias(name) {
+  // Prefer project root (no src) but allow src fallback for local dev
+  const rootPath = path.join(__dirname, name);
+  if (fs.existsSync(rootPath)) return rootPath;
+  const srcPath = path.join(__dirname, 'src', name);
+  if (fs.existsSync(srcPath)) return srcPath;
+  return rootPath;
+}
+
+const aliases = {
+  components: resolveAlias('components'),
+  lib: resolveAlias('lib'),
+  utils: resolveAlias('utils'),
+  theme: resolveAlias('theme'),
+  styles: resolveAlias('styles'),
+};
 const nextConfig = {
     reactStrictMode: true,
     // Enable Turbopack (Next 16) with default settings; keep webpack config for webpack builds.
