@@ -14,8 +14,6 @@ const aliases = {
 };
 const nextConfig = {
     reactStrictMode: true,
-    // Enable Turbopack (Next 16) with default settings; keep webpack config for webpack builds.
-    turbopack: {},
     // Tell Next the app root explicitly to avoid picking parent workspace
     outputFileTracingRoot: __dirname,
     eslint: { ignoreDuringBuilds: true },
@@ -24,13 +22,6 @@ const nextConfig = {
       formats: ['image/avif', 'image/webp'],
       deviceSizes: [360, 640, 750, 828, 1080, 1200, 1600, 1920],
       imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    },
-    // Turbopack (Next 16) needs explicit aliases; keep parity with webpack aliases below.
-    experimental: {
-      turbo: {
-        resolveAlias: aliases,
-        resolveGlobalFallbacks: true,
-      },
     },
     webpack: (config) => {
       config.resolve = config.resolve || {};
